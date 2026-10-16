@@ -1,4 +1,4 @@
-﻿> [!IMPORTANT]
+> [!IMPORTANT]
 > **DEVELOPER PLAYBOOK:** For the complete, code-level 2-developer task breakdown, exact algorithms, database schemas, and state machine code, see the **[Developer Execution Guide](file:///d:/PROJECTS/Scriptwriter/DEVELOPER_EXECUTION_GUIDE.md)**.
 # OpenScript OSS — Professional Developer Architecture & Product Specification
 *(The Production-Grade Open-Source Standard for Screenwriting, Story Development & Film Production)*
@@ -38,6 +38,84 @@ The core promise remains absolute: **100% free, self-hostable, and zero propriet
 | **Import / Export** | FDX, PDF | FDX, Fountain, PDF | FDX, Fountain, PDF | Fountain, PDF, FDX | **FDX (Final Draft XML), Fountain, and Standard PDF** |
 | **Writing Focus & Ergonomics** | Typewriter, Sprint | Focus Mode | Typewriter View | Sprint Timer | **Typewriter Scrolling, Sprint Stopwatch, Dark/Midnight** |
 | **Realtime Collaboration (Phase 2)** | Yes | Yes | Yes | No | **Yjs + Hocuspocus WebSockets (Self-Hosted)** |
+
+---
+
+## 🚀 Quick Start & How to Run
+
+### Prerequisites
+- **Node.js**: `v20.x` or `v22.x+` (`node -v`)
+- **pnpm**: `v9.x` or `v12.x+` (enable with `corepack enable && corepack prepare pnpm@12.14.0 --activate`)
+- **Git**: Installed with repository access
+- *(Optional)* **Docker & Docker Compose**: For local containerized Postgres and full-stack preview
+
+### 1. Clone & Setup Repository
+```bash
+git clone https://github.com/Gouravsiddoju/OpenScript.git
+cd OpenScript
+git checkout dev  # Active development branch
+```
+
+### 2. Install Monorepo Dependencies
+```bash
+pnpm install
+```
+
+### 3. Run the Automated Test Suite (Vitest)
+Run all unit test suites across the monorepo (Fountain lossless parser, 54-line virtual pagination engine, AST validation):
+```bash
+pnpm test
+```
+
+### 4. Start Local Development Servers
+
+You can launch both the React web application and the Fastify backend API simultaneously:
+
+#### Run Full Stack (Frontend + Backend):
+```bash
+pnpm dev
+```
+
+#### Run Frontend Only (Screenplay Canvas & UI):
+```bash
+pnpm --filter web run dev
+```
+*Opens the screenplay studio interface at **`http://localhost:5173`**.*
+
+#### Run Backend API Only (Fastify REST Server):
+```bash
+pnpm --filter api run dev
+```
+*Runs the Fastify server on **`http://localhost:3000`** (Health check: `http://localhost:3000/api/v1/health`).*
+
+### 5. Build All Workspace Packages
+```bash
+pnpm build
+```
+
+---
+
+## 🐳 Dual-Environment Hosting with Docker Compose
+
+OpenScript provides pre-configured, production-grade Docker Compose stacks:
+
+### A. Dev Preview Hosting (`dev.openscript.ssnpictures.in`)
+Launches the staging preview stack with an isolated dev database (`openscript-dev-postgres`), Dev API, Dev Web SPA, and Caddy reverse proxy:
+```bash
+docker compose -f compose.dev.yaml up -d --build
+```
+
+### B. Production Release Hosting (`openscript.ssnpictures.in`)
+Launches the production stack running the verified `release` branch with persistent volumes and automatic Let's Encrypt SSL:
+```bash
+docker compose -f compose.production.yaml up -d --build
+```
+
+---
+
+## 🌿 Branch Workflow & Contributing
+- **`release` (Default Branch):** The primary branch deployed to production (`openscript.ssnpictures.in`). Code here is strictly tested, reviewed, and approved.
+- **`dev` (Development Branch):** The active branch where developers implement user stories, features, and fixes. All pull requests and feature branches merge into `dev`.
 
 ---
 
@@ -315,23 +393,24 @@ export interface CanonicalScreenplayDocument {
 
 ### Phase 1: MVP Core (Screenplay Engine, Fountain, Export, Projects)
 * [x] Architecture & Domain Modeling.
-* [ ] Monorepo setup (`pnpm`, Fastify, Vite, PostgreSQL, Drizzle).
-* [ ] Canonical AST & Zod validation schema.
-* [ ] Tiptap WYSIWYG Screenplay Mode with Tab/Enter state machine.
+* [x] Monorepo setup (`pnpm`, Fastify, Vite, PostgreSQL, Drizzle ORM).
+* [x] Canonical AST & Zod validation schema (`@openscript/screenplay-schema`).
+* [x] Tiptap WYSIWYG Screenplay Mode with Tab/Enter state machine (`packages/editor`).
+* [x] Dynamic Virtual Pagination & 54-Line Page Break Engine with widow/orphan protection.
+* [x] Fountain plain-text lossless parser & serializer with passing Vitest test suite (`packages/fountain`).
+* [x] Local autosave, version-aware conflict detection (`409 Conflict`), and revision snapshots.
+* [x] Production breakdown reports (Cast speaking stats, lines, and Location sets).
+* [x] Dual-environment Docker Compose stacks & Caddy reverse proxy for `openscript.ssnpictures.in` & `dev.openscript.ssnpictures.in`.
 * [ ] SmartType autocomplete (Character names & Scene Headings).
-* [ ] Dynamic Virtual Pagination & Page Break Engine.
-* [ ] Fountain plain-text mode with bidirectional lossless round-trip.
-* [ ] FDX (Final Draft XML) Import & Export.
+* [ ] FDX (Final Draft XML) Import & Export (`packages/fdx`).
 * [ ] Studio PDF Export (with Title Page and Watermarking).
-* [ ] Local autosave, version-aware conflict detection (`409 Conflict`), and revision snapshots.
-* [ ] Docker Compose stack + Caddy reverse proxy for `openscript.ssnpictures.in`.
 
 ### Phase 2: Story Outlining & Production Suite
 * [ ] Corkboard & Index Card View with bidirectional drag-and-drop sync.
 * [ ] Beat Board & Multi-Lane Outline Editor.
 * [ ] Production Draft Revision Mode (Hollywood colors + right-margin asterisks).
 * [ ] Page Locking (A-Pages) & Locked Scene Numbers.
-* [ ] Automated Production Reports (Cast Speaking, Locations, DOOD, Scene Eighths).
+* [x] Automated Production Reports (Cast Speaking metrics, Location/Set breakdown).
 * [ ] Typewriter Scrolling Mode & Sprint Stopwatch.
 
 ### Phase 3: Realtime Collaboration & Team Rooms
