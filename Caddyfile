@@ -1,4 +1,7 @@
-﻿openscript.ssnpictures.in {
+# ==============================================================================
+# OpenScript Production (Deployed from 'release' branch)
+# ==============================================================================
+openscript.ssnpictures.in {
     encode gzip zstd
 
     # Fastify API reverse proxy
@@ -12,3 +15,19 @@
     }
 }
 
+# ==============================================================================
+# OpenScript Dev / Staging Preview (Deployed from 'dev' branch)
+# ==============================================================================
+dev.openscript.ssnpictures.in {
+    encode gzip zstd
+
+    # Dev API reverse proxy
+    handle /api/* {
+        reverse_proxy api-dev:3000
+    }
+
+    # Dev Web app reverse proxy
+    handle {
+        reverse_proxy web-dev:80
+    }
+}
