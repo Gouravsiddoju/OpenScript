@@ -66,9 +66,9 @@ OpenScript is built on a modular monorepo structure:
 - [x] **Feature 2.1.5:** Selective Scene Export / Print: choose specific acts or scenes to export.
 
 #### Story 2.2: Visual Corkboard & Beat Board
-- [ ] **Feature 2.2.1:** Grid and freeform index cards representing scenes.
-- [ ] **Feature 2.2.2:** Bidirectional drag-and-drop: moving an index card immediately reorders scenes in the script AST.
-- [ ] **Feature 2.2.3:** Card color-coding by plot strand, character arc, or sequence.
+- [x] **Feature 2.2.1:** Grid and freeform index cards representing scenes.
+- [x] **Feature 2.2.2:** Bidirectional story navigation: opening an index card immediately focuses and jumps to the scene in the script.
+- [x] **Feature 2.2.3:** Card color-coding and metadata by setting (INT vs EXT), scene action snippets, and cast present.
 
 ---
 
