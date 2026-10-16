@@ -10,12 +10,16 @@ import {
   ChevronRight,
   Menu,
   X,
-  Plus
+  Plus,
+  LayoutGrid,
+  Maximize2,
+  Minimize2
 } from 'lucide-react';
 import { ScreenplayEditor } from './components/ScreenplayEditor';
 import { FountainView } from './components/FountainView';
 import { ProductionReports } from './components/ProductionReports';
 import { SceneNavigator, SceneItem } from './components/SceneNavigator';
+import { BeatBoard } from './components/BeatBoard';
 import { fountainToHtml } from '@openscript/fountain';
 
 const INITIAL_SCRIPT_HTML = `
@@ -69,9 +73,13 @@ function extractScenes(html: string): SceneItem[] {
         timeOfDay,
         fountainText: '',
         characters: [],
+        actionSnippet: '',
       };
       currentLines = [upper];
     } else if (currentScene) {
+      if (el.classList.contains('script-action') && !currentScene.actionSnippet) {
+        currentScene.actionSnippet = text;
+      }
       if (el.classList.contains('script-character')) {
         const charName = text.replace(/\s*\(.*\)$/, '').trim().toUpperCase();
         if (charName && !currentScene.characters.includes(charName)) {
@@ -95,7 +103,8 @@ function extractScenes(html: string): SceneItem[] {
 }
 
 export default function App() {
-  const [activeMode, setActiveMode] = useState<'screenplay' | 'fountain' | 'reports'>('screenplay');
+  const [activeMode, setActiveMode] = useState<'screenplay' | 'beats' | 'fountain' | 'reports'>('screenplay');
+  const [focusMode, setFocusMode] = useState(false);
   const [scriptHtml, setScriptHtml] = useState<string>(() => {
     return localStorage.getItem('openscript_draft_html') || INITIAL_SCRIPT_HTML;
   });
@@ -129,7 +138,7 @@ Neon reflections shimmer in deep puddles. Sirens echo in the far distance.`;
     setIsSaved(true);
   }, [scriptHtml, fountainText]);
 
-  // Extract Scene Items for Final Draft Navigator
+  // Extract Scene Items for Final Draft Navigator & Beat Board
   const scenes = useMemo(() => {
     return extractScenes(scriptHtml);
   }, [scriptHtml]);
@@ -168,7 +177,7 @@ Neon reflections shimmer in deep puddles. Sirens echo in the far distance.`;
     setFountainText(lines.join('\n').trim());
   };
 
-  const switchMode = (newMode: 'screenplay' | 'fountain' | 'reports') => {
+  const switchMode = (newMode: 'screenplay' | 'beats' | 'fountain' | 'reports') => {
     if (activeMode === 'fountain' && newMode === 'screenplay') {
       // Sync edits made in Fountain source back into Screenplay Paper HTML
       const generatedHtml = fountainToHtml(fountainText);
@@ -239,12 +248,14 @@ Neon reflections shimmer in deep puddles. Sirens echo in the far distance.`;
     }, 100);
   };
 
+  const effectiveSidebarOpen = sidebarOpen && !focusMode;
+
   return (
     <div className="flex h-screen bg-[#0c0d0e] text-[#e5e5e5] overflow-hidden font-sans">
       {/* 1. Left Sidebar / Final Draft Outliner & Scene Navigator */}
       <aside
         className={`no-print border-r border-[#1e2025] bg-[#090a0c] flex flex-col justify-between transition-all duration-300 z-20 ${
-          sidebarOpen ? 'w-80' : 'w-0 -translate-x-full overflow-hidden'
+          effectiveSidebarOpen ? 'w-80' : 'w-0 -translate-x-full overflow-hidden'
         }`}
       >
         <div className="flex flex-col h-full">
@@ -277,6 +288,7 @@ Neon reflections shimmer in deep puddles. Sirens echo in the far distance.`;
           <nav className="px-3 space-y-1">
             {[
               { id: 'screenplay', label: 'Screenplay Paper', icon: FileText },
+              { id: 'beats', label: 'Beat Board', icon: LayoutGrid },
               { id: 'fountain', label: 'Fountain Source', icon: Code },
               { id: 'reports', label: 'Production Reports', icon: BarChart2 },
             ].map(({ id, label, icon: Icon }) => (
@@ -321,13 +333,15 @@ Neon reflections shimmer in deep puddles. Sirens echo in the far distance.`;
         {/* Top Header Bar */}
         <header className="no-print h-14 border-b border-[#1c1e24] bg-[#0c0d0f] px-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <button
-              onClick={() => setSidebarOpen(!sidebarOpen)}
-              className="p-1.5 rounded-lg hover:bg-[#1a1c22] text-gray-400 hover:text-white transition-colors"
-              title="Toggle Navigator"
-            >
-              {sidebarOpen ? <X className="w-4 h-4" /> : <Menu className="w-4 h-4" />}
-            </button>
+            {!focusMode && (
+              <button
+                onClick={() => setSidebarOpen(!sidebarOpen)}
+                className="p-1.5 rounded-lg hover:bg-[#1a1c22] text-gray-400 hover:text-white transition-colors"
+                title="Toggle Navigator"
+              >
+                {sidebarOpen ? <X className="w-4 h-4" /> : <Menu className="w-4 h-4" />}
+              </button>
+            )}
 
             <div className="flex items-center gap-2 text-xs font-mono text-gray-400">
               <span className="text-gray-200 font-semibold">{scenes[0]?.slugline || 'SCENE 1'}</span>
@@ -351,6 +365,20 @@ Neon reflections shimmer in deep puddles. Sirens echo in the far distance.`;
 
           {/* Export & Action Buttons */}
           <div className="flex items-center gap-2.5">
+            {/* Focus Mode Toggle */}
+            <button
+              onClick={() => setFocusMode(!focusMode)}
+              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-mono border transition-all ${
+                focusMode
+                  ? 'bg-amber-500/20 text-amber-300 border-amber-500/50 shadow-sm'
+                  : 'bg-[#181a1f] hover:bg-[#22252c] text-gray-400 hover:text-white border-[#2b2e36]'
+              }`}
+              title={focusMode ? 'Exit full focus writing mode' : 'Enter full focus writing mode'}
+            >
+              {focusMode ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
+              <span className="hidden sm:inline">{focusMode ? 'Exit Focus' : 'Focus'}</span>
+            </button>
+
             <button
               onClick={handleExportFountain}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#181a1f] hover:bg-[#22252c] text-xs font-mono text-gray-200 border border-[#2b2e36] transition-colors"
@@ -381,6 +409,14 @@ Neon reflections shimmer in deep puddles. Sirens echo in the far distance.`;
             />
           )}
 
+          {activeMode === 'beats' && (
+            <BeatBoard
+              scenes={scenes}
+              onOpenScene={scrollToScene}
+              onAddScene={handleAddScene}
+            />
+          )}
+
           {activeMode === 'fountain' && (
             <FountainView
               fountainText={fountainText}
@@ -395,6 +431,39 @@ Neon reflections shimmer in deep puddles. Sirens echo in the far distance.`;
             <ProductionReports contentHtml={scriptHtml} />
           )}
         </div>
+
+        {/* Studio Status Bar (Lovable-calibrated metrics footer) */}
+        <footer className="no-print h-8 shrink-0 border-t border-[#1c1e24] bg-[#0c0d0f] px-4 flex items-center justify-between text-[11px] font-mono text-gray-400 select-none">
+          <div className="flex items-center gap-3">
+            <span className="text-gray-200 font-semibold">{metrics.estimatedPages} {metrics.estimatedPages === 1 ? 'page' : 'pages'}</span>
+            <span className="text-gray-600">·</span>
+            <span>{scenes.length} {scenes.length === 1 ? 'scene' : 'scenes'}</span>
+            <span className="text-gray-600">·</span>
+            <span>{metrics.words} words</span>
+            <span className="text-gray-600">·</span>
+            <span className="text-amber-400/90 flex items-center gap-1">
+              <Clock className="w-3 h-3" />
+              <span>≈ {metrics.estimatedPages} min screen time</span>
+            </span>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <span className="text-gray-500 uppercase">
+              {activeMode === 'screenplay'
+                ? 'Screenplay Paper'
+                : activeMode === 'beats'
+                ? 'Beat Board'
+                : activeMode === 'fountain'
+                ? 'Fountain Plain'
+                : 'Production Reports'}
+            </span>
+            <span className="text-gray-700">|</span>
+            <span className="flex items-center gap-1.5 text-emerald-400 font-mono">
+              <CheckCircle2 className="w-3.5 h-3.5" />
+              <span>{isSaved ? 'Saved locally' : 'Saving...'}</span>
+            </span>
+          </div>
+        </footer>
       </main>
     </div>
   );

@@ -24,6 +24,7 @@ export interface SceneItem {
   timeOfDay: string;
   fountainText: string;
   characters: string[];
+  actionSnippet?: string;
 }
 
 export interface SceneFolder {
