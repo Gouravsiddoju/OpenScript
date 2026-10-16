@@ -134,7 +134,7 @@ export const ScreenplayEditor: React.FC<ScreenplayEditorProps> = ({
     <div className="flex flex-col items-center w-full">
       {/* 1. Professional Studio Element Ribbon */}
       <div className="no-print sticky top-0 z-10 w-full max-w-[8.5in] mb-4 bg-[#111317]/95 backdrop-blur-md border border-[#22252e] rounded-xl px-2.5 py-1.5 flex items-center justify-between shadow-lg">
-        <div className="flex items-center gap-1 overflow-x-auto">
+        <div className="flex items-center gap-1.5 no-scrollbar">
           {[
             { type: 'sceneHeading', label: 'Scene Heading', shortcut: '1' },
             { type: 'action', label: 'Action', shortcut: '2' },
