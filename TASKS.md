@@ -115,7 +115,7 @@ OpenScript is built on a modular monorepo structure:
 
 #### Story 5.3: Studio PDF Generation
 - [x] **Feature 5.3.1:** High-fidelity browser print rendering for US Letter PDF.
-- [ ] **Feature 5.3.2:** Industry Title Page generator (Title, Author, Based on, Contact info, Draft date).
+- [x] **Feature 5.3.2:** Industry Title Page generator (Title, Author, Based on, Contact info, Draft date).
 - [ ] **Feature 5.3.3:** Watermarking engine (Confidential, Draft, Recipient Name).
 
 ---
