@@ -14,7 +14,9 @@
     "@openscript/fountain": "workspace:*",
     "lucide-react": "^0.468.0",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "react-dom": "^19.0.0",
+    "@tiptap/react": "^2.10.3",
+    "@tiptap/starter-kit": "^2.10.3"
   },
   "devDependencies": {
     "@types/react": "^19.0.0",
