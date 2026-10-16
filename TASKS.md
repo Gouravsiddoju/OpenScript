@@ -132,3 +132,18 @@ OpenScript is built on a modular monorepo structure:
 - [x] **Feature 6.2.1:** Production Docker Compose (`compose.production.yaml`) with Caddy HTTPS for `openscript.ssnpictures.in`.
 - [x] **Feature 6.2.2:** Dev Staging Docker Compose (`compose.dev.yaml`) for `dev.openscript.ssnpictures.in`.
 - [x] **Feature 6.2.3:** GitHub Actions CI/CD pipeline (`.github/workflows/ci-cd.yml`).
+
+---
+
+## ⏱️ Dynamic Agile Sprint Cadence & Timeline
+*(Calibrated strictly by issue count: > 10 issues = 1 week; <= 10 issues = 2–3 days)*
+
+| Sprint | Milestone & Focus Area | Issue Count | Duration | Start Date | End Date | Project #6 Iteration |
+| :--- | :--- | :---: | :---: | :---: | :---: | :---: |
+| **Sprint 1** | Architecture Baseline & Foundation | 3 issues | **3 Days** | Oct 17, 2026 | Oct 19, 2026 | `Sprint 1 (3d - 3 issues)` |
+| **Sprint 2** | Screenplay Editor & Keystroke State Machine | 11 issues | **1 Week (7d)** | Oct 20, 2026 | Oct 26, 2026 | `Sprint 2 (7d - 11 issues)` |
+| **Sprint 3** | Concurrency Engine & SmartType Autocomplete | 5 issues | **3 Days** | Oct 27, 2026 | Oct 29, 2026 | `Sprint 3 (3d - 5 issues)` |
+| **Sprint 4** | Virtual Pagination & Production Breakdowns | 6 issues | **3 Days** | Oct 30, 2026 | Nov 01, 2026 | `Sprint 4 (3d - 6 issues)` |
+| **Sprint 5** | Visual Corkboard & Story Outlining | 4 issues | **3 Days** | Nov 02, 2026 | Nov 04, 2026 | `Sprint 5 (3d - 4 issues)` |
+| **Sprint 6** | Production Revisions & Self-Hosted Release | 1 issue | **2 Days** | Nov 05, 2026 | Nov 06, 2026 | `Sprint 6 (2d - 1 issues)` |
+
