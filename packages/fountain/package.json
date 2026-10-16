@@ -1,0 +1,17 @@
+{
+  "name": "@scripto/fountain",
+  "version": "0.1.0",
+  "private": true,
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "scripts": {
+    "build": "tsc -b",
+    "lint": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@scripto/screenplay-schema": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.0"
+  }
+}

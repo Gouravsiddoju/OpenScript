@@ -1,0 +1,20 @@
+{
+  "name": "@scripto/editor",
+  "version": "0.1.0",
+  "private": true,
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "scripts": {
+    "build": "tsc -b",
+    "lint": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@scripto/screenplay-schema": "workspace:*",
+    "@tiptap/core": "^2.10.3",
+    "@tiptap/pm": "^2.10.3",
+    "@tiptap/starter-kit": "^2.10.3"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.0"
+  }
+}

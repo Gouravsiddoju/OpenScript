@@ -1,0 +1,13 @@
+scripto.ssnpictures.in {
+    encode gzip zstd
+
+    # Fastify API reverse proxy
+    handle /api/* {
+        reverse_proxy api:3000
+    }
+
+    # Static web app reverse proxy
+    handle {
+        reverse_proxy web:80
+    }
+}

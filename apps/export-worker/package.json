@@ -1,0 +1,14 @@
+{
+  "name": "export-worker",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "build": "tsc -b"
+  },
+  "dependencies": {
+    "@scripto/screenplay-schema": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.0"
+  }
+}

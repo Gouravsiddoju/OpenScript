@@ -1,0 +1,19 @@
+{
+  "name": "scripto-oss",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Professional open-source screenplay writing & film production platform",
+  "license": "AGPL-3.0-only",
+  "author": "SSN Pictures (https://ssnpictures.in)",
+  "scripts": {
+    "build": "pnpm -r run build",
+    "dev": "pnpm --parallel run dev",
+    "dev:web": "pnpm --filter web run dev",
+    "dev:api": "pnpm --filter api run dev",
+    "test": "pnpm -r run test",
+    "lint": "pnpm -r run lint"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.0"
+  }
+}

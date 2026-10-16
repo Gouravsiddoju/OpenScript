@@ -1,0 +1,70 @@
+/* Screenplay Paper Canvas */
+.screenplay-page {
+  width: 8.5in;
+  min-height: 11.0in;
+  padding: 1.0in 1.0in 1.0in 1.5in;
+  background: #ffffff;
+  color: #000000;
+  font-family: 'Courier Prime', Courier, monospace;
+  font-size: 12pt;
+  line-height: 1.0;
+  letter-spacing: 0;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  margin: 20px auto;
+  position: relative;
+}
+
+/* Screenplay Element Indents (calculated from 1.5in left margin) */
+.script-scene-heading {
+  margin-top: 24pt;
+  margin-bottom: 12pt;
+  margin-left: 0;
+  text-transform: uppercase;
+  font-weight: bold;
+}
+
+.script-action {
+  margin-top: 12pt;
+  margin-bottom: 12pt;
+  margin-left: 0;
+  width: 6.0in;
+}
+
+.script-character {
+  margin-top: 12pt;
+  margin-bottom: 0;
+  margin-left: 2.2in;
+  width: 3.8in;
+  text-transform: uppercase;
+}
+
+.script-parenthetical {
+  margin-top: 0;
+  margin-bottom: 0;
+  margin-left: 1.6in;
+  width: 2.4in;
+}
+
+.script-dialogue {
+  margin-top: 0;
+  margin-bottom: 12pt;
+  margin-left: 1.0in;
+  width: 3.5in;
+}
+
+.script-transition {
+  margin-top: 12pt;
+  margin-bottom: 12pt;
+  margin-left: 4.5in;
+  text-align: right;
+  text-transform: uppercase;
+}
+
+/* Revision Asterisk in Right Margin */
+.revision-marker::after {
+  content: "*";
+  position: absolute;
+  right: -0.5in;
+  color: #c00000;
+  font-weight: bold;
+}
