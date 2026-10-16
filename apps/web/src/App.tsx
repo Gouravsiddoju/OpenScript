@@ -13,13 +13,15 @@ import {
   Plus,
   LayoutGrid,
   Maximize2,
-  Minimize2
+  Minimize2,
+  Edit3
 } from 'lucide-react';
 import { ScreenplayEditor } from './components/ScreenplayEditor';
 import { FountainView } from './components/FountainView';
 import { ProductionReports } from './components/ProductionReports';
 import { SceneNavigator, SceneItem } from './components/SceneNavigator';
 import { BeatBoard } from './components/BeatBoard';
+import { TitlePageModal, TitlePageMetadata } from './components/TitlePageModal';
 import { fountainToHtml } from '@openscript/fountain';
 
 const INITIAL_SCRIPT_HTML = `
@@ -105,6 +107,22 @@ function extractScenes(html: string): SceneItem[] {
 export default function App() {
   const [activeMode, setActiveMode] = useState<'screenplay' | 'beats' | 'fountain' | 'reports'>('screenplay');
   const [focusMode, setFocusMode] = useState(false);
+  const [isTitleModalOpen, setIsTitleModalOpen] = useState(false);
+  
+  const [titleMetadata, setTitleMetadata] = useState<TitlePageMetadata>(() => {
+    const saved = localStorage.getItem('openscript_title_metadata');
+    return saved ? JSON.parse(saved) : {
+      title: 'THE GLASS COUNTER',
+      credit: 'written by',
+      author: 'Gourav Siddoju',
+      basedOn: '',
+      contact: 'SSN Pictures\ncontact@ssnpictures.in',
+      draftLabel: 'White Production Draft',
+      draftDate: 'October 2026',
+      showTitlePage: true,
+    };
+  });
+
   const [scriptHtml, setScriptHtml] = useState<string>(() => {
     return localStorage.getItem('openscript_draft_html') || INITIAL_SCRIPT_HTML;
   });
@@ -135,8 +153,9 @@ Neon reflections shimmer in deep puddles. Sirens echo in the far distance.`;
   useEffect(() => {
     localStorage.setItem('openscript_draft_html', scriptHtml);
     localStorage.setItem('openscript_draft_fountain', fountainText);
+    localStorage.setItem('openscript_title_metadata', JSON.stringify(titleMetadata));
     setIsSaved(true);
-  }, [scriptHtml, fountainText]);
+  }, [scriptHtml, fountainText, titleMetadata]);
 
   // Extract Scene Items for Final Draft Navigator & Beat Board
   const scenes = useMemo(() => {
@@ -216,7 +235,7 @@ Neon reflections shimmer in deep puddles. Sirens echo in the far distance.`;
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = 'OpenScript_Screenplay.fountain';
+    link.download = `${titleMetadata.title.replace(/[^\w-]+/g, '_') || 'Screenplay'}.fountain`;
     link.click();
     URL.revokeObjectURL(url);
   };
@@ -274,13 +293,22 @@ Neon reflections shimmer in deep puddles. Sirens echo in the far distance.`;
             </div>
           </div>
 
-          {/* Document Tag Card */}
-          <div className="p-3 mx-3 my-3 bg-[#131418] rounded-xl border border-[#23262e]">
-            <div className="text-[11px] font-mono text-gray-400 uppercase tracking-wider">PROJECT: FIRST FEATURE</div>
-            <div className="text-sm font-semibold text-white mt-0.5 truncate">The Glass Counter</div>
+          {/* Document Title & Production Tag Card (Clickable to edit title page) */}
+          <div 
+            onClick={() => setIsTitleModalOpen(true)}
+            className="p-3 mx-3 my-3 bg-[#131418] hover:bg-[#181a20] rounded-xl border border-[#23262e] hover:border-amber-500/30 transition-all cursor-pointer group"
+            title="Click to configure screenplay title page & author metadata"
+          >
+            <div className="flex items-center justify-between text-[11px] font-mono text-gray-400 uppercase tracking-wider">
+              <span>PROJECT METADATA</span>
+              <Edit3 className="w-3 h-3 text-gray-500 group-hover:text-amber-400 transition-colors" />
+            </div>
+            <div className="text-sm font-semibold text-white mt-0.5 truncate font-screenplay uppercase">
+              {titleMetadata.title}
+            </div>
             <div className="text-[11px] text-amber-400 mt-1.5 flex items-center gap-1.5">
               <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
-              <span>White Production Draft</span>
+              <span>{titleMetadata.draftLabel}</span>
             </div>
           </div>
 
@@ -344,8 +372,16 @@ Neon reflections shimmer in deep puddles. Sirens echo in the far distance.`;
             )}
 
             <div className="flex items-center gap-2 text-xs font-mono text-gray-400">
-              <span className="text-gray-200 font-semibold">{scenes[0]?.slugline || 'SCENE 1'}</span>
+              <button
+                onClick={() => setIsTitleModalOpen(true)}
+                className="text-gray-200 font-semibold hover:text-amber-400 transition-colors uppercase"
+                title="Click to edit Title Page"
+              >
+                {titleMetadata.title}
+              </button>
               <ChevronRight className="w-3.5 h-3.5 text-gray-600" />
+              <span className="text-gray-400 hidden sm:inline">{scenes[0]?.slugline || 'SCENE 1'}</span>
+              <ChevronRight className="w-3.5 h-3.5 text-gray-600 hidden sm:inline" />
               <span className="text-amber-500/90 flex items-center gap-1">
                 <Clock className="w-3 h-3" />
                 <span>Page 1 of {metrics.estimatedPages} ({metrics.estimatedPages} mins)</span>
@@ -365,6 +401,16 @@ Neon reflections shimmer in deep puddles. Sirens echo in the far distance.`;
 
           {/* Export & Action Buttons */}
           <div className="flex items-center gap-2.5">
+            {/* Title Page Config Button */}
+            <button
+              onClick={() => setIsTitleModalOpen(true)}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#181a1f] hover:bg-[#22252c] text-xs font-mono text-gray-300 border border-[#2b2e36] transition-colors"
+              title="Configure Screenplay Title Page"
+            >
+              <FileText className="w-3.5 h-3.5 text-amber-500" />
+              <span className="hidden sm:inline">Title Page</span>
+            </button>
+
             {/* Focus Mode Toggle */}
             <button
               onClick={() => setFocusMode(!focusMode)}
@@ -406,6 +452,7 @@ Neon reflections shimmer in deep puddles. Sirens echo in the far distance.`;
               initialContent={scriptHtml}
               onUpdate={handleEditorUpdate}
               onEditorReady={(editor) => setEditorInstance(editor)}
+              metadata={titleMetadata}
             />
           )}
 
@@ -465,6 +512,14 @@ Neon reflections shimmer in deep puddles. Sirens echo in the far distance.`;
           </div>
         </footer>
       </main>
+
+      {/* Title Page Modal */}
+      <TitlePageModal
+        isOpen={isTitleModalOpen}
+        onClose={() => setIsTitleModalOpen(false)}
+        metadata={titleMetadata}
+        onChange={setTitleMetadata}
+      />
     </div>
   );
 }

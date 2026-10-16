@@ -2,11 +2,13 @@ import React, { useEffect, useMemo, useRef } from 'react';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import { screenplayNodes, ScreenplayKeymap, ScreenplayUppercase } from '@openscript/editor';
+import { TitlePageMetadata } from './TitlePageModal';
 
 interface ScreenplayEditorProps {
   initialContent?: string;
   onUpdate?: (html: string, json: any) => void;
   onEditorReady?: (editor: any) => void;
+  metadata?: TitlePageMetadata;
 }
 
 const DEFAULT_SCRIPT_HTML = `
@@ -26,6 +28,7 @@ export const ScreenplayEditor: React.FC<ScreenplayEditorProps> = ({
   initialContent = DEFAULT_SCRIPT_HTML,
   onUpdate,
   onEditorReady,
+  metadata,
 }) => {
   const knownCharactersRef = useRef<string[]>(['MAYA']);
 
@@ -179,11 +182,45 @@ export const ScreenplayEditor: React.FC<ScreenplayEditorProps> = ({
         </div>
       </div>
 
-      {/* 2. Authentic Screenplay Paper Canvas */}
+      {/* 2. Industry Standard Title Page (if enabled) */}
+      {metadata?.showTitlePage && (
+        <div className="screenplay-page font-screenplay select-text mb-8 relative flex flex-col justify-between print:break-after-page shadow-2xl">
+          <div className="mt-[3.0in] flex flex-col items-center gap-6 text-center">
+            <h1 className="text-xl font-bold uppercase underline tracking-wider font-screenplay text-black">
+              {metadata.title || 'UNTITLED SCREENPLAY'}
+            </h1>
+            <div className="text-sm italic text-gray-700">
+              {metadata.credit || 'written by'}
+            </div>
+            <div className="text-base font-semibold font-screenplay text-gray-900">
+              {metadata.author || 'Author Name'}
+            </div>
+            {metadata.basedOn && (
+              <div className="text-xs text-gray-600 max-w-md mx-auto mt-2 italic">
+                {metadata.basedOn}
+              </div>
+            )}
+          </div>
+
+          <div className="mt-auto w-full flex justify-between items-end text-[10pt] text-gray-700 pb-4 border-t border-gray-100 pt-4">
+            <div className="whitespace-pre-line text-left leading-relaxed">
+              {metadata.contact || 'SSN Pictures\ncontact@ssnpictures.in'}
+            </div>
+            <div className="text-right leading-relaxed">
+              <div className="font-semibold text-gray-900">{metadata.draftLabel || 'First Draft'}</div>
+              <div>{metadata.draftDate || new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 3. Authentic Screenplay Paper Canvas */}
       <div className="screenplay-page font-screenplay select-text">
         {/* Page Top Running Header */}
         <div className="text-right text-[10pt] text-gray-400 mb-6 border-b border-gray-100 pb-2 select-none no-print flex justify-between">
-          <span className="italic uppercase">OPENSCRIPT — FIRST DRAFT</span>
+          <span className="italic uppercase">
+            {metadata?.title ? `${metadata.title} — ${metadata.draftLabel || 'DRAFT'}` : 'OPENSCRIPT — FIRST DRAFT'}
+          </span>
           <span>1.</span>
         </div>
 
