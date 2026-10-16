@@ -4,8 +4,10 @@
 **Repository:** `Gouravsiddoju/OpenScript`  
 **License:** AGPL-3.0  
 **Target Domain:** `openscript.ssnpictures.in`  
-**Primary Assignee:** `@Gouravsiddoju`  
+**Lead Architect & Product Owner:** `@Gouravsiddoju`  
+**Frontend & UI Engineering:** `@poshalanavateja` (Navateja)  
 **Agile Tracker:** [GitHub Project #6 — Prioritized Backlog](https://github.com/users/Gouravsiddoju/projects/6/views/1?system_template=feature_release)
+
 
 ---
 
