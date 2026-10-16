@@ -1,4 +1,4 @@
-import { CanonicalScreenplayDocument } from '@scripto/screenplay-schema';
+import { CanonicalScreenplayDocument } from '@openscript/screenplay-schema';
 
 export function serializeFountain(doc: CanonicalScreenplayDocument): string {
   return doc.content.map(block => {

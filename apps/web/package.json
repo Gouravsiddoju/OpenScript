@@ -9,9 +9,9 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@scripto/editor": "workspace:*",
-    "@scripto/screenplay-schema": "workspace:*",
-    "@scripto/fountain": "workspace:*",
+    "@openscript/editor": "workspace:*",
+    "@openscript/screenplay-schema": "workspace:*",
+    "@openscript/fountain": "workspace:*",
     "lucide-react": "^0.468.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"

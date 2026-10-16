@@ -1,7 +1,7 @@
 import { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import { eq } from 'drizzle-orm';
-import { db, users, sessions } from '@scripto/database';
+import { db, users, sessions } from '@openscript/database';
 import { AuthService } from '../services/auth.service';
 
 const RegisterSchema = z.object({

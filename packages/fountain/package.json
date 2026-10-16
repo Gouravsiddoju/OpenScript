@@ -1,5 +1,5 @@
 {
-  "name": "@scripto/fountain",
+  "name": "@openscript/fountain",
   "version": "0.1.0",
   "private": true,
   "main": "./src/index.ts",
@@ -9,7 +9,7 @@
     "lint": "tsc --noEmit"
   },
   "dependencies": {
-    "@scripto/screenplay-schema": "workspace:*"
+    "@openscript/screenplay-schema": "workspace:*"
   },
   "devDependencies": {
     "typescript": "^5.7.0"

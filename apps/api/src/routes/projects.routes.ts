@@ -1,7 +1,7 @@
 import { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import { eq, desc } from 'drizzle-orm';
-import { db, projects, documents } from '@scripto/database';
+import { db, projects, documents } from '@openscript/database';
 
 const CreateProjectSchema = z.object({
   name: z.string().min(1, 'Project name is required'),

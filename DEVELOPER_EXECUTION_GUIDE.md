@@ -358,7 +358,7 @@ export const ScreenplayKeymap = Extension.create({
 ### 3.3 Dynamic Virtual Pagination Engine (`packages/editor/src/pagination/engine.ts`)
 Algorithm Developer 1 will implement to calculate physical pages in real time:
 ```typescript
-import { ScreenplayBlock } from '@scripto/screenplay-schema';
+import { ScreenplayBlock } from '@openscript/screenplay-schema';
 
 export interface CalculatedPage {
   pageNumber: number;
@@ -543,9 +543,9 @@ Developer 2 must implement atomic revision locking to eliminate silent overwrite
 ```typescript
 import { FastifyPluginAsync } from 'fastify';
 import { eq, and } from 'drizzle-orm';
-import { db } from '@scripto/database';
-import { documents, documentRevisions } from '@scripto/database/schema';
-import { CanonicalScreenplayDocumentSchema } from '@scripto/screenplay-schema';
+import { db } from '@openscript/database';
+import { documents, documentRevisions } from '@openscript/database/schema';
+import { CanonicalScreenplayDocumentSchema } from '@openscript/screenplay-schema';
 
 export const documentRoutes: FastifyPluginAsync = async (server) => {
   server.patch<{
@@ -604,7 +604,7 @@ export const documentRoutes: FastifyPluginAsync = async (server) => {
 ### 4.3 Lossless Fountain Parser & Serializer (`packages/fountain/src/`)
 Developer 2 will write the parser matching Fountain syntax specifications:
 ```typescript
-import { ScreenplayBlock, CanonicalScreenplayDocument } from '@scripto/screenplay-schema';
+import { ScreenplayBlock, CanonicalScreenplayDocument } from '@openscript/screenplay-schema';
 
 export function parseFountain(fountainText: string): ScreenplayBlock[] {
   const lines = fountainText.split('\n');
@@ -682,7 +682,7 @@ export function serializeFountain(doc: CanonicalScreenplayDocument): string {
 ### 4.4 Automated Production Breakdown Engine (`apps/api/src/services/reports.service.ts`)
 Developer 2 will write the query algorithms to generate film production reports:
 ```typescript
-import { CanonicalScreenplayDocument } from '@scripto/screenplay-schema';
+import { CanonicalScreenplayDocument } from '@openscript/screenplay-schema';
 
 export interface CastSpeakingReportItem {
   characterName: string;
@@ -743,7 +743,7 @@ export function generateCastSpeakingReport(doc: CanonicalScreenplayDocument): Ca
   - Setup local PostgreSQL with `compose.yaml`.
 * **Dev 1:**
   - Scaffold `apps/web` using Vite + React 19 + Tailwind CSS + shadcn/ui.
-  - Install `@scripto/screenplay-schema` workspace dependency.
+  - Install `@openscript/screenplay-schema` workspace dependency.
   - Setup basic application shell (Navbar, sidebar layout, dark/light theme toggle).
 
 ### Sprint 2: Core Editor & REST API

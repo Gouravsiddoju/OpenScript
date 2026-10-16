@@ -1,5 +1,5 @@
 {
-  "name": "@scripto/screenplay-schema",
+  "name": "@openscript/screenplay-schema",
   "version": "0.1.0",
   "private": true,
   "main": "./src/index.ts",

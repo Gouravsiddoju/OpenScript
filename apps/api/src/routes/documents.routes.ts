@@ -1,11 +1,11 @@
 import { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import { eq, and } from 'drizzle-orm';
-import { db, documents, documentRevisions } from '@scripto/database';
+import { db, documents, documentRevisions } from '@openscript/database';
 import { 
   CanonicalScreenplayDocumentSchema, 
   CanonicalScreenplayDocument 
-} from '@scripto/screenplay-schema';
+} from '@openscript/screenplay-schema';
 
 const CreateDocumentSchema = z.object({
   projectId: z.string().uuid(),

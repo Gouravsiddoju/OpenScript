@@ -1,7 +1,7 @@
 import { FastifyPluginAsync } from 'fastify';
 import { eq } from 'drizzle-orm';
-import { db, documents } from '@scripto/database';
-import { CanonicalScreenplayDocument } from '@scripto/screenplay-schema';
+import { db, documents } from '@openscript/database';
+import { CanonicalScreenplayDocument } from '@openscript/screenplay-schema';
 
 export const reportRoutes: FastifyPluginAsync = async (server) => {
   // Cast Speaking Report

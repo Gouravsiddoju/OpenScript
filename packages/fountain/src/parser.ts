@@ -1,4 +1,4 @@
-import { ScreenplayBlock } from '@scripto/screenplay-schema';
+import { ScreenplayBlock } from '@openscript/screenplay-schema';
 
 export function parseFountain(fountainText: string): ScreenplayBlock[] {
   const lines = fountainText.split('\n');
