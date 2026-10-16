@@ -22,9 +22,13 @@ export const ProductionReports: React.FC<ProductionReportsProps> = ({ contentHtm
     if (!text) return;
 
     if (el.classList.contains('script-scene-heading')) {
-      const setting = text.startsWith('INT.') ? 'INT' : text.startsWith('EXT.') ? 'EXT' : 'INT/EXT';
-      const location = text.replace(/^(INT\.|EXT\.|INT\/EXT\.)\s*/i, '').replace(/ - .*$/, '').trim();
-      sceneHeadings.push({ text, setting, location: location || text });
+      const upper = text.toUpperCase();
+      const isIntExt = /^(INT\/EXT|INT\.\/EXT\.|I\/E)(\.|\s|$)/i.test(upper);
+      const isInt = !isIntExt && /^INT(\.|\s|$)/i.test(upper);
+      const isExt = !isIntExt && /^EXT(\.|\s|$)/i.test(upper);
+      const setting = isIntExt ? 'INT/EXT' : isInt ? 'INT' : isExt ? 'EXT' : 'INT';
+      const location = upper.replace(/^(INT\.|EXT\.|INT\/EXT\.|I\/E\.)\s*/i, '').replace(/\s*-\s*.*$/, '').trim();
+      sceneHeadings.push({ text: upper, setting, location: location || upper });
     } else if (el.classList.contains('script-character')) {
       currentCharacter = text.replace(/\s*\(.*\)$/, '').trim().toUpperCase();
       if (!characterStats[currentCharacter]) {
