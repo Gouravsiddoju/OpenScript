@@ -1,13 +1,13 @@
 ﻿> [!IMPORTANT]
 > **DEVELOPER PLAYBOOK:** For the complete, code-level 2-developer task breakdown, exact algorithms, database schemas, and state machine code, see the **[Developer Execution Guide](file:///d:/PROJECTS/Scriptwriter/DEVELOPER_EXECUTION_GUIDE.md)**.
-# Scripto OSS — Professional Developer Architecture & Product Specification
+# OpenScript OSS — Professional Developer Architecture & Product Specification
 *(The Production-Grade Open-Source Standard for Screenwriting, Story Development & Film Production)*
 
 **Status:** Official Architecture Baseline & Developer Specification (Production-Grade)  
 **Project Type:** Full-Featured Open-Source, Self-Hostable, Browser-Based Screenplay Writing & Pre-Production Platform  
 **License:** GNU Affero General Public License v3.0 (AGPL-3.0)  
 **Deployment Priority:** Self-hosted first (Zero cloud dependencies)  
-**Target Domain:** `scripto.ssnpictures.in` (SSN Pictures ecosystem)  
+**Target Domain:** `openscript.ssnpictures.in` (SSN Pictures ecosystem)  
 **Target Benchmarks:** Direct open-source alternative to **Final Draft 13**, **Arc Studio Pro**, **WriterDuet**, and **Highland 2**  
 **Cost Objective:** $0 recurring software spend for the core application stack  
 
@@ -15,13 +15,13 @@
 
 ## 1. Executive Summary & Scope Expansion
 
-Scripto OSS is a professional-grade screenplay writing and film development workspace. While initial specifications envisioned a lightweight Fountain/markdown editor, this updated specification expands Scripto into an **elaborate, enterprise-grade screenwriting suite comparable to industry-standard paid tools (Final Draft, WriterDuet, Arc Studio)**, tailored for independent screenwriters, writers' rooms, and film production houses like SSN Pictures.
+OpenScript OSS is a professional-grade screenplay writing and film development workspace. While initial specifications envisioned a lightweight Fountain/markdown editor, this updated specification expands Scripto into an **elaborate, enterprise-grade screenwriting suite comparable to industry-standard paid tools (Final Draft, WriterDuet, Arc Studio)**, tailored for independent screenwriters, writers' rooms, and film production houses like SSN Pictures.
 
 The core promise remains absolute: **100% free, self-hostable, and zero proprietary cloud dependencies**, running from a clean Docker Compose stack.
 
 ### 1.1 Competitive Feature Matrix
 
-| Feature Domain | Final Draft 13 | Arc Studio Pro | WriterDuet | Highland 2 | Scripto OSS (Target) |
+| Feature Domain | Final Draft 13 | Arc Studio Pro | WriterDuet | Highland 2 | OpenScript OSS (Target) |
 | :--- | :---: | :---: | :---: | :---: | :---: |
 | **Pricing** | $250+ (Perpetual/Paid) | $69–$119/yr | $99–$199/yr | $69 (Mac only) | **$0 / 100% Free & Open Source (AGPL-3.0)** |
 | **Hosting / Cloud** | Proprietary Cloud | Proprietary SaaS | Proprietary SaaS | Local Files | **Self-Hostable (Docker, Caddy, Local DB)** |
@@ -324,7 +324,7 @@ export interface CanonicalScreenplayDocument {
 * [ ] FDX (Final Draft XML) Import & Export.
 * [ ] Studio PDF Export (with Title Page and Watermarking).
 * [ ] Local autosave, version-aware conflict detection (`409 Conflict`), and revision snapshots.
-* [ ] Docker Compose stack + Caddy reverse proxy for `scripto.ssnpictures.in`.
+* [ ] Docker Compose stack + Caddy reverse proxy for `openscript.ssnpictures.in`.
 
 ### Phase 2: Story Outlining & Production Suite
 * [ ] Corkboard & Index Card View with bidirectional drag-and-drop sync.
@@ -344,5 +344,6 @@ export interface CanonicalScreenplayDocument {
 
 ## 10. Conclusion
 
-Scripto OSS is not a basic markdown editor with a script skin; it is engineered to be a **genuine, comprehensive alternative to Final Draft 13 and WriterDuet**. By building directly on standard screenplay mathematics, predictive keyboard workflows, professional revision tracking, and production breakdown reporting, Scripto empowers indie filmmakers and production houses to write, develop, and budget their films on a **100% free, private, self-hosted platform**.
+OpenScript OSS is not a basic markdown editor with a script skin; it is engineered to be a **genuine, comprehensive alternative to Final Draft 13 and WriterDuet**. By building directly on standard screenplay mathematics, predictive keyboard workflows, professional revision tracking, and production breakdown reporting, Scripto empowers indie filmmakers and production houses to write, develop, and budget their films on a **100% free, private, self-hosted platform**.
+
 

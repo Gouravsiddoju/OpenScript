@@ -1,11 +1,11 @@
-﻿# Scripto OSS — Comprehensive Developer Execution Guide & Technical Blueprint
+﻿# OpenScript OSS — Comprehensive Developer Execution Guide & Technical Blueprint
 *(Complete Implementation Playbook for Developer 1 & Developer 2)*
 
 **Document Version:** 1.0.0 (Production Blueprint)  
 **Target Repository:** `d:\PROJECTS\Scriptwriter`  
 **License:** GNU Affero General Public License v3.0 (AGPL-3.0)  
-**Target Domain:** `scripto.ssnpictures.in`  
-**Objective:** Provide both developers with a 100% complete, unambiguous, code-level execution manual to build Scripto OSS from scratch without missing a single detail or blocking one another.
+**Target Domain:** `openscript.ssnpictures.in`  
+**Objective:** Provide both developers with a 100% complete, unambiguous, code-level execution manual to build OpenScript OSS from scratch without missing a single detail or blocking one another.
 
 ---
 
@@ -795,7 +795,7 @@ export function generateCastSpeakingReport(doc: CanonicalScreenplayDocument): Ca
   - Writing Sprint stopwatch and daily page targets.
   - Midnight high-contrast dark theme.
 * **Dev 2:**
-  - Setup `compose.production.yaml` with Caddy automatic Let's Encrypt HTTPS for `scripto.ssnpictures.in`.
+  - Setup `compose.production.yaml` with Caddy automatic Let's Encrypt HTTPS for `openscript.ssnpictures.in`.
   - Backup scripts and database restoration drill.
   - AGPL-3.0 and third-party license audit.
 
@@ -810,3 +810,4 @@ Before releasing any sprint milestone, the following test checklist must pass:
 4. **Fountain Round-Trip:** `serializeFountain(parseFountain(text)) === text` across standard test fixtures.
 5. **FDX Compatibility:** An exported `.fdx` file opens natively in Final Draft 12/13 without formatting errors.
 6. **Zero Cloud Expense:** Entire stack builds, tests, and runs locally with `docker compose up` with zero paid third-party API keys.
+

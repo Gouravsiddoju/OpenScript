@@ -1,21 +1,22 @@
 services:
   postgres:
     image: postgres:16-alpine
-    container_name: scripto-postgres
+    container_name: openscript-postgres
     restart: unless-stopped
     environment:
-      POSTGRES_USER: scripto
-      POSTGRES_PASSWORD: scripto_secret
-      POSTGRES_DB: scripto
+      POSTGRES_USER: openscript
+      POSTGRES_PASSWORD: openscript_secret
+      POSTGRES_DB: openscript
     ports:
       - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U scripto -d scripto"]
+      test: ["CMD-SHELL", "pg_isready -U openscript -d openscript"]
       interval: 5s
       timeout: 5s
       retries: 5
 
 volumes:
   pgdata:
+

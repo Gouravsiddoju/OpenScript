@@ -1,4 +1,4 @@
-scripto.ssnpictures.in {
+﻿openscript.ssnpictures.in {
     encode gzip zstd
 
     # Fastify API reverse proxy
@@ -11,3 +11,4 @@ scripto.ssnpictures.in {
         reverse_proxy web:80
     }
 }
+

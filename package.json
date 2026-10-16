@@ -1,5 +1,5 @@
-{
-  "name": "scripto-oss",
+﻿{
+  "name": "openscript-oss",
   "private": true,
   "version": "0.1.0",
   "description": "Professional open-source screenplay writing & film production platform",
@@ -17,3 +17,4 @@
     "typescript": "^5.7.0"
   }
 }
+

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import { 
   FileText, 
   LayoutGrid, 
@@ -29,8 +29,8 @@ export default function App() {
                 S
               </div>
               <div>
-                <span className="font-bold tracking-wider text-sm block">SCRIPTO <span className="text-amber-500 text-xs font-mono">OSS</span></span>
-                <span className="text-[10px] text-gray-500 block">scripto.ssnpictures.in</span>
+                <span className="font-bold tracking-wider text-sm block">OPENSCRIPT <span className="text-amber-500 text-xs font-mono">OSS</span></span>
+                <span className="text-[10px] text-gray-500 block">OPENSCRIPT.ssnpictures.in</span>
               </div>
             </div>
           </div>
@@ -143,3 +143,4 @@ export default function App() {
     </div>
   );
 }
+

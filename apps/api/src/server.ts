@@ -1,4 +1,4 @@
-import Fastify from 'fastify';
+﻿import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import helmet from '@fastify/helmet';
 
@@ -25,7 +25,7 @@ export function buildServer() {
   server.get('/api/v1/health', async () => {
     return {
       status: 'ok',
-      service: 'scripto-api',
+      service: 'openscript-api',
       timestamp: new Date().toISOString(),
     };
   });
@@ -38,3 +38,4 @@ export function buildServer() {
 
   return server;
 }
+
