@@ -7,14 +7,16 @@ import {
   Printer, 
   CheckCircle2, 
   Clock, 
-  Film, 
   ChevronRight,
   Menu,
-  X
+  X,
+  Plus
 } from 'lucide-react';
 import { ScreenplayEditor } from './components/ScreenplayEditor';
 import { FountainView } from './components/FountainView';
 import { ProductionReports } from './components/ProductionReports';
+import { SceneNavigator, SceneItem } from './components/SceneNavigator';
+import { fountainToHtml } from '@openscript/fountain';
 
 const INITIAL_SCRIPT_HTML = `
   <div class="script-scene-heading">INT. COFFEE SHOP - DAY</div>
@@ -27,6 +29,70 @@ const INITIAL_SCRIPT_HTML = `
   <div class="script-scene-heading">EXT. ALLEYWAY - CONTINUOUS</div>
   <div class="script-action">Neon reflections shimmer in deep puddles. Sirens echo in the far distance.</div>
 `;
+
+function extractScenes(html: string): SceneItem[] {
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(html, 'text/html');
+  const children = Array.from(doc.body.children);
+  
+  const scenes: SceneItem[] = [];
+  let currentScene: SceneItem | null = null;
+  let currentLines: string[] = [];
+  let sceneIndex = 0;
+
+  for (const el of children) {
+    const text = el.textContent?.trim() || '';
+    if (!text) continue;
+
+    if (el.classList.contains('script-scene-heading')) {
+      if (currentScene) {
+        currentScene.fountainText = currentLines.join('\n\n').trim();
+        scenes.push(currentScene);
+      }
+      sceneIndex++;
+      const upper = text.toUpperCase();
+      const isIntExt = /^(INT\/EXT|INT\.\/EXT\.|I\/E)(\.|\s|$)/i.test(upper);
+      const isInt = !isIntExt && /^INT(\.|\s|$)/i.test(upper);
+      const isExt = !isIntExt && /^EXT(\.|\s|$)/i.test(upper);
+      const setting: 'INT' | 'EXT' | 'INT/EXT' = isIntExt ? 'INT/EXT' : isInt ? 'INT' : isExt ? 'EXT' : 'INT';
+      
+      const withoutPrefix = upper.replace(/^(INT\.|EXT\.|INT\/EXT\.|I\/E\.)\s*/i, '');
+      const parts = withoutPrefix.split(/\s*-\s*/);
+      const location = parts[0]?.trim() || upper;
+      const timeOfDay = parts[1]?.trim() || 'DAY';
+
+      currentScene = {
+        id: sceneIndex,
+        slugline: upper,
+        setting,
+        location,
+        timeOfDay,
+        fountainText: '',
+        characters: [],
+      };
+      currentLines = [upper];
+    } else if (currentScene) {
+      if (el.classList.contains('script-character')) {
+        const charName = text.replace(/\s*\(.*\)$/, '').trim().toUpperCase();
+        if (charName && !currentScene.characters.includes(charName)) {
+          currentScene.characters.push(charName);
+        }
+        currentLines.push(charName);
+      } else if (el.classList.contains('script-transition')) {
+        currentLines.push(`> ${text}`);
+      } else {
+        currentLines.push(text);
+      }
+    }
+  }
+
+  if (currentScene) {
+    currentScene.fountainText = currentLines.join('\n\n').trim();
+    scenes.push(currentScene);
+  }
+
+  return scenes;
+}
 
 export default function App() {
   const [activeMode, setActiveMode] = useState<'screenplay' | 'fountain' | 'reports'>('screenplay');
@@ -63,16 +129,9 @@ Neon reflections shimmer in deep puddles. Sirens echo in the far distance.`;
     setIsSaved(true);
   }, [scriptHtml, fountainText]);
 
-  // Extract Scene Headings for Navigator
+  // Extract Scene Items for Final Draft Navigator
   const scenes = useMemo(() => {
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(scriptHtml, 'text/html');
-    const headings = doc.querySelectorAll('.script-scene-heading');
-    return Array.from(headings).map((h, i) => {
-      const text = h.textContent?.trim() || `SCENE ${i + 1}`;
-      const setting = text.startsWith('INT.') ? 'INT' : text.startsWith('EXT.') ? 'EXT' : 'INT/EXT';
-      return { id: i + 1, text, setting };
-    });
+    return extractScenes(scriptHtml);
   }, [scriptHtml]);
 
   // Word count & estimated pages
@@ -109,12 +168,57 @@ Neon reflections shimmer in deep puddles. Sirens echo in the far distance.`;
     setFountainText(lines.join('\n').trim());
   };
 
+  const switchMode = (newMode: 'screenplay' | 'fountain' | 'reports') => {
+    if (activeMode === 'fountain' && newMode === 'screenplay') {
+      // Sync edits made in Fountain source back into Screenplay Paper HTML
+      const generatedHtml = fountainToHtml(fountainText);
+      setScriptHtml(generatedHtml);
+      if (editorInstance) {
+        editorInstance.commands.setContent(generatedHtml);
+      }
+    }
+    setActiveMode(newMode);
+  };
+
+  const handleAddScene = () => {
+    if (activeMode !== 'screenplay') {
+      setActiveMode('screenplay');
+    }
+    const newSceneNumber = scenes.length + 1;
+    const defaultSlugline = `INT. SCENE ${newSceneNumber} - DAY`;
+    
+    if (editorInstance) {
+      editorInstance.chain().focus('end').insertContent([
+        { type: 'sceneHeading', content: [{ type: 'text', text: defaultSlugline }] },
+        { type: 'action', content: [{ type: 'text', text: '' }] }
+      ]).run();
+    } else {
+      const addedHtml = `<div class="script-scene-heading">${defaultSlugline}</div><div class="script-action"></div>`;
+      setScriptHtml((prev) => prev + addedHtml);
+    }
+    
+    setTimeout(() => {
+      scrollToScene(scenes.length);
+    }, 150);
+  };
+
   const handleExportFountain = () => {
     const blob = new Blob([fountainText], { type: 'text/plain;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
     link.download = 'OpenScript_Screenplay.fountain';
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleExportSelectedScenes = (selected: SceneItem[]) => {
+    const text = selected.map((s) => s.fountainText).join('\n\n/* ==================== */\n\n');
+    const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `OpenScript_Selected_${selected.length}_Scenes.fountain`;
     link.click();
     URL.revokeObjectURL(url);
   };
@@ -137,10 +241,10 @@ Neon reflections shimmer in deep puddles. Sirens echo in the far distance.`;
 
   return (
     <div className="flex h-screen bg-[#0c0d0e] text-[#e5e5e5] overflow-hidden font-sans">
-      {/* 1. Left Sidebar / Navigator */}
+      {/* 1. Left Sidebar / Final Draft Outliner & Scene Navigator */}
       <aside
         className={`no-print border-r border-[#1e2025] bg-[#090a0c] flex flex-col justify-between transition-all duration-300 z-20 ${
-          sidebarOpen ? 'w-72' : 'w-0 -translate-x-full overflow-hidden'
+          sidebarOpen ? 'w-80' : 'w-0 -translate-x-full overflow-hidden'
         }`}
       >
         <div className="flex flex-col h-full">
@@ -178,7 +282,7 @@ Neon reflections shimmer in deep puddles. Sirens echo in the far distance.`;
             ].map(({ id, label, icon: Icon }) => (
               <button
                 key={id}
-                onClick={() => setActiveMode(id as any)}
+                onClick={() => switchMode(id as any)}
                 className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-medium transition-all ${
                   activeMode === id
                     ? 'bg-amber-500/10 text-amber-400 border border-amber-500/30 shadow-sm'
@@ -191,35 +295,14 @@ Neon reflections shimmer in deep puddles. Sirens echo in the far distance.`;
             ))}
           </nav>
 
-          {/* Real-Time Scene Navigator Outliner */}
-          <div className="flex-1 overflow-y-auto px-3 mt-4">
-            <div className="text-[10px] font-mono text-gray-400 uppercase tracking-wider px-2 mb-2 flex items-center gap-1.5">
-              <Film className="w-3 h-3 text-amber-500" />
-              <span>Scene Navigator ({scenes.length})</span>
-            </div>
-
-            {scenes.length === 0 ? (
-              <div className="text-xs text-gray-500 p-2 italic">No scenes created yet.</div>
-            ) : (
-              <div className="space-y-1">
-                {scenes.map((scene, index) => (
-                  <button
-                    key={index}
-                    onClick={() => scrollToScene(index)}
-                    className="w-full text-left p-2 rounded-lg hover:bg-[#16181d] transition-all group flex items-start gap-2 text-xs"
-                  >
-                    <span className="font-mono text-amber-500/80 font-bold text-[11px] mt-0.5">
-                      #{scene.id}
-                    </span>
-                    <div className="flex-1 truncate">
-                      <div className="font-mono text-gray-300 group-hover:text-amber-400 truncate text-[11px]">
-                        {scene.text}
-                      </div>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            )}
+          {/* Final Draft Scene Navigator Component */}
+          <div className="flex-1 overflow-hidden mt-3 border-t border-[#1a1c22]">
+            <SceneNavigator
+              scenes={scenes}
+              onSelectScene={scrollToScene}
+              onAddScene={handleAddScene}
+              onExportSelectedScenes={handleExportSelectedScenes}
+            />
           </div>
 
           {/* Footer Metadata */}
@@ -247,13 +330,23 @@ Neon reflections shimmer in deep puddles. Sirens echo in the far distance.`;
             </button>
 
             <div className="flex items-center gap-2 text-xs font-mono text-gray-400">
-              <span className="text-gray-200">{scenes[0]?.text || 'SCENE 1'}</span>
+              <span className="text-gray-200 font-semibold">{scenes[0]?.slugline || 'SCENE 1'}</span>
               <ChevronRight className="w-3.5 h-3.5 text-gray-600" />
               <span className="text-amber-500/90 flex items-center gap-1">
                 <Clock className="w-3 h-3" />
                 <span>Page 1 of {metrics.estimatedPages} ({metrics.estimatedPages} mins)</span>
               </span>
             </div>
+
+            {/* Quick Header + Add Scene Button */}
+            <button
+              onClick={handleAddScene}
+              className="hidden md:flex items-center gap-1.5 px-2.5 py-1 rounded bg-[#1c1f26] hover:bg-[#252832] text-amber-400 hover:text-amber-300 border border-amber-500/30 text-xs font-mono font-medium transition-all ml-2"
+              title="Add a new Scene to your screenplay"
+            >
+              <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
+              <span>Add Scene</span>
+            </button>
           </div>
 
           {/* Export & Action Buttons */}

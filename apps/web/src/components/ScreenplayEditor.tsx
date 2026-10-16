@@ -1,7 +1,7 @@
-import React, { useEffect, useMemo } from 'react';
+import React, { useEffect, useMemo, useRef } from 'react';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
-import { screenplayNodes, ScreenplayKeymap } from '@openscript/editor';
+import { screenplayNodes, ScreenplayKeymap, ScreenplayUppercase } from '@openscript/editor';
 import { Sparkles } from 'lucide-react';
 
 interface ScreenplayEditorProps {
@@ -29,6 +29,8 @@ export const ScreenplayEditor: React.FC<ScreenplayEditorProps> = ({
   onUpdate,
   onEditorReady,
 }) => {
+  const knownCharactersRef = useRef<string[]>(['MAYA']);
+
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
@@ -38,7 +40,59 @@ export const ScreenplayEditor: React.FC<ScreenplayEditorProps> = ({
       }),
       ...screenplayNodes,
       ScreenplayKeymap,
+      ScreenplayUppercase,
     ],
+    editorProps: {
+      handleKeyDown(view, event) {
+        if (event.key === 'Tab' && !event.shiftKey) {
+          const { state } = view;
+          const { selection } = state;
+          const block = selection.$from.parent;
+          const blockType = block.type.name;
+          const text = block.textContent.trim();
+
+          // Transition autocomplete on Tab
+          if (blockType === 'transition' && text.length > 0) {
+            const match = STANDARD_TRANSITIONS.find((t) =>
+              t.toLowerCase().startsWith(text.toLowerCase())
+            );
+            if (match && match.toLowerCase() !== text.toLowerCase()) {
+              const from = selection.$from.start();
+              const to = selection.$from.end();
+              view.dispatch(state.tr.insertText(match, from, to));
+              return true;
+            }
+          }
+
+          // Character autocomplete on Tab
+          if (blockType === 'character' && text.length > 0) {
+            const match = knownCharactersRef.current.find((c) =>
+              c.toLowerCase().startsWith(text.toLowerCase())
+            );
+            if (match && match.toLowerCase() !== text.toLowerCase()) {
+              const from = selection.$from.start();
+              const to = selection.$from.end();
+              view.dispatch(state.tr.insertText(match, from, to));
+              return true;
+            }
+          }
+
+          // Scene Heading prefix autocomplete on Tab
+          if (blockType === 'sceneHeading' && text.length > 0 && !text.includes(' - ')) {
+            const prefixMatch = SLUGLINE_PREFIXES.find((p) =>
+              p.toLowerCase().startsWith(text.toLowerCase())
+            );
+            if (prefixMatch && prefixMatch.trim().toLowerCase() !== text.toLowerCase()) {
+              const from = selection.$from.start();
+              const to = selection.$from.end();
+              view.dispatch(state.tr.insertText(prefixMatch, from, to));
+              return true;
+            }
+          }
+        }
+        return false;
+      },
+    },
     content: initialContent,
     onUpdate: ({ editor }) => {
       if (onUpdate) {
@@ -63,7 +117,9 @@ export const ScreenplayEditor: React.FC<ScreenplayEditorProps> = ({
         if (text) characters.add(text);
       }
     });
-    return Array.from(characters);
+    const list = Array.from(characters);
+    knownCharactersRef.current = list;
+    return list;
   }, [editor?.state.doc]);
 
   if (!editor) {
@@ -146,29 +202,57 @@ export const ScreenplayEditor: React.FC<ScreenplayEditorProps> = ({
           <div className="flex items-center gap-1.5 overflow-x-auto">
             {/* Transition suggestions */}
             {activeNodeType === 'transition' &&
-              STANDARD_TRANSITIONS.map((trans) => (
-                <button
-                  key={trans}
-                  onClick={() => applySuggestion(trans)}
-                  className="px-2.5 py-0.5 bg-[#1e2129] hover:bg-amber-500/20 hover:text-amber-300 text-gray-300 rounded font-mono text-[11px] border border-gray-700/60 transition-colors whitespace-nowrap"
-                >
-                  {trans}
-                </button>
-              ))}
+              STANDARD_TRANSITIONS.map((trans) => {
+                const isMatch =
+                  currentBlockText.trim().length > 0 &&
+                  trans.toLowerCase().startsWith(currentBlockText.trim().toLowerCase());
+                return (
+                  <button
+                    key={trans}
+                    onClick={() => applySuggestion(trans)}
+                    className={`px-2.5 py-0.5 rounded font-mono text-[11px] border transition-colors whitespace-nowrap flex items-center gap-1.5 ${
+                      isMatch
+                        ? 'bg-amber-500/20 text-amber-300 border-amber-500/50 shadow-sm'
+                        : 'bg-[#1e2129] hover:bg-amber-500/20 hover:text-amber-300 text-gray-300 border-gray-700/60'
+                    }`}
+                  >
+                    <span>{trans}</span>
+                    {isMatch && (
+                      <kbd className="text-[9px] bg-amber-500/30 px-1 rounded text-amber-200 uppercase font-sans">
+                        Tab
+                      </kbd>
+                    )}
+                  </button>
+                );
+              })}
 
             {/* Scene Heading suggestions */}
             {activeNodeType === 'sceneHeading' && (
               <>
-                {!currentBlockText.trim() &&
-                  SLUGLINE_PREFIXES.map((prefix) => (
-                    <button
-                      key={prefix}
-                      onClick={() => applySuggestion(prefix)}
-                      className="px-2.5 py-0.5 bg-[#1e2129] hover:bg-amber-500/20 hover:text-amber-300 text-gray-300 rounded font-mono text-[11px] border border-gray-700/60 transition-colors whitespace-nowrap"
-                    >
-                      {prefix}
-                    </button>
-                  ))}
+                {!currentBlockText.includes(' - ') &&
+                  SLUGLINE_PREFIXES.map((prefix) => {
+                    const isMatch =
+                      currentBlockText.trim().length > 0 &&
+                      prefix.toLowerCase().startsWith(currentBlockText.trim().toLowerCase());
+                    return (
+                      <button
+                        key={prefix}
+                        onClick={() => applySuggestion(prefix)}
+                        className={`px-2.5 py-0.5 rounded font-mono text-[11px] border transition-colors whitespace-nowrap flex items-center gap-1.5 ${
+                          isMatch
+                            ? 'bg-amber-500/20 text-amber-300 border-amber-500/50 shadow-sm'
+                            : 'bg-[#1e2129] hover:bg-amber-500/20 hover:text-amber-300 text-gray-300 border-gray-700/60'
+                        }`}
+                      >
+                        <span>{prefix}</span>
+                        {isMatch && (
+                          <kbd className="text-[9px] bg-amber-500/30 px-1 rounded text-amber-200 uppercase font-sans">
+                            Tab
+                          </kbd>
+                        )}
+                      </button>
+                    );
+                  })}
                 {currentBlockText.trim() &&
                   SLUGLINE_TIMES.map((time) => (
                     <button
@@ -184,15 +268,29 @@ export const ScreenplayEditor: React.FC<ScreenplayEditorProps> = ({
 
             {/* Character suggestions */}
             {activeNodeType === 'character' &&
-              knownCharacters.map((char) => (
-                <button
-                  key={char}
-                  onClick={() => applySuggestion(char)}
-                  className="px-2.5 py-0.5 bg-[#1e2129] hover:bg-amber-500/20 hover:text-amber-300 text-gray-300 rounded font-mono text-[11px] border border-gray-700/60 transition-colors whitespace-nowrap"
-                >
-                  {char}
-                </button>
-              ))}
+              knownCharacters.map((char) => {
+                const isMatch =
+                  currentBlockText.trim().length > 0 &&
+                  char.toLowerCase().startsWith(currentBlockText.trim().toLowerCase());
+                return (
+                  <button
+                    key={char}
+                    onClick={() => applySuggestion(char)}
+                    className={`px-2.5 py-0.5 rounded font-mono text-[11px] border transition-colors whitespace-nowrap flex items-center gap-1.5 ${
+                      isMatch
+                        ? 'bg-amber-500/20 text-amber-300 border-amber-500/50 shadow-sm'
+                        : 'bg-[#1e2129] hover:bg-amber-500/20 hover:text-amber-300 text-gray-300 border-gray-700/60'
+                    }`}
+                  >
+                    <span>{char}</span>
+                    {isMatch && (
+                      <kbd className="text-[9px] bg-amber-500/30 px-1 rounded text-amber-200 uppercase font-sans">
+                        Tab
+                      </kbd>
+                    )}
+                  </button>
+                );
+              })}
           </div>
         </div>
       )}

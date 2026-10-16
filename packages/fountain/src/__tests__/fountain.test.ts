@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { parseFountain } from '../parser';
 import { serializeFountain } from '../serializer';
+import { fountainToHtml } from '../html';
 import { CanonicalScreenplayDocument } from '@openscript/screenplay-schema';
 
 describe('Fountain Parser & Serializer', () => {
@@ -24,7 +25,8 @@ describe('Fountain Parser & Serializer', () => {
     expect(blocks[0].text).toBe('JOHN');
     expect(blocks[1].type).toBe('parenthetical');
     expect(blocks[1].text).toBe('(quietly)');
-    expect(blocks[2].type).toBe('action'); // following line treated as action/dialogue
+    expect(blocks[2].type).toBe('dialogue');
+    expect(blocks[2].text).toBe('We cannot stay here any longer.');
   });
 
   it('parses transitions correctly', () => {
@@ -105,4 +107,15 @@ describe('Fountain Parser & Serializer', () => {
     expect(serialized).toContain('Look at the tire marks.');
     expect(serialized).toContain('> CUT TO:');
   });
+
+  it('converts fountain text to tiptap screenplay html correctly', () => {
+    const text = `INT. WAREHOUSE - DAY\n\nA lone guard patrols the corridor.\n\nGUARD\nWho's there?\n\n> FADE OUT.`;
+    const html = fountainToHtml(text);
+    expect(html).toContain('<div class="script-scene-heading">INT. WAREHOUSE - DAY</div>');
+    expect(html).toContain('<div class="script-action">A lone guard patrols the corridor.</div>');
+    expect(html).toContain('<div class="script-character">GUARD</div>');
+    expect(html).toContain('<div class="script-dialogue">Who&#039;s there?</div>');
+    expect(html).toContain('<div class="script-transition">FADE OUT.</div>');
+  });
 });
+

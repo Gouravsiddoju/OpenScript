@@ -31,21 +31,21 @@ OpenScript is built on a modular monorepo structure:
 - [x] **Feature 1.1.1:** Enter on Scene Heading creates Action line.
 - [x] **Feature 1.1.2:** Enter on Character cue creates Dialogue.
 - [x] **Feature 1.1.3:** Enter on Dialogue creates Action.
-- [ ] **Feature 1.1.4:** Full cyclic `Tab` & `Shift+Tab` across all 6 elements (Scene Heading $\leftrightarrow$ Action $\leftrightarrow$ Character $\leftrightarrow$ Parenthetical $\leftrightarrow$ Dialogue $\leftrightarrow$ Transition).
-- [ ] **Feature 1.1.5:** Forced element shortcuts (`Ctrl+1` Scene Heading, `Ctrl+2` Action, `Ctrl+3` Character, `Ctrl+4` Parenthetical, `Ctrl+5` Dialogue, `Ctrl+6` Transition).
+- [x] **Feature 1.1.4:** Full cyclic `Tab` & `Shift+Tab` across all 6 elements (Scene Heading $\leftrightarrow$ Action $\leftrightarrow$ Character $\leftrightarrow$ Parenthetical $\leftrightarrow$ Dialogue $\leftrightarrow$ Transition).
+- [x] **Feature 1.1.5:** Forced element shortcuts (`Ctrl+1` Scene Heading, `Ctrl+2` Action, `Ctrl+3` Character, `Ctrl+4` Parenthetical, `Ctrl+5` Dialogue, `Ctrl+6` Transition).
 
 #### Story 1.2: Strict Typography & Auto-Formatting
 - [x] **Feature 1.2.1:** Courier Prime 12pt font with exact 10 pitch, 1.5" left margin, 1.0" top/bottom/right margins.
 - [x] **Feature 1.2.2:** Proper indentation for Character (2.2"), Parenthetical (1.6"), Dialogue (1.0", max width 3.5"), and Transition (right-aligned).
-- [ ] **Feature 1.2.3:** Strict Auto-Capitalization: Scene Headings auto-capitalize input and enforce uppercase sluglines (`INT.`, `EXT.`).
-- [ ] **Feature 1.2.4:** Character cue auto-capitalization and extension support (`(V.O.)`, `(O.S.)`, `(CONT'D)`).
+- [x] **Feature 1.2.3:** Strict Auto-Capitalization: Scene Headings auto-capitalize input and enforce uppercase sluglines (`INT.`, `EXT.`).
+- [x] **Feature 1.2.4:** Character cue auto-capitalization and extension support (`(V.O.)`, `(O.S.)`, `(CONT'D)`).
 - [ ] **Feature 1.2.5:** Native Dual Dialogue blocks (parallel speech columns).
 
 #### Story 1.3: Predictive SmartType™ Autocomplete
-- [ ] **Feature 1.3.1:** Character Name Autocomplete: As you type in a Character cue, a floating popover or ghost text shows matching characters from the script; press `Tab` or `Enter` to accept.
-- [ ] **Feature 1.3.2:** Scene Location Autocomplete: Suggests existing sets/locations when typing in Scene Heading.
-- [ ] **Feature 1.3.3:** Transition Autocomplete: Suggests `CUT TO:`, `FADE OUT:`, `DISSOLVE TO:`, `SMASH CUT TO:` with single-key tab completion.
-- [ ] **Feature 1.3.4:** Time-of-Day Autocomplete (`DAY`, `NIGHT`, `DAWN`, `DUSK`, `CONTINUOUS`, `LATER`).
+- [x] **Feature 1.3.1:** Character Name Autocomplete: As you type in a Character cue, a floating popover or ghost text shows matching characters from the script; press `Tab` or `Enter` to accept.
+- [x] **Feature 1.3.2:** Scene Location Autocomplete: Suggests existing sets/locations when typing in Scene Heading.
+- [x] **Feature 1.3.3:** Transition Autocomplete: Suggests `CUT TO:`, `FADE OUT:`, `DISSOLVE TO:`, `SMASH CUT TO:` with single-key tab completion.
+- [x] **Feature 1.3.4:** Time-of-Day Autocomplete (`DAY`, `NIGHT`, `DAWN`, `DUSK`, `CONTINUOUS`, `LATER`).
 
 #### Story 1.4: Real-Time Dynamic Virtual Pagination Engine
 - [x] **Feature 1.4.1:** Real-time 54-line Hollywood budget per physical page.
@@ -60,10 +60,10 @@ OpenScript is built on a modular monorepo structure:
 
 #### Story 2.1: Final Draft-Style Scene Navigator & Outliner
 - [x] **Feature 2.1.1:** Real-time Scene Heading extraction in sidebar with smooth-scroll jumping.
-- [ ] **Feature 2.1.2:** '+ Add Scene' button in Navigator and Canvas header.
-- [ ] **Feature 2.1.3:** Scene Folders, Acts (Act I, Act II, Act III), and Sequence grouping.
+- [x] **Feature 2.1.2:** '+ Add Scene' button in Navigator and Canvas header.
+- [x] **Feature 2.1.3:** Scene Folders, Acts (Act I, Act II, Act III), and Sequence grouping.
 - [ ] **Feature 2.1.4:** Scene Metadata Editor: attach synopsis, color tag, characters present, and scene length (in eighths).
-- [ ] **Feature 2.1.5:** Selective Scene Export / Print: choose specific acts or scenes to export.
+- [x] **Feature 2.1.5:** Selective Scene Export / Print: choose specific acts or scenes to export.
 
 #### Story 2.2: Visual Corkboard & Beat Board
 - [ ] **Feature 2.2.1:** Grid and freeform index cards representing scenes.
@@ -106,7 +106,7 @@ OpenScript is built on a modular monorepo structure:
 
 #### Story 5.1: Fountain Lossless Round-Trip
 - [x] **Feature 5.1.1:** Fountain parser and serializer core (`packages/fountain`).
-- [ ] **Feature 5.1.2:** Live bidirectional synchronization between Fountain Plain-Text view and Paper Canvas in UI.
+- [x] **Feature 5.1.2:** Live bidirectional synchronization between Fountain Plain-Text view and Paper Canvas in UI.
 - [x] **Feature 5.1.3:** One-click `.fountain` export and download.
 
 #### Story 5.2: Final Draft (FDX) Compatibility

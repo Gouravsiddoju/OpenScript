@@ -36,11 +36,25 @@ export function parseFountain(fountainText: string): ScreenplayBlock[] {
         text: line.toUpperCase(),
       }));
 
-      // Following line could be parenthetical or dialogue
-      if (i + 1 < lines.length) {
-        const nextLine = lines[i + 1].trim();
+      // In Fountain, lines directly under character are parenthetical and dialogue
+      while (i + 1 < lines.length) {
+        const nextRaw = lines[i + 1];
+        const nextLine = nextRaw.trim();
+        if (!nextLine) {
+          // Empty line terminates the dialogue block
+          break;
+        }
+
+        // Check if next line is a new scene heading or transition
+        if (/^(\.(?![.\s])|INT\.|EXT\.|INT\/EXT\.|I\/E\.)/i.test(nextLine) || /( TO:$|^>[^<]*$)/.test(nextLine)) {
+          break;
+        }
+
         if (nextLine.startsWith('(') && nextLine.endsWith(')')) {
           blocks.push(createScreenplayBlock({ id: crypto.randomUUID(), type: 'parenthetical', text: nextLine }));
+          i++;
+        } else {
+          blocks.push(createScreenplayBlock({ id: crypto.randomUUID(), type: 'dialogue', text: nextLine }));
           i++;
         }
       }
