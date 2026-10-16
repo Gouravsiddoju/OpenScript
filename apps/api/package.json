@@ -13,6 +13,7 @@
     "@openscript/database": "workspace:*",
     "@openscript/fountain": "workspace:*",
     "@openscript/screenplay-schema": "workspace:*",
+    "drizzle-orm": "^0.36.0",
     "fastify": "^5.2.0",
     "zod": "^3.23.8"
   },

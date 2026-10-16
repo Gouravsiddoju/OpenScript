@@ -4,7 +4,8 @@ import { eq, and } from 'drizzle-orm';
 import { db, documents, documentRevisions } from '@openscript/database';
 import { 
   CanonicalScreenplayDocumentSchema, 
-  CanonicalScreenplayDocument 
+  CanonicalScreenplayDocument,
+  createScreenplayBlock 
 } from '@openscript/screenplay-schema';
 
 const CreateDocumentSchema = z.object({
@@ -41,16 +42,16 @@ export const documentRoutes: FastifyPluginAsync = async (server) => {
         updatedAt: new Date().toISOString(),
       },
       content: [
-        {
+        createScreenplayBlock({
           id: crypto.randomUUID(),
           type: 'sceneHeading',
           text: 'INT. COFFEE SHOP - DAY',
-        },
-        {
+        }),
+        createScreenplayBlock({
           id: crypto.randomUUID(),
           type: 'action',
           text: 'Rain drums against the tall glass windows. A steaming cup of espresso rests on the counter.',
-        },
+        }),
       ],
     };
 

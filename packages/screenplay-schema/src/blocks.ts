@@ -64,3 +64,8 @@ export const ScreenplayBlockSchema = z.object({
   }).optional(),
 });
 export type ScreenplayBlock = z.infer<typeof ScreenplayBlockSchema>;
+export type ScreenplayBlockInput = z.input<typeof ScreenplayBlockSchema>;
+
+export function createScreenplayBlock(input: ScreenplayBlockInput): ScreenplayBlock {
+  return ScreenplayBlockSchema.parse(input);
+}
