@@ -1,33 +1,42 @@
 import React from 'react';
-import { Users, MessageSquare, Shield, Edit3, Eye } from 'lucide-react';
+import { Users, MessageSquare, Shield, Edit3, Eye, User } from 'lucide-react';
 import { CollaboratorRole, LivePresence } from '@openscript/screenplay-schema';
+import { UserProfileData } from './UserProfileModal';
 
 interface CollaborationBarProps {
   presencePeers: LivePresence[];
   currentUserRole: CollaboratorRole;
+  currentUser?: UserProfileData | null;
   unresolvedNotesCount: number;
   isNotesPanelOpen: boolean;
   onToggleNotesPanel: () => void;
   onOpenShareModal: () => void;
+  onOpenProfileModal?: () => void;
+  onSelectPeerProfile?: (peer: LivePresence) => void;
 }
 
 export const CollaborationBar: React.FC<CollaborationBarProps> = ({
   presencePeers,
   currentUserRole,
+  currentUser,
   unresolvedNotesCount,
   isNotesPanelOpen,
   onToggleNotesPanel,
   onOpenShareModal,
+  onOpenProfileModal,
+  onSelectPeerProfile,
 }) => {
   return (
     <div className="flex items-center gap-2">
       {/* Active Collaborators Presence Roster */}
-      <div className="flex items-center -space-x-1.5 overflow-hidden pl-1" title="Active collaborators in room">
+      <div className="flex items-center -space-x-1.5 overflow-hidden pl-1" title="Active collaborators in room (Click avatar to view profile)">
         {presencePeers.map((peer) => (
-          <div
+          <button
             key={peer.userId}
-            className="relative group cursor-pointer"
-            title={`${peer.displayName} (${peer.role})${peer.isTyping ? ' - typing...' : ''}`}
+            type="button"
+            onClick={() => onSelectPeerProfile && onSelectPeerProfile(peer)}
+            className="relative group cursor-pointer focus:outline-none"
+            title={`${peer.displayName} (${peer.role}) - Click to view basic info`}
           >
             <span
               className="inline-flex items-center justify-center w-6 h-6 rounded-full text-[10px] font-bold text-white ring-2 ring-[#0c0d0e] transition-transform group-hover:scale-110 shadow-sm"
@@ -37,7 +46,7 @@ export const CollaborationBar: React.FC<CollaborationBarProps> = ({
             </span>
             {/* Live presence pulsing green dot */}
             <span className="absolute bottom-0 right-0 w-2 h-2 rounded-full bg-emerald-400 ring-1 ring-black animate-pulse" />
-          </div>
+          </button>
         ))}
       </div>
 
@@ -49,7 +58,7 @@ export const CollaborationBar: React.FC<CollaborationBarProps> = ({
             ? 'bg-amber-500/20 text-amber-300 border-amber-500/50 shadow-sm'
             : 'bg-[#181a1f] hover:bg-[#22252c] text-gray-400 hover:text-white border-[#2b2e36]'
         }`}
-        title="Toggle ScriptNotes & Production Feedback"
+        title="Toggle ScriptNotes & Production Feedback (Alt+N)"
       >
         <MessageSquare className="w-3.5 h-3.5 text-amber-400" />
         <span className="hidden sm:inline">Notes</span>
@@ -77,6 +86,29 @@ export const CollaborationBar: React.FC<CollaborationBarProps> = ({
           <span className="hidden lg:inline">Read Only</span>
         </span>
       )}
+
+      {/* Current User Profile Pill (Clickable to view basic info) */}
+      <button
+        type="button"
+        onClick={onOpenProfileModal}
+        className="flex items-center gap-2 pl-1.5 pr-2.5 py-1 rounded-xl bg-[#171a22] hover:bg-[#20242f] border border-[#272b38] hover:border-amber-500/50 transition-all text-left group shadow-sm"
+        title="Click to view basic info & profile settings"
+      >
+        <span
+          className="w-6 h-6 rounded-lg flex items-center justify-center text-xs font-bold text-white shadow-sm ring-1 ring-black/40 group-hover:scale-105 transition-transform"
+          style={{ backgroundColor: currentUser?.color || '#f59e0b' }}
+        >
+          {currentUser?.displayName?.charAt(0).toUpperCase() || 'G'}
+        </span>
+        <div className="flex flex-col leading-tight hidden xl:flex">
+          <span className="text-xs font-semibold text-gray-200 group-hover:text-amber-300 transition-colors truncate max-w-[120px]">
+            {currentUser?.displayName || 'Gourav (SSN)'}
+          </span>
+          <span className="text-[9px] font-mono text-gray-500 capitalize">
+            {currentUser?.role || currentUserRole}
+          </span>
+        </div>
+      </button>
     </div>
   );
 };
