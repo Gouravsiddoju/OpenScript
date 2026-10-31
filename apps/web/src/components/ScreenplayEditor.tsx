@@ -375,7 +375,7 @@ export const ScreenplayEditor: React.FC<ScreenplayEditorProps> = ({
   const isCurrentBlockMarked = Boolean(currentSelectionParent.attrs.revisionMark);
 
   return (
-    <div className="flex flex-col items-center w-full">
+    <div className="flex-1 flex flex-col h-full w-full overflow-hidden">
       {/* Dynamic Dialogue Isolator Styles */}
       {isolatedCharacter && (
         <style>{`
@@ -396,69 +396,75 @@ export const ScreenplayEditor: React.FC<ScreenplayEditorProps> = ({
         `}</style>
       )}
 
-      {/* 1. Professional Studio Element Ribbon */}
-      <div className="no-print sticky top-0 z-10 w-full max-w-[8.5in] mb-4 bg-[#111317]/95 backdrop-blur-md border border-[#22252e] rounded-xl px-2 py-1.5 flex items-center justify-center gap-1.5 shadow-lg">
-        {[
-          { type: 'sceneHeading', label: 'Scene Heading', shortcut: '1' },
-          { type: 'action', label: 'Action', shortcut: '2' },
-          { type: 'character', label: 'Character', shortcut: '3' },
-          { type: 'parenthetical', label: 'Parenthetical', shortcut: '4' },
-          { type: 'dialogue', label: 'Dialogue', shortcut: '5' },
-          { type: 'transition', label: 'Transition', shortcut: '6' },
-        ].map(({ type, label, shortcut }) => {
-          const isActive = activeNodeType === type;
-          return (
-            <button
-              key={type}
-              onClick={() => editor.chain().focus().setNode(type).run()}
-              title={`Switch to ${label} (Ctrl+${shortcut} / Alt+${shortcut} or Tab)`}
-              className={`px-3 py-1.5 rounded-lg text-xs font-mono transition-all flex items-center gap-1.5 whitespace-nowrap ${
-                isActive
-                  ? 'bg-[#1e222b] text-white font-semibold border border-amber-500/40 shadow-sm'
-                  : 'text-gray-400 hover:text-gray-200 hover:bg-[#181a20]'
-              }`}
-            >
-              <span className={isActive ? 'text-amber-400 font-bold' : 'text-gray-300'}>
-                {label}
-              </span>
-              <span className="text-[10px] text-gray-500 font-sans opacity-70">
-                ⌘{shortcut}
-              </span>
-            </button>
-          );
-        })}
+      {/* 1. Professional Studio Element Ribbon (Fixed Subheader Toolbar) */}
+      <div className="no-print h-12 shrink-0 bg-[#0c0d10] border-b border-[#1c1e24] px-4 flex items-center justify-center z-20 shadow-sm select-none">
+        <div className="flex items-center gap-1.5 max-w-full overflow-x-auto no-scrollbar">
+          {[
+            { type: 'sceneHeading', label: 'Scene Heading', shortcut: '1' },
+            { type: 'action', label: 'Action', shortcut: '2' },
+            { type: 'character', label: 'Character', shortcut: '3' },
+            { type: 'parenthetical', label: 'Parenthetical', shortcut: '4' },
+            { type: 'dialogue', label: 'Dialogue', shortcut: '5' },
+            { type: 'transition', label: 'Transition', shortcut: '6' },
+          ].map(({ type, label, shortcut }) => {
+            const isActive = activeNodeType === type;
+            return (
+              <button
+                key={type}
+                onClick={() => editor.chain().focus().setNode(type).run()}
+                title={`Switch to ${label} (Ctrl+${shortcut} / Alt+${shortcut} or Tab)`}
+                className={`px-3 py-1.5 rounded-lg text-xs font-mono transition-all flex items-center gap-1.5 whitespace-nowrap ${
+                  isActive
+                    ? 'bg-[#1e222b] text-white font-semibold border border-amber-500/40 shadow-sm'
+                    : 'text-gray-400 hover:text-gray-200 hover:bg-[#181a20]'
+                }`}
+              >
+                <span className={isActive ? 'text-amber-400 font-bold' : 'text-gray-300'}>
+                  {label}
+                </span>
+                <span className="text-[10px] text-gray-500 font-sans opacity-70">
+                  ⌘{shortcut}
+                </span>
+              </button>
+            );
+          })}
 
-        {/* Dual Dialogue Quick Insert */}
-        <button
-          onClick={handleInsertDualDialogue}
-          className="px-2.5 py-1.5 rounded-lg text-xs font-mono transition-all flex items-center gap-1.5 text-gray-400 hover:text-gray-200 hover:bg-[#181a20]"
-          title="Insert Dual Dialogue (Simultaneous Speech Columns)"
-        >
-          <Columns className="w-3.5 h-3.5 text-amber-500/80" />
-          <span>Dual</span>
-        </button>
+          <div className="h-4 w-[1px] bg-[#242835] mx-1" />
 
-        <div className="h-4 w-[1px] bg-[#2a2d37] mx-0.5" />
+          {/* Dual Dialogue Quick Insert */}
+          <button
+            onClick={handleInsertDualDialogue}
+            className="px-2.5 py-1.5 rounded-lg text-xs font-mono transition-all flex items-center gap-1.5 text-gray-400 hover:text-gray-200 hover:bg-[#181a20] whitespace-nowrap"
+            title="Insert Dual Dialogue (Simultaneous Speech Columns)"
+          >
+            <Columns className="w-3.5 h-3.5 text-amber-500/80" />
+            <span>Dual</span>
+          </button>
 
-        {/* Hollywood Revision Asterisk Toggle */}
-        <button
-          onClick={() => {
-            editor.chain().focus().updateAttributes(activeNodeType, {
-              revisionMark: !isCurrentBlockMarked,
-              revisionColor: activeRevisionColor,
-            }).run();
-          }}
-          className={`px-2.5 py-1.5 rounded-lg text-xs font-mono transition-all flex items-center gap-1.5 ${
-            isCurrentBlockMarked
-              ? 'bg-red-500/20 text-red-300 border border-red-500/40 shadow-sm'
-              : 'text-gray-400 hover:text-gray-200 hover:bg-[#181a20]'
-          }`}
-          title="Toggle Hollywood revision asterisk (*) on current block (Alt+T)"
-        >
-          <span className="text-red-400 font-bold text-sm leading-none">*</span>
-          <span>Revision</span>
-        </button>
+          {/* Hollywood Revision Asterisk Toggle */}
+          <button
+            onClick={() => {
+              editor.chain().focus().updateAttributes(activeNodeType, {
+                revisionMark: !isCurrentBlockMarked,
+                revisionColor: activeRevisionColor,
+              }).run();
+            }}
+            className={`px-2.5 py-1.5 rounded-lg text-xs font-mono transition-all flex items-center gap-1.5 whitespace-nowrap ${
+              isCurrentBlockMarked
+                ? 'bg-red-500/20 text-red-300 border border-red-500/40 shadow-sm'
+                : 'text-gray-400 hover:text-gray-200 hover:bg-[#181a20]'
+            }`}
+            title="Toggle Hollywood revision asterisk (*) on current block (Alt+T)"
+          >
+            <span className="text-red-400 font-bold text-sm leading-none">*</span>
+            <span>Revision</span>
+          </button>
+        </div>
       </div>
+
+      {/* 2. Scrollable Canvas Area (Dedicated to Screenplay Sheets) */}
+      <div className="flex-1 overflow-y-auto p-4 sm:p-8 flex justify-center bg-[#0d0e11]">
+        <div className="flex flex-col items-center w-full">
 
       {/* SmartType Floating Autocomplete Popup positioned right at the typing cursor */}
       {activeSuggestion && (
@@ -572,5 +578,7 @@ export const ScreenplayEditor: React.FC<ScreenplayEditorProps> = ({
         <EditorContent editor={editor} />
       </div>
     </div>
-  );
+  </div>
+</div>
+);
 };
