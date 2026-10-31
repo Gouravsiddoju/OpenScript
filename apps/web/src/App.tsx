@@ -33,6 +33,9 @@ import { BeatBoard } from './components/BeatBoard';
 import { TitlePageModal, TitlePageMetadata } from './components/TitlePageModal';
 import { ConflictModal } from './components/ConflictModal';
 import { SprintWidget } from './components/SprintWidget';
+import { ScriptNotesPanel } from './components/ScriptNotesPanel';
+import { ShareModal } from './components/ShareModal';
+import { CollaborationBar } from './components/CollaborationBar';
 import { fountainToHtml, parseFountain, blocksToHtml } from '@openscript/fountain';
 import { parseFdx, serializeFdx } from '@openscript/fdx';
 import { 
@@ -40,7 +43,12 @@ import {
   RevisionDraftInfo, 
   RevisionColor, 
   calculateLockedSceneNumber,
-  createScreenplayBlock 
+  createScreenplayBlock,
+  ScriptNote,
+  ScriptNoteCategory,
+  CollaboratorRole,
+  CollaboratorProfile,
+  LivePresence
 } from '@openscript/screenplay-schema';
 
 const INITIAL_SCRIPT_HTML = `
@@ -144,6 +152,98 @@ export default function App() {
   const [isSprintWidgetOpen, setIsSprintWidgetOpen] = useState(false);
   const [isTypewriterMode, setIsTypewriterMode] = useState(false);
   const [isolatedCharacter, setIsolatedCharacter] = useState<string | null>(null);
+
+  // Phase 3 Realtime Collaboration & ScriptNotes state
+  const [isNotesPanelOpen, setIsNotesPanelOpen] = useState(false);
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+  const [currentUserRole, setCurrentUserRole] = useState<CollaboratorRole>(() => {
+    return (localStorage.getItem('openscript_user_role') as CollaboratorRole) || 'owner';
+  });
+
+  const [collaborators, setCollaborators] = useState<CollaboratorProfile[]>(() => {
+    const saved = localStorage.getItem('openscript_collaborators');
+    if (saved) {
+      try { return JSON.parse(saved); } catch {}
+    }
+    return [
+      {
+        userId: '11111111-1111-1111-1111-111111111111',
+        email: 'gourav@ssnpictures.in',
+        displayName: 'Gourav (SSN)',
+        color: '#f59e0b',
+        role: 'owner',
+        lastSeenAt: new Date().toISOString(),
+      },
+      {
+        userId: '22222222-2222-2222-2222-222222222222',
+        email: 'navateja@ssnpictures.in',
+        displayName: 'Navateja',
+        color: '#3b82f6',
+        role: 'co-writer',
+        lastSeenAt: new Date().toISOString(),
+      },
+      {
+        userId: '33333333-3333-3333-3333-333333333333',
+        email: 'sarah.prod@hollywood.com',
+        displayName: 'Sarah (Producer)',
+        color: '#ec4899',
+        role: 'commenter',
+        lastSeenAt: new Date().toISOString(),
+      },
+    ];
+  });
+
+  const [notes, setNotes] = useState<ScriptNote[]>(() => {
+    const saved = localStorage.getItem('openscript_script_notes');
+    if (saved) {
+      try { return JSON.parse(saved); } catch {}
+    }
+    return [
+      {
+        id: 'note-uuid-0001',
+        blockId: '00000000-0000-0000-0000-000000000001',
+        documentId: '00000000-0000-0000-0000-000000000000',
+        authorName: 'Navateja',
+        authorColor: '#3b82f6',
+        category: 'dialogue',
+        content: "Maya's line should sound more impatient here—maybe cut the second sentence?",
+        createdAt: new Date().toISOString(),
+        resolved: false,
+        replies: [
+          {
+            id: 'reply-uuid-0001',
+            authorName: 'Gourav (SSN)',
+            authorColor: '#f59e0b',
+            content: 'Agreed! Punchier rhythm fits the scene opening better.',
+            createdAt: new Date().toISOString(),
+          },
+        ],
+      },
+      {
+        id: 'note-uuid-0002',
+        blockId: '00000000-0000-0000-0000-000000000002',
+        documentId: '00000000-0000-0000-0000-000000000000',
+        authorName: 'Sarah (Producer)',
+        authorColor: '#ec4899',
+        category: 'production',
+        content: 'Check permit availability for rain FX in alleyway scene.',
+        createdAt: new Date().toISOString(),
+        resolved: false,
+        replies: [],
+      },
+    ];
+  });
+
+  const presencePeers: LivePresence[] = useMemo(() => {
+    return collaborators.map((c) => ({
+      userId: c.userId,
+      displayName: c.displayName,
+      color: c.color,
+      role: c.role,
+      isTyping: c.role === 'co-writer',
+      lastPing: Date.now(),
+    }));
+  }, [collaborators]);
 
   // Production revision state
   const [isScriptLocked, setIsScriptLocked] = useState<boolean>(() => {
@@ -299,6 +399,71 @@ Neon reflections shimmer in deep puddles. Sirens echo in the far distance.`;
     const estimatedPages = Math.max(1, Math.ceil(words / 220));
     return { words, estimatedPages };
   }, [scriptHtml]);
+
+  const handleAddNote = (category: ScriptNoteCategory, content: string, blockId?: string) => {
+    const newNote: ScriptNote = {
+      id: crypto.randomUUID(),
+      blockId: blockId || '00000000-0000-0000-0000-000000000001',
+      documentId,
+      authorName: currentUserRole === 'owner' ? 'Gourav (SSN)' : 'Navateja',
+      authorColor: currentUserRole === 'owner' ? '#f59e0b' : '#3b82f6',
+      category,
+      content,
+      createdAt: new Date().toISOString(),
+      resolved: false,
+      replies: [],
+    };
+    setNotes((prev) => [newNote, ...prev]);
+  };
+
+  const handleAddReply = (noteId: string, replyContent: string) => {
+    const replyItem = {
+      id: crypto.randomUUID(),
+      authorName: currentUserRole === 'owner' ? 'Gourav (SSN)' : 'Navateja',
+      authorColor: currentUserRole === 'owner' ? '#f59e0b' : '#3b82f6',
+      content: replyContent,
+      createdAt: new Date().toISOString(),
+    };
+    setNotes((prev) =>
+      prev.map((n) => (n.id === noteId ? { ...n, replies: [...(n.replies || []), replyItem] } : n))
+    );
+  };
+
+  const handleToggleResolve = (noteId: string, currentStatus: boolean) => {
+    setNotes((prev) =>
+      prev.map((n) =>
+        n.id === noteId
+          ? { ...n, resolved: !currentStatus, resolvedAt: !currentStatus ? new Date().toISOString() : undefined }
+          : n
+      )
+    );
+  };
+
+  const handleDeleteNote = (noteId: string) => {
+    setNotes((prev) => prev.filter((n) => n.id !== noteId));
+  };
+
+  const handleInviteCollaborator = (email: string, role: CollaboratorRole) => {
+    const newCollab: CollaboratorProfile = {
+      userId: crypto.randomUUID(),
+      email,
+      displayName: email.split('@')[0],
+      color: '#' + Math.floor(Math.random() * 16777215).toString(16).padStart(6, '0'),
+      role,
+      lastSeenAt: new Date().toISOString(),
+    };
+    setCollaborators((prev) => [...prev, newCollab]);
+  };
+
+  const handleUpdateCollaboratorRole = (userId: string, role: CollaboratorRole) => {
+    setCollaborators((prev) =>
+      prev.map((c) => (c.userId === userId ? { ...c, role } : c))
+    );
+  };
+
+  const handleRemoveCollaborator = (userId: string) => {
+    setCollaborators((prev) => prev.filter((c) => c.userId !== userId));
+  };
 
   const handleEditorUpdate = (html: string) => {
     setIsSaved(false);
@@ -828,6 +993,18 @@ Neon reflections shimmer in deep puddles. Sirens echo in the far distance.`;
               <Printer className="w-3.5 h-3.5 text-black" />
               <span className="hidden sm:inline">PDF</span>
             </button>
+
+            {/* Phase 3 Collaboration & ScriptNotes Roster */}
+            <div className="pl-1 border-l border-[#262934] ml-1">
+              <CollaborationBar
+                presencePeers={presencePeers}
+                currentUserRole={currentUserRole}
+                unresolvedNotesCount={notes.filter((n) => !n.resolved).length}
+                isNotesPanelOpen={isNotesPanelOpen}
+                onToggleNotesPanel={() => setIsNotesPanelOpen(!isNotesPanelOpen)}
+                onOpenShareModal={() => setIsShareModalOpen(true)}
+              />
+            </div>
           </div>
         </header>
 
@@ -844,6 +1021,8 @@ Neon reflections shimmer in deep puddles. Sirens echo in the far distance.`;
               isScriptLocked={isScriptLocked}
               isTypewriterMode={isTypewriterMode}
               isolatedCharacter={isolatedCharacter}
+              currentUserRole={currentUserRole}
+              notes={notes}
             />
           )}
 
@@ -956,6 +1135,31 @@ Neon reflections shimmer in deep puddles. Sirens echo in the far distance.`;
         isOpen={isSprintWidgetOpen}
         onClose={() => setIsSprintWidgetOpen(false)}
         currentWordCount={metrics.words}
+      />
+
+      {/* Phase 3 ScriptNotes Flyout Panel */}
+      <ScriptNotesPanel
+        isOpen={isNotesPanelOpen}
+        onClose={() => setIsNotesPanelOpen(false)}
+        notes={notes}
+        onAddNote={handleAddNote}
+        onAddReply={handleAddReply}
+        onToggleResolve={handleToggleResolve}
+        onDeleteNote={handleDeleteNote}
+        canEdit={currentUserRole !== 'reader'}
+      />
+
+      {/* Phase 3 Team Sharing & Permission Modal */}
+      <ShareModal
+        isOpen={isShareModalOpen}
+        onClose={() => setIsShareModalOpen(false)}
+        collaborators={collaborators}
+        onInviteCollaborator={handleInviteCollaborator}
+        onUpdateRole={handleUpdateCollaboratorRole}
+        onRemoveCollaborator={handleRemoveCollaborator}
+        currentUserRole={currentUserRole}
+        onChangeUserRolePreview={setCurrentUserRole}
+        documentTitle={titleMetadata.title}
       />
     </div>
   );
