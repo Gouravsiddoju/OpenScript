@@ -14,7 +14,8 @@ import {
   Layers, 
   Users, 
   ListOrdered,
-  Trash2
+  Trash2,
+  GripVertical
 } from 'lucide-react';
 
 export interface SceneItem {
@@ -87,6 +88,10 @@ export const SceneNavigator: React.FC<SceneNavigatorProps> = ({
   const [confirmingDeleteSceneId, setConfirmingDeleteSceneId] = useState<number | null>(null);
   const [confirmingDeleteFolderId, setConfirmingDeleteFolderId] = useState<string | null>(null);
 
+  // Smooth Drag & Drop State between Acts & Folders
+  const [draggedSceneId, setDraggedSceneId] = useState<number | null>(null);
+  const [dragOverFolderId, setDragOverFolderId] = useState<string | null>(null);
+
   const saveFolders = (newFolders: SceneFolder[]) => {
     setFolders(newFolders);
     localStorage.setItem('openscript_scene_folders', JSON.stringify(newFolders));
@@ -151,6 +156,16 @@ export const SceneNavigator: React.FC<SceneNavigatorProps> = ({
 
     setConfirmingDeleteSceneId(null);
     onDeleteScene(sceneIndex);
+  };
+
+  const handleMoveSceneToFolder = (sceneId: number, targetFolderId: string) => {
+    const nextMap = { ...sceneFolderMap };
+    if (targetFolderId === 'unassigned') {
+      delete nextMap[sceneId];
+    } else {
+      nextMap[sceneId] = targetFolderId;
+    }
+    saveFolderMap(nextMap);
   };
 
   const handleCreateSceneInFolder = (folderId: string) => {
@@ -225,7 +240,7 @@ export const SceneNavigator: React.FC<SceneNavigatorProps> = ({
 
   return (
     <div className="flex flex-col h-full overflow-hidden text-xs bg-[#090a0c]">
-      {/* 1. View Mode Switcher Header: Gives the choice cleanly between Scenes or Acts / Folders */}
+      {/* 1. View Mode Switcher Header: Clean Choice Between Scenes or Acts / Folders */}
       <div className="p-2.5 border-b border-[#1c1e24] flex items-center justify-between gap-2 bg-[#0d0e12]">
         <div className="flex items-center bg-[#15171e] p-0.5 rounded-lg border border-[#232631]">
           <button
@@ -247,7 +262,7 @@ export const SceneNavigator: React.FC<SceneNavigatorProps> = ({
                 ? 'bg-amber-500/20 text-amber-300 font-bold border border-amber-500/40 shadow-sm'
                 : 'text-gray-400 hover:text-white'
             }`}
-            title="Organize scenes into Acts and Folders"
+            title="Organize scenes into Acts and Folders via Drag and Drop"
           >
             <Folder className="w-3.5 h-3.5" />
             <span>Acts / Folders</span>
@@ -281,7 +296,7 @@ export const SceneNavigator: React.FC<SceneNavigatorProps> = ({
           <Search className="w-3.5 h-3.5 absolute left-2.5 top-2 text-gray-500" />
           <input
             type="text"
-            placeholder={viewMode === 'flat' ? "Search scenes, characters, or text..." : "Filter scenes across acts..."}
+            placeholder={viewMode === 'flat' ? "Search scenes, characters, or text..." : "Filter scenes or drag across acts..."}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full pl-8 pr-2 py-1 bg-[#14161a] border border-[#23262e] rounded-lg text-gray-200 placeholder-gray-500 focus:outline-none focus:border-amber-500/50 text-[11px]"
@@ -386,7 +401,8 @@ export const SceneNavigator: React.FC<SceneNavigatorProps> = ({
                 scene={scene}
                 isActive={activeSceneId === scene.id}
                 isSelected={selectedSceneIds.includes(scene.id)}
-                showFolderSelect={false}
+                isDraggable={false}
+                isDragging={false}
                 confirmingDelete={confirmingDeleteSceneId === scene.id}
                 onRequestDelete={() => setConfirmingDeleteSceneId(scene.id)}
                 onCancelDelete={() => setConfirmingDeleteSceneId(null)}
@@ -396,26 +412,53 @@ export const SceneNavigator: React.FC<SceneNavigatorProps> = ({
                   setActiveSceneId(scene.id);
                   onSelectScene(scene.id - 1);
                 }}
-                folders={folders}
-                currentFolderId={sceneFolderMap[scene.id] || 'unassigned'}
-                onMoveFolder={(fId) =>
-                  saveFolderMap({ ...sceneFolderMap, [scene.id]: fId })
-                }
               />
             ))}
           </div>
         ) : (
           /* ========================================================== */
-          /* ACTS & FOLDERS VIEW (Create Acts & Create Scenes Inside)   */
+          /* ACTS & FOLDERS VIEW (Drag & Drop Between Acts & Folders)    */
           /* ========================================================== */
           <div className="space-y-3">
             {folders.map((folder) => {
               const folderScenes = scenesByFolder[folder.id] || [];
               const isCollapsed = collapsedFolders[folder.id];
               const isCustom = !DEFAULT_FOLDERS.some((df) => df.id === folder.id);
+              const isDropTarget = dragOverFolderId === folder.id;
 
               return (
-                <div key={folder.id} className="space-y-1 bg-[#101216]/60 p-1.5 rounded-xl border border-[#1e2128]">
+                <div 
+                  key={folder.id} 
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = 'move';
+                    if (dragOverFolderId !== folder.id) {
+                      setDragOverFolderId(folder.id);
+                    }
+                  }}
+                  onDragLeave={(e) => {
+                    if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+                      if (dragOverFolderId === folder.id) {
+                        setDragOverFolderId(null);
+                      }
+                    }
+                  }}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    const sceneIdStr = e.dataTransfer.getData('text/plain');
+                    const targetId = Number(sceneIdStr || draggedSceneId);
+                    if (!isNaN(targetId) && targetId > 0) {
+                      handleMoveSceneToFolder(targetId, folder.id);
+                    }
+                    setDragOverFolderId(null);
+                    setDraggedSceneId(null);
+                  }}
+                  className={`space-y-1 p-2 rounded-xl border transition-all duration-200 ${
+                    isDropTarget
+                      ? 'bg-amber-500/10 border-amber-500 ring-2 ring-amber-500/50 shadow-lg shadow-amber-500/10'
+                      : 'bg-[#101216]/60 border-[#1e2128] hover:border-[#282d38]'
+                  }`}
+                >
                   {/* Folder / Act Header */}
                   <div className="flex items-center justify-between gap-1 group">
                     <button
@@ -427,7 +470,7 @@ export const SceneNavigator: React.FC<SceneNavigatorProps> = ({
                       ) : (
                         <ChevronDown className="w-3.5 h-3.5 text-gray-500 flex-shrink-0" />
                       )}
-                      <Folder className="w-3.5 h-3.5 text-amber-500/80 flex-shrink-0" />
+                      <Folder className={`w-3.5 h-3.5 flex-shrink-0 ${isDropTarget ? 'text-amber-400 animate-bounce' : 'text-amber-500/80'}`} />
                       <span className="truncate">{folder.name}</span>
                       <span className="text-[10px] font-normal text-gray-500 font-mono">
                         ({folderScenes.length})
@@ -448,7 +491,7 @@ export const SceneNavigator: React.FC<SceneNavigatorProps> = ({
                       {isCustom && (
                         confirmingDeleteFolderId === folder.id ? (
                           <div className="flex items-center gap-1 bg-red-950/80 border border-red-500/50 rounded px-1 py-0.2">
-                            <span className="text-[9px] text-red-300">Delete Act?</span>
+                            <span className="text-[9px] text-red-300">Delete?</span>
                             <button
                               onClick={() => handleDeleteFolder(folder.id)}
                               className="px-1 bg-red-600 text-white rounded text-[9px] font-bold"
@@ -475,18 +518,30 @@ export const SceneNavigator: React.FC<SceneNavigatorProps> = ({
                     </div>
                   </div>
 
-                  {/* Folder Scenes or Empty State */}
+                  {/* Folder Scenes or Empty Drop Zone */}
                   {!isCollapsed && (
                     <div className="pt-1 pl-1 space-y-1">
                       {folderScenes.length === 0 ? (
-                        <button
-                          type="button"
-                          onClick={() => handleCreateSceneInFolder(folder.id)}
-                          className="w-full text-left text-[11px] font-mono text-amber-400/80 hover:text-amber-300 py-2 px-2.5 bg-[#13151b] hover:bg-[#181b24] rounded-lg border border-dashed border-[#242834] hover:border-amber-500/40 transition-all flex items-center gap-2 group/btn"
+                        <div
+                          className={`w-full text-center text-[11px] font-mono py-3 px-2 rounded-lg border border-dashed transition-all ${
+                            isDropTarget
+                              ? 'bg-amber-500/20 text-amber-300 border-amber-400 font-semibold'
+                              : 'bg-[#13151b] text-gray-500 border-[#242834]'
+                          }`}
                         >
-                          <Plus className="w-3.5 h-3.5 text-amber-500 group-hover/btn:scale-110 transition-transform" />
-                          <span>+ Create First Scene in {folder.name}</span>
-                        </button>
+                          {isDropTarget ? (
+                            <span>Release to drop scene into {folder.name}</span>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => handleCreateSceneInFolder(folder.id)}
+                              className="text-amber-400/80 hover:text-amber-300 flex items-center justify-center gap-1.5 w-full"
+                            >
+                              <Plus className="w-3.5 h-3.5 text-amber-500" />
+                              <span>Drag scene here or click to create</span>
+                            </button>
+                          )}
+                        </div>
                       ) : (
                         folderScenes.map((scene) => (
                           <SceneCardItem
@@ -494,7 +549,17 @@ export const SceneNavigator: React.FC<SceneNavigatorProps> = ({
                             scene={scene}
                             isActive={activeSceneId === scene.id}
                             isSelected={selectedSceneIds.includes(scene.id)}
-                            showFolderSelect={true}
+                            isDraggable={true}
+                            isDragging={draggedSceneId === scene.id}
+                            onDragStart={(e) => {
+                              e.dataTransfer.setData('text/plain', String(scene.id));
+                              e.dataTransfer.effectAllowed = 'move';
+                              setDraggedSceneId(scene.id);
+                            }}
+                            onDragEnd={() => {
+                              setDraggedSceneId(null);
+                              setDragOverFolderId(null);
+                            }}
                             confirmingDelete={confirmingDeleteSceneId === scene.id}
                             onRequestDelete={() => setConfirmingDeleteSceneId(scene.id)}
                             onCancelDelete={() => setConfirmingDeleteSceneId(null)}
@@ -504,13 +569,15 @@ export const SceneNavigator: React.FC<SceneNavigatorProps> = ({
                               setActiveSceneId(scene.id);
                               onSelectScene(scene.id - 1);
                             }}
-                            folders={folders}
-                            currentFolderId={folder.id}
-                            onMoveFolder={(fId) =>
-                              saveFolderMap({ ...sceneFolderMap, [scene.id]: fId })
-                            }
                           />
                         ))
+                      )}
+
+                      {/* Drop cue banner when dragging over an act that already has scenes */}
+                      {isDropTarget && folderScenes.length > 0 && (
+                        <div className="py-1 px-2 rounded border border-dashed border-amber-500/80 bg-amber-500/15 text-center text-amber-300 text-[10px] font-mono animate-pulse">
+                          Drop to move scene into {folder.name}
+                        </div>
                       )}
                     </div>
                   )}
@@ -518,40 +585,77 @@ export const SceneNavigator: React.FC<SceneNavigatorProps> = ({
               );
             })}
 
-            {/* Unassigned Category in Acts View */}
-            {scenesByFolder['unassigned']?.length > 0 && (
-              <div className="space-y-1 bg-[#101216]/40 p-1.5 rounded-xl border border-[#1b1d24]">
-                <div className="p-1 font-mono text-[11px] text-gray-400 font-semibold flex items-center gap-1.5">
+            {/* Unassigned Category Drop Target in Acts View */}
+            <div 
+              onDragOver={(e) => {
+                e.preventDefault();
+                e.dataTransfer.dropEffect = 'move';
+                if (dragOverFolderId !== 'unassigned') {
+                  setDragOverFolderId('unassigned');
+                }
+              }}
+              onDragLeave={(e) => {
+                if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+                  if (dragOverFolderId === 'unassigned') {
+                    setDragOverFolderId(null);
+                  }
+                }
+              }}
+              onDrop={(e) => {
+                e.preventDefault();
+                const sceneIdStr = e.dataTransfer.getData('text/plain');
+                const targetId = Number(sceneIdStr || draggedSceneId);
+                if (!isNaN(targetId) && targetId > 0) {
+                  handleMoveSceneToFolder(targetId, 'unassigned');
+                }
+                setDragOverFolderId(null);
+                setDraggedSceneId(null);
+              }}
+              className={`space-y-1 p-2 rounded-xl border transition-all duration-200 ${
+                dragOverFolderId === 'unassigned'
+                  ? 'bg-amber-500/10 border-amber-500 ring-2 ring-amber-500/40'
+                  : 'bg-[#101216]/40 border-[#1b1d24]'
+              }`}
+            >
+              <div className="p-1 font-mono text-[11px] text-gray-400 font-semibold flex items-center justify-between">
+                <div className="flex items-center gap-1.5">
                   <Layers className="w-3.5 h-3.5 text-gray-500" />
-                  <span>Unassigned Scenes ({scenesByFolder['unassigned'].length})</span>
+                  <span>Unassigned Scenes ({scenesByFolder['unassigned']?.length || 0})</span>
                 </div>
-                <div className="pl-1 space-y-1">
-                  {scenesByFolder['unassigned'].map((scene) => (
-                    <SceneCardItem
-                      key={scene.id}
-                      scene={scene}
-                      isActive={activeSceneId === scene.id}
-                      isSelected={selectedSceneIds.includes(scene.id)}
-                      showFolderSelect={true}
-                      confirmingDelete={confirmingDeleteSceneId === scene.id}
-                      onRequestDelete={() => setConfirmingDeleteSceneId(scene.id)}
-                      onCancelDelete={() => setConfirmingDeleteSceneId(null)}
-                      onConfirmDelete={() => handleDeleteSceneConfirmed(scene.id)}
-                      onToggleSelect={() => toggleSelectScene(scene.id)}
-                      onSelect={() => {
-                        setActiveSceneId(scene.id);
-                        onSelectScene(scene.id - 1);
-                      }}
-                      folders={folders}
-                      currentFolderId="unassigned"
-                      onMoveFolder={(fId) =>
-                        saveFolderMap({ ...sceneFolderMap, [scene.id]: fId })
-                      }
-                    />
-                  ))}
-                </div>
+                <span className="text-[10px] text-gray-500 font-normal">Drop here to unassign</span>
               </div>
-            )}
+
+              <div className="pl-1 space-y-1">
+                {(scenesByFolder['unassigned'] || []).map((scene) => (
+                  <SceneCardItem
+                    key={scene.id}
+                    scene={scene}
+                    isActive={activeSceneId === scene.id}
+                    isSelected={selectedSceneIds.includes(scene.id)}
+                    isDraggable={true}
+                    isDragging={draggedSceneId === scene.id}
+                    onDragStart={(e) => {
+                      e.dataTransfer.setData('text/plain', String(scene.id));
+                      e.dataTransfer.effectAllowed = 'move';
+                      setDraggedSceneId(scene.id);
+                    }}
+                    onDragEnd={() => {
+                      setDraggedSceneId(null);
+                      setDragOverFolderId(null);
+                    }}
+                    confirmingDelete={confirmingDeleteSceneId === scene.id}
+                    onRequestDelete={() => setConfirmingDeleteSceneId(scene.id)}
+                    onCancelDelete={() => setConfirmingDeleteSceneId(null)}
+                    onConfirmDelete={() => handleDeleteSceneConfirmed(scene.id)}
+                    onToggleSelect={() => toggleSelectScene(scene.id)}
+                    onSelect={() => {
+                      setActiveSceneId(scene.id);
+                      onSelectScene(scene.id - 1);
+                    }}
+                  />
+                ))}
+              </div>
+            </div>
           </div>
         )}
       </div>
@@ -563,32 +667,32 @@ interface SceneCardItemProps {
   scene: SceneItem;
   isActive: boolean;
   isSelected: boolean;
-  showFolderSelect: boolean;
+  isDraggable?: boolean;
+  isDragging?: boolean;
+  onDragStart?: (e: React.DragEvent) => void;
+  onDragEnd?: () => void;
   confirmingDelete: boolean;
   onRequestDelete: () => void;
   onCancelDelete: () => void;
   onConfirmDelete: () => void;
   onToggleSelect: () => void;
   onSelect: () => void;
-  folders: SceneFolder[];
-  currentFolderId: string;
-  onMoveFolder: (folderId: string) => void;
 }
 
 const SceneCardItem: React.FC<SceneCardItemProps> = ({
   scene,
   isActive,
   isSelected,
-  showFolderSelect,
+  isDraggable = false,
+  isDragging = false,
+  onDragStart,
+  onDragEnd,
   confirmingDelete,
   onRequestDelete,
   onCancelDelete,
   onConfirmDelete,
   onToggleSelect,
   onSelect,
-  folders,
-  currentFolderId,
-  onMoveFolder,
 }) => {
   const isInt = scene.setting === 'INT';
   const isExt = scene.setting === 'EXT';
@@ -596,27 +700,39 @@ const SceneCardItem: React.FC<SceneCardItemProps> = ({
   return (
     <div
       onClick={onSelect}
-      className={`group relative flex items-start gap-2 p-2 rounded-xl border cursor-pointer transition-all ${
-        isActive
+      draggable={isDraggable}
+      onDragStart={onDragStart}
+      onDragEnd={onDragEnd}
+      className={`group relative flex items-start gap-2 p-2 rounded-xl border transition-all ${
+        isDraggable ? 'cursor-grab active:cursor-grabbing select-none' : 'cursor-pointer'
+      } ${
+        isDragging
+          ? 'opacity-30 border-amber-500 border-dashed bg-amber-500/5'
+          : isActive
           ? 'bg-[#181b23] border-amber-500/50 shadow-md shadow-black/40 ring-1 ring-amber-500/20'
           : 'bg-[#111317] hover:bg-[#161820] border-[#1e222b] hover:border-[#2b303e]'
       }`}
     >
-      {/* Checkbox */}
-      <button
-        onClick={(e) => {
-          e.stopPropagation();
-          onToggleSelect();
-        }}
-        className="text-gray-500 hover:text-amber-400 transition-colors pt-0.5 shrink-0"
-        title="Select scene for export"
-      >
-        {isSelected ? (
-          <CheckSquare className="w-3.5 h-3.5 text-amber-400" />
-        ) : (
-          <Square className="w-3.5 h-3.5" />
+      {/* Drag Grip Handle (in Acts view) or Checkbox */}
+      <div className="flex items-center gap-1 shrink-0 pt-0.5">
+        {isDraggable && (
+          <GripVertical className="w-3.5 h-3.5 text-gray-600 group-hover:text-amber-400 transition-colors shrink-0" />
         )}
-      </button>
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggleSelect();
+          }}
+          className="text-gray-500 hover:text-amber-400 transition-colors shrink-0"
+          title="Select scene for export"
+        >
+          {isSelected ? (
+            <CheckSquare className="w-3.5 h-3.5 text-amber-400" />
+          ) : (
+            <Square className="w-3.5 h-3.5" />
+          )}
+        </button>
+      </div>
 
       {/* Main Content */}
       <div className="flex-1 min-w-0">
@@ -684,27 +800,8 @@ const SceneCardItem: React.FC<SceneCardItemProps> = ({
         )}
       </div>
 
-      {/* Right Controls: Folder Selector (only in Acts view) + Scene Deletion */}
+      {/* Right Controls: Scene Deletion with Inline Confirmation */}
       <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
-        {showFolderSelect && (
-          <select
-            value={currentFolderId}
-            onChange={(e) => {
-              e.stopPropagation();
-              onMoveFolder(e.target.value);
-            }}
-            className="opacity-0 group-hover:opacity-100 transition-opacity bg-[#161820] text-gray-400 hover:text-white border border-[#2b303d] rounded text-[10px] px-1 py-0.5 focus:outline-none"
-            title="Assign scene to Act / Folder"
-          >
-            <option value="unassigned">Act: None</option>
-            {folders.map((f) => (
-              <option key={f.id} value={f.id}>
-                {f.name.split(' — ')[0]}
-              </option>
-            ))}
-          </select>
-        )}
-
         {confirmingDelete ? (
           <div className="flex items-center gap-1 bg-red-950/90 border border-red-500/60 rounded px-1.5 py-0.5 z-10 shadow-lg">
             <span className="text-[9px] text-red-300 font-mono">Delete?</span>
