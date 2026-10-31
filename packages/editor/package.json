@@ -16,6 +16,8 @@
     "@tiptap/starter-kit": "^2.10.3"
   },
   "devDependencies": {
+    "@openscript/fountain": "workspace:*",
+    "@openscript/fdx": "workspace:*",
     "typescript": "^5.7.0"
   }
 }
