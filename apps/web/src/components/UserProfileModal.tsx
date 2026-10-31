@@ -75,6 +75,12 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
       text: 'text-blue-400',
       border: 'border-blue-500/30',
     },
+    guest: {
+      label: 'Invited Guest (Notes & Feedback)',
+      bg: 'bg-purple-500/10',
+      text: 'text-purple-400',
+      border: 'border-purple-500/30',
+    },
     commenter: {
       label: 'Producer / Commenter',
       bg: 'bg-pink-500/10',
@@ -98,52 +104,56 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
         className="w-full max-w-lg bg-[#12141a] border border-[#2b2f3a] rounded-2xl shadow-2xl overflow-hidden flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Banner Header */}
-        <div className="relative h-24 bg-gradient-to-r from-amber-600/30 via-[#181b22] to-amber-900/20 border-b border-[#252834] p-4 flex justify-between items-start">
-          <div className="flex items-center gap-2 text-xs font-mono text-amber-400/80 bg-black/40 px-2.5 py-1 rounded-full border border-amber-500/20 backdrop-blur-sm">
-            <Film className="w-3.5 h-3.5" />
-            <span>OpenScript Studio Member</span>
+        {/* Modal Header */}
+        <div className="relative p-6 pb-4 bg-gradient-to-b from-[#181c24] to-[#12141a] border-b border-[#242733] flex items-start justify-between">
+          <div className="flex items-center gap-4">
+            {/* User Avatar with custom accent color */}
+            <div 
+              className="w-14 h-14 rounded-2xl flex items-center justify-center text-xl font-bold text-white shadow-lg ring-2 ring-white/10"
+              style={{ backgroundColor: avatarColor }}
+            >
+              {user.displayName.charAt(0).toUpperCase()}
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className={`px-2.5 py-0.5 rounded-full text-xs font-mono font-medium border ${currentRoleStyle.bg} ${currentRoleStyle.text} ${currentRoleStyle.border}`}>
+                  {currentRoleStyle.label}
+                </span>
+                <span className="flex h-2 w-2 relative">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                </span>
+              </div>
+              <h2 className="text-xl font-bold text-white mt-1 flex items-center gap-2">
+                {user.displayName}
+              </h2>
+            </div>
           </div>
           <button
             onClick={onClose}
-            className="p-1 rounded-lg text-gray-400 hover:text-white hover:bg-black/40 transition-colors"
+            className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-[#222632] transition-colors"
+            title="Close"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        {/* Profile Avatar & Details */}
-        <div className="px-6 pb-6 pt-0 relative flex flex-col gap-5">
-          {/* Floating Avatar Circle */}
-          <div className="flex items-end justify-between -mt-10">
-            <div className="relative">
-              <div 
-                className="w-20 h-20 rounded-2xl flex items-center justify-center text-3xl font-black text-white shadow-2xl ring-4 ring-[#12141a]"
-                style={{ backgroundColor: avatarColor }}
-              >
-                {user.displayName.charAt(0).toUpperCase()}
-              </div>
-              <span className="absolute bottom-1 right-1 w-4 h-4 rounded-full bg-emerald-500 ring-2 ring-[#12141a] animate-pulse" title="Active & Verified" />
-            </div>
-
-            <div className="flex items-center gap-2">
-              <span className={`px-3 py-1 rounded-full text-xs font-mono font-semibold border ${currentRoleStyle.bg} ${currentRoleStyle.text} ${currentRoleStyle.border}`}>
-                {currentRoleStyle.label}
-              </span>
-            </div>
-          </div>
-
-          {/* Name & Email */}
-          <div className="space-y-1">
-            <div className="flex items-center gap-2">
+        {/* Modal Body */}
+        <div className="p-6 space-y-5">
+          {/* Display Name Section */}
+          <div className="space-y-1.5">
+            <label className="text-[11px] font-mono uppercase tracking-wider text-gray-400 flex items-center gap-1.5">
+              <User className="w-3.5 h-3.5 text-amber-500" /> Screenplay Display Name
+            </label>
+            <div className="flex items-center justify-between p-3 rounded-xl bg-[#171a22] border border-[#242733]">
               {isEditingName ? (
                 <div className="flex items-center gap-2 w-full">
                   <input
                     type="text"
                     value={nameInput}
                     onChange={(e) => setNameInput(e.target.value)}
-                    className="flex-1 bg-[#191c25] border border-amber-500/50 rounded-lg px-3 py-1.5 text-sm text-white font-semibold focus:outline-none focus:ring-1 focus:ring-amber-500"
-                    placeholder="Enter display name"
+                    disabled={isSaving}
+                    className="flex-1 px-2.5 py-1 text-sm bg-[#0e1015] border border-amber-500/50 rounded-lg text-white focus:outline-none"
                     autoFocus
                   />
                   <button
@@ -202,7 +212,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                 <Shield className="w-3 h-3 text-emerald-400" /> Account Status
               </span>
               <span className="text-xs font-semibold text-emerald-400 flex items-center gap-1">
-                <CheckCircle className="w-3.5 h-3.5" /> Verified Writer
+                <CheckCircle className="w-3.5 h-3.5" /> Verified Screenwriter
               </span>
             </div>
           </div>
@@ -214,10 +224,10 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                 <span className="text-[11px] font-mono font-semibold text-gray-300 flex items-center gap-1.5">
                   <Key className="w-3.5 h-3.5 text-amber-400" /> Switch Role Persona (Preview):
                 </span>
-                <span className="text-[10px] text-gray-500 font-mono">Simulate Co-Writer / Reader</span>
+                <span className="text-[10px] text-gray-500 font-mono">Simulate RBAC Permissions</span>
               </div>
               <div className="grid grid-cols-4 gap-1.5">
-                {(['owner', 'co-writer', 'commenter', 'reader'] as CollaboratorRole[]).map((r) => (
+                {(['owner', 'co-writer', 'guest', 'reader'] as CollaboratorRole[]).map((r) => (
                   <button
                     key={r}
                     onClick={() => onChangeRolePreview(r)}
@@ -248,13 +258,13 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
 
             <button
               onClick={() => {
-                onClose();
                 onLogout();
+                onClose();
               }}
-              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30 text-xs font-mono transition-colors"
+              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-xs font-mono text-red-400 border border-red-500/30 transition-colors"
             >
               <LogOut className="w-3.5 h-3.5" />
-              <span>Sign Out</span>
+              <span>Log Out</span>
             </button>
           </div>
         </div>

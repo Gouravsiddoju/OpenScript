@@ -86,6 +86,12 @@ export const CollaborationBar: React.FC<CollaborationBarProps> = ({
           <span className="hidden lg:inline">Read Only</span>
         </span>
       )}
+      {(currentUserRole === 'guest' || currentUserRole === 'commenter') && (
+        <span className="flex items-center gap-1 px-2 py-1 rounded bg-purple-500/10 text-purple-400 border border-purple-500/30 text-[11px] font-mono">
+          <MessageSquare className="w-3 h-3" />
+          <span className="hidden lg:inline">Guest (Notes)</span>
+        </span>
+      )}
 
       {/* Current User Profile Pill (Clickable to view basic info) */}
       <button

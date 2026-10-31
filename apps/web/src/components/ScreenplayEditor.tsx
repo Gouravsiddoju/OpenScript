@@ -4,7 +4,7 @@ import StarterKit from '@tiptap/starter-kit';
 import { screenplayNodes, ScreenplayKeymap, ScreenplayUppercase } from '@openscript/editor';
 import { TitlePageMetadata } from './TitlePageModal';
 import { Lock, Sparkles, Columns, Eye, Keyboard } from 'lucide-react';
-import { CollaboratorRole, ScriptNote } from '@openscript/screenplay-schema';
+import { CollaboratorRole, ScriptNote, canEditScreenplay, isWatermarkRequired } from '@openscript/screenplay-schema';
 
 interface ScreenplayEditorProps {
   initialContent?: string;
@@ -305,7 +305,7 @@ export const ScreenplayEditor: React.FC<ScreenplayEditorProps> = ({
 
   useEffect(() => {
     if (editor) {
-      editor.setEditable(currentUserRole !== 'reader');
+      editor.setEditable(canEditScreenplay(currentUserRole));
     }
   }, [editor, currentUserRole]);
 
@@ -397,6 +397,7 @@ export const ScreenplayEditor: React.FC<ScreenplayEditorProps> = ({
       )}
 
       {/* 1. Sleek Floating Island / Pill Ribbon (Sticky, elevated, beautifully formatted) */}
+      {canEditScreenplay(currentUserRole) && (
       <div className="no-print sticky top-3 z-30 mb-6 flex justify-center pointer-events-none w-full animate-fadeIn select-none">
         <div className="pointer-events-auto bg-[#13151b]/95 backdrop-blur-md border border-[#272b38] rounded-2xl p-1.5 shadow-2xl shadow-black/70 flex items-center gap-1">
           {[
@@ -461,6 +462,7 @@ export const ScreenplayEditor: React.FC<ScreenplayEditorProps> = ({
           </button>
         </div>
       </div>
+      )}
 
       {/* SmartType Floating Autocomplete Popup positioned right at the typing cursor */}
       {activeSuggestion && (
@@ -547,6 +549,16 @@ export const ScreenplayEditor: React.FC<ScreenplayEditorProps> = ({
         </div>
       )}
 
+      
+      {(currentUserRole === 'guest' || currentUserRole === 'commenter') && (
+        <div className="w-full max-w-[8.5in] mb-3 px-4 py-2 bg-purple-500/10 border border-purple-500/30 rounded-xl flex items-center justify-between text-xs text-purple-300 font-mono no-print">
+          <div className="flex items-center gap-2">
+            <Lock className="w-4 h-4 text-purple-400" />
+            <span>Viewing in Guest Mode — Screenplay is in Comment-Only mode. Highlighting text allows adding ScriptNotes.</span>
+          </div>
+        </div>
+      )}
+
       {currentUserRole === 'reader' && (
         <div className="w-full max-w-[8.5in] mb-3 px-4 py-2 bg-red-500/10 border border-red-500/30 rounded-xl flex items-center justify-between text-xs text-red-300 font-mono no-print">
           <div className="flex items-center gap-2">
@@ -558,9 +570,11 @@ export const ScreenplayEditor: React.FC<ScreenplayEditorProps> = ({
 
       {/* 3. Authentic Screenplay Paper Canvas */}
       <div className={`screenplay-page font-screenplay select-text relative ${isolatedCharacter ? 'isolating-active' : ''}`}>
-        {metadata?.showWatermark && metadata?.watermarkText && (
+        {(metadata?.showWatermark && metadata?.watermarkText) ? (
           <div className="screenplay-watermark">{metadata.watermarkText}</div>
-        )}
+        ) : isWatermarkRequired(currentUserRole) ? (
+          <div className="screenplay-watermark">CONFIDENTIAL • FOR CAST/CREW READING ONLY</div>
+        ) : null}
 
         {/* Page Top Running Header */}
         <div className="text-right text-[10pt] text-gray-400 mb-6 border-b border-gray-100 pb-2 select-none no-print flex justify-between">

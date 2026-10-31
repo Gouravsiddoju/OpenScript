@@ -40,6 +40,7 @@ import { CollaborationBar } from './components/CollaborationBar';
 import { KeyboardShortcutsModal } from './components/KeyboardShortcutsModal';
 import { UserProfileModal, UserProfileData } from './components/UserProfileModal';
 import { AuthModal } from './components/AuthModal';
+import { SceneTakesModal } from './components/SceneTakesModal';
 import { fountainToHtml, parseFountain, blocksToHtml } from '@openscript/fountain';
 import { parseFdx, serializeFdx } from '@openscript/fdx';
 import { 
@@ -52,7 +53,9 @@ import {
   ScriptNoteCategory,
   CollaboratorRole,
   CollaboratorProfile,
-  LivePresence
+  LivePresence,
+  SceneTake,
+  canFinalizeSceneTake
 } from '@openscript/screenplay-schema';
 
 const INITIAL_SCRIPT_HTML = `
@@ -219,6 +222,89 @@ export default function App() {
       color: '#f59e0b',
     };
   });
+
+
+  // Scene Takes & Alternate Versions (RBAC: Propose by Co-Writer, Finalize by Owner)
+  const [selectedSceneForTakes, setSelectedSceneForTakes] = useState<SceneItem | null>(null);
+  const [isSceneTakesModalOpen, setIsSceneTakesModalOpen] = useState(false);
+  const [sceneTakes, setSceneTakes] = useState<SceneTake[]>(() => {
+    const saved = localStorage.getItem('openscript_scene_takes');
+    if (saved) {
+      try { return JSON.parse(saved); } catch {}
+    }
+    return [
+      {
+        id: 'take-1-default',
+        sceneId: 1,
+        takeNumber: 1,
+        title: 'Take 1 (Original Master)',
+        fountainText: 'INT. SCENE 1 - DAY\n\nAction description begins here.',
+        authorName: 'Gourav (SSN)',
+        authorRole: 'owner',
+        createdAt: new Date().toISOString(),
+        isFinalized: true,
+      },
+    ];
+  });
+
+  const handleOpenSceneTakes = (scene: SceneItem) => {
+    setSelectedSceneForTakes(scene);
+    setIsSceneTakesModalOpen(true);
+  };
+
+  const handleProposeSceneTake = (sceneId: number, title: string, content: string) => {
+    const nextTakeNumber = sceneTakes.filter((t) => t.sceneId === sceneId).length + 1;
+    const newTake: SceneTake = {
+      id: `take-${Date.now()}`,
+      sceneId,
+      takeNumber: nextTakeNumber,
+      title,
+      fountainText: content,
+      authorName: currentUser.displayName,
+      authorRole: currentUserRole,
+      createdAt: new Date().toISOString(),
+      isFinalized: false,
+    };
+    const updatedTakes = [...sceneTakes, newTake];
+    setSceneTakes(updatedTakes);
+    localStorage.setItem('openscript_scene_takes', JSON.stringify(updatedTakes));
+  };
+
+  const handleFinalizeSceneTake = (take: SceneTake) => {
+    if (!canFinalizeSceneTake(currentUserRole)) {
+      alert('Only the Project Owner has authority to finalize winning takes.');
+      return;
+    }
+
+    const updatedTakes = sceneTakes.map((t) => {
+      if (t.sceneId === take.sceneId) {
+        return { ...t, isFinalized: t.id === take.id };
+      }
+      return t;
+    });
+    setSceneTakes(updatedTakes);
+    localStorage.setItem('openscript_scene_takes', JSON.stringify(updatedTakes));
+
+    // Update active scene in script with winning take's content
+    const targetSceneIndex = scenes.findIndex((s) => s.id === take.sceneId);
+    if (targetSceneIndex !== -1) {
+      const updatedScenes = [...scenes];
+      const htmlPiece = fountainToHtml(take.fountainText);
+      updatedScenes[targetSceneIndex] = {
+        ...updatedScenes[targetSceneIndex],
+        fountainText: take.fountainText,
+        sceneHtml: htmlPiece,
+      };
+      const newHtml = updatedScenes.map((s) => s.sceneHtml || fountainToHtml(s.fountainText)).join('');
+      const newFountain = updatedScenes.map((s) => s.fountainText).join('\n\n');
+      setScriptHtml(newHtml);
+      setFountainText(newFountain);
+      if (editorInstance) {
+        editorInstance.commands.setContent(newHtml);
+      }
+      setIsSaved(false);
+    }
+  };
 
   const [currentUserRole, setCurrentUserRole] = useState<CollaboratorRole>(() => {
     return (localStorage.getItem('openscript_user_role') as CollaboratorRole) || 'owner';
@@ -1278,6 +1364,8 @@ Neon reflections shimmer in deep puddles. Sirens echo in the far distance.`;
               onAddScene={handleAddScene}
               onDeleteScene={handleDeleteScene}
               onExportSelectedScenes={handleExportSelectedScenes}
+              currentUserRole={currentUserRole}
+              onOpenTakes={handleOpenSceneTakes}
             />
           </div>
 
@@ -1553,6 +1641,8 @@ Neon reflections shimmer in deep puddles. Sirens echo in the far distance.`;
               onAddScene={handleAddScene}
               onDeleteScene={handleDeleteScene}
               onReorderScenes={handleReorderScenes}
+              currentUserRole={currentUserRole}
+              onOpenTakes={handleOpenSceneTakes}
             />
           )}
 
@@ -1679,7 +1769,11 @@ Neon reflections shimmer in deep puddles. Sirens echo in the far distance.`;
         onUpdateRole={handleUpdateCollaboratorRole}
         onRemoveCollaborator={handleRemoveCollaborator}
         currentUserRole={currentUserRole}
-        onChangeUserRolePreview={setCurrentUserRole}
+        onChangeUserRolePreview={(newRole) => {
+          setCurrentUserRole(newRole);
+          setCurrentUser((prev) => ({ ...prev, role: newRole }));
+          localStorage.setItem('openscript_user_role', newRole);
+        }}
         documentTitle={titleMetadata.title}
       />
 
@@ -1687,6 +1781,18 @@ Neon reflections shimmer in deep puddles. Sirens echo in the far distance.`;
       <KeyboardShortcutsModal
         isOpen={isShortcutsModalOpen}
         onClose={() => setIsShortcutsModalOpen(false)}
+      />
+
+      {/* Scene Takes & Alternate Drafts Modal */}
+      <SceneTakesModal
+        isOpen={isSceneTakesModalOpen}
+        onClose={() => setIsSceneTakesModalOpen(false)}
+        scene={selectedSceneForTakes}
+        takes={sceneTakes}
+        currentUserRole={currentUserRole}
+        currentUserName={currentUser.displayName}
+        onFinalizeTake={handleFinalizeSceneTake}
+        onProposeTake={handleProposeSceneTake}
       />
 
       {/* User Profile Modal */}

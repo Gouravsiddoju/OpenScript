@@ -3,6 +3,7 @@ import { z } from 'zod';
 export const CollaboratorRoleSchema = z.enum([
   'owner',
   'co-writer',
+  'guest',
   'commenter',
   'reader',
 ]);
@@ -39,8 +40,60 @@ export function canEditScreenplay(role: CollaboratorRole): boolean {
 }
 
 /**
+ * Checks if a given role is allowed to propose alternative scene takes
+ */
+export function canProposeSceneTakes(role: CollaboratorRole): boolean {
+  return role === 'owner' || role === 'co-writer';
+}
+
+/**
+ * Checks if a given role has the authority to finalize and choose the winning scene take
+ */
+export function canFinalizeSceneTake(role: CollaboratorRole): boolean {
+  return role === 'owner';
+}
+
+/**
+ * Checks if a given role is allowed to reorder or delete scenes in the Beat Board or Navigator
+ */
+export function canReorderScenes(role: CollaboratorRole): boolean {
+  return role === 'owner' || role === 'co-writer';
+}
+
+/**
  * Checks if a given role is allowed to create or reply to ScriptNotes
  */
 export function canAddNotes(role: CollaboratorRole): boolean {
-  return role === 'owner' || role === 'co-writer' || role === 'commenter';
+  return role === 'owner' || role === 'co-writer' || role === 'guest' || role === 'commenter';
 }
+
+/**
+ * Checks if a given role can invite collaborators and assign/change roles
+ */
+export function canManageTeam(role: CollaboratorRole): boolean {
+  return role === 'owner';
+}
+
+/**
+ * Checks if document security watermark is mandatory for this role
+ */
+export function isWatermarkRequired(role: CollaboratorRole): boolean {
+  return role === 'reader';
+}
+
+/**
+ * Alternate Scene Versions (Takes / Alts) Schema
+ */
+export const SceneTakeSchema = z.object({
+  id: z.string().uuid(),
+  sceneId: z.number(),
+  takeNumber: z.number(),
+  title: z.string(),
+  fountainText: z.string(),
+  sceneHtml: z.string().optional(),
+  authorName: z.string(),
+  authorRole: CollaboratorRoleSchema,
+  createdAt: z.string(),
+  isFinalized: z.boolean().default(false),
+});
+export type SceneTake = z.infer<typeof SceneTakeSchema>;

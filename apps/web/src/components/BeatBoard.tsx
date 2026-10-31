@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
+import { CollaboratorRole, canReorderScenes } from '@openscript/screenplay-schema';
 import { 
+  Film,
   Plus, 
   MapPin, 
   Users, 
@@ -19,6 +21,8 @@ interface BeatBoardProps {
   onAddScene: () => void;
   onDeleteScene?: (sceneIndex: number) => void;
   onReorderScenes?: (fromIndex: number, toIndex: number) => void;
+  currentUserRole?: CollaboratorRole;
+  onOpenTakes?: (scene: SceneItem) => void;
 }
 
 export const BeatBoard: React.FC<BeatBoardProps> = ({
@@ -27,7 +31,10 @@ export const BeatBoard: React.FC<BeatBoardProps> = ({
   onAddScene,
   onDeleteScene,
   onReorderScenes,
+  currentUserRole = 'owner',
+  onOpenTakes,
 }) => {
+  const canManage = canReorderScenes(currentUserRole);
   const [search, setSearch] = useState('');
   const [filterSetting, setFilterSetting] = useState<'ALL' | 'INT' | 'EXT' | 'INT/EXT'>('ALL');
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
@@ -104,6 +111,7 @@ export const BeatBoard: React.FC<BeatBoardProps> = ({
           </div>
 
           {/* Add Scene Card */}
+          {canManage && (
           <button
             onClick={onAddScene}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-black font-semibold text-xs transition-all shadow-md shadow-amber-500/10"
@@ -111,6 +119,7 @@ export const BeatBoard: React.FC<BeatBoardProps> = ({
             <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
             <span>New Beat</span>
           </button>
+          )}
         </div>
       </div>
 
@@ -146,8 +155,8 @@ export const BeatBoard: React.FC<BeatBoardProps> = ({
             return (
               <div
                 key={scene.id}
-                draggable
-                onDragStart={(e) => handleDragStart(e, originalIndex)}
+                draggable={canManage}
+                onDragStart={(e) => canManage && handleDragStart(e, originalIndex)}
                 onDragOver={(e) => e.preventDefault()}
                 onDrop={(e) => handleDrop(e, originalIndex)}
                 className={`group relative flex flex-col justify-between h-56 p-4 rounded-xl bg-[#131519] hover:bg-[#181b22] border transition-all cursor-grab active:cursor-grabbing shadow-sm hover:shadow-xl ${
@@ -158,10 +167,23 @@ export const BeatBoard: React.FC<BeatBoardProps> = ({
                 <div>
                   <div className="flex items-center justify-between gap-2 mb-2">
                     <div className="flex items-center gap-1.5">
-                      <GripVertical className="w-3.5 h-3.5 text-gray-600 group-hover:text-amber-500 transition-colors" />
+                      {canManage && <GripVertical className="w-3.5 h-3.5 text-gray-600 group-hover:text-amber-500 transition-colors" />}
                       <span className="font-mono text-xs font-bold text-amber-500 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">
                         SCENE #{scene.id}
                       </span>
+                      {onOpenTakes && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onOpenTakes(scene);
+                          }}
+                          className="p-1 rounded text-gray-500 hover:text-amber-400 hover:bg-amber-500/10 transition-colors"
+                          title="View & manage alternate takes for this scene"
+                        >
+                          <Film className="w-3.5 h-3.5" />
+                        </button>
+                      )}
                     </div>
 
                     {confirmDeleteId === scene.id ? (
@@ -197,7 +219,7 @@ export const BeatBoard: React.FC<BeatBoardProps> = ({
                         <span className={`text-[10px] font-mono uppercase px-1.5 py-0.5 rounded border ${settingBadge}`}>
                           {scene.setting}
                         </span>
-                        {onDeleteScene && (
+                        {canManage && onDeleteScene && (
                           <button
                             type="button"
                             onClick={(e) => {
