@@ -10,7 +10,8 @@ import {
   MessageSquare, 
   Edit3, 
   Trash2,
-  ExternalLink
+  ExternalLink,
+  Lock
 } from 'lucide-react';
 import { CollaboratorRole, CollaboratorProfile } from '@openscript/screenplay-schema';
 
@@ -28,9 +29,10 @@ interface ShareModalProps {
 
 const ROLE_DESCRIPTIONS: Record<CollaboratorRole, { label: string; icon: any; desc: string }> = {
   owner: { label: 'Owner', icon: Shield, desc: 'Full administrative rights and script control' },
-  'co-writer': { label: 'Co-Writer', icon: Edit3, desc: 'Can write, edit scenes, format, and add notes' },
+  'co-writer': { label: 'Co-Writer', icon: Edit3, desc: 'Can write, edit scenes, format, and propose takes' },
+  guest: { label: 'Guest', icon: MessageSquare, desc: 'Can read final script, leave ScriptNotes and feedback' },
   commenter: { label: 'Commenter / Producer', icon: MessageSquare, desc: 'Can leave margin ScriptNotes and reply to feedback' },
-  reader: { label: 'Reader / Viewer', icon: Eye, desc: 'Read-only access with strict edit protection' },
+  reader: { label: 'Reader / Viewer', icon: Eye, desc: 'Read-only access with watermarked view' },
 };
 
 export const ShareModal: React.FC<ShareModalProps> = ({
@@ -50,8 +52,11 @@ export const ShareModal: React.FC<ShareModalProps> = ({
 
   if (!isOpen) return null;
 
+  const isOwner = currentUserRole === 'owner';
+
   const handleInvite = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!isOwner) return;
     if (!inviteEmail.trim()) return;
     onInviteCollaborator(inviteEmail.trim(), inviteRole);
     setInviteEmail('');
@@ -73,7 +78,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({
             <Users className="w-5 h-5 text-amber-400" />
             <div>
               <h2 className="text-base font-semibold text-white">Share Screenplay & Team Access</h2>
-              <p className="text-xs text-gray-400">Manage real-time co-writers, producers, and script readers</p>
+              <p className="text-xs text-gray-400">Manage real-time co-writers, invited guests, and script readers</p>
             </div>
           </div>
           <button
@@ -85,36 +90,43 @@ export const ShareModal: React.FC<ShareModalProps> = ({
         </div>
 
         <div className="p-5 overflow-y-auto space-y-6">
-          {/* Quick Invite Form */}
-          <form onSubmit={handleInvite} className="bg-[#161921] p-3.5 rounded-xl border border-[#262b37] space-y-3">
-            <label className="text-xs font-semibold text-gray-300 block">Invite Collaborator by Email</label>
-            <div className="flex flex-col sm:flex-row gap-2">
-              <input
-                type="email"
-                placeholder="colleague@ssnpictures.in"
-                value={inviteEmail}
-                onChange={(e) => setInviteEmail(e.target.value)}
-                className="flex-1 px-3 py-2 bg-[#0e1014] border border-[#2b303e] rounded-lg text-xs text-white placeholder-gray-500 focus:outline-none focus:border-amber-500/50"
-              />
-              <select
-                value={inviteRole}
-                onChange={(e) => setInviteRole(e.target.value as CollaboratorRole)}
-                className="px-3 py-2 bg-[#0e1014] border border-[#2b303e] rounded-lg text-xs text-amber-400 font-mono focus:outline-none"
-              >
-                <option value="co-writer">Co-Writer</option>
-                <option value="commenter">Commenter</option>
-                <option value="reader">Reader</option>
-              </select>
-              <button
-                type="submit"
-                disabled={!inviteEmail.trim()}
-                className="px-4 py-2 bg-amber-500 hover:bg-amber-400 disabled:opacity-40 text-black text-xs font-bold rounded-lg transition-colors flex items-center justify-center gap-1.5"
-              >
-                <UserPlus className="w-4 h-4" />
-                <span>Invite</span>
-              </button>
+          {/* Quick Invite Form (Strictly Owner Only) */}
+          {isOwner ? (
+            <form onSubmit={handleInvite} className="bg-[#161921] p-3.5 rounded-xl border border-[#262b37] space-y-3">
+              <label className="text-xs font-semibold text-gray-300 block">Invite Collaborator by Email</label>
+              <div className="flex flex-col sm:flex-row gap-2">
+                <input
+                  type="email"
+                  placeholder="colleague@ssnpictures.in"
+                  value={inviteEmail}
+                  onChange={(e) => setInviteEmail(e.target.value)}
+                  className="flex-1 px-3 py-2 bg-[#0e1014] border border-[#2b303e] rounded-lg text-xs text-white placeholder-gray-500 focus:outline-none focus:border-amber-500/50"
+                />
+                <select
+                  value={inviteRole}
+                  onChange={(e) => setInviteRole(e.target.value as CollaboratorRole)}
+                  className="px-3 py-2 bg-[#0e1014] border border-[#2b303e] rounded-lg text-xs text-amber-400 font-mono focus:outline-none"
+                >
+                  <option value="co-writer">Co-Writer</option>
+                  <option value="guest">Guest (Notes only)</option>
+                  <option value="reader">Reader (View only)</option>
+                </select>
+                <button
+                  type="submit"
+                  disabled={!inviteEmail.trim()}
+                  className="px-4 py-2 bg-amber-500 hover:bg-amber-400 disabled:opacity-40 text-black text-xs font-bold rounded-lg transition-colors flex items-center justify-center gap-1.5"
+                >
+                  <UserPlus className="w-4 h-4" />
+                  <span>Invite</span>
+                </button>
+              </div>
+            </form>
+          ) : (
+            <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-xs text-amber-300 flex items-center gap-2">
+              <Lock className="w-4 h-4 text-amber-400 shrink-0" />
+              <span>Only the Project Owner can invite members or change role permissions.</span>
             </div>
-          </form>
+          )}
 
           {/* Shareable Link Box */}
           <div className="flex items-center justify-between p-3.5 rounded-xl bg-[#161921] border border-[#262b37]">
@@ -146,21 +158,21 @@ export const ShareModal: React.FC<ShareModalProps> = ({
                 return (
                   <div
                     key={collab.userId}
-                    className="flex items-center justify-between p-3 rounded-xl bg-[#161921] border border-[#242835]"
+                    className="flex items-center justify-between p-3 rounded-xl bg-[#161921] border border-[#232733]"
                   >
                     <div className="flex items-center gap-3">
-                      <span
-                        className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white shadow-sm"
+                      <div
+                        className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white shadow"
                         style={{ backgroundColor: collab.color }}
                       >
                         {collab.displayName.charAt(0).toUpperCase()}
-                      </span>
+                      </div>
                       <div>
                         <div className="flex items-center gap-2">
                           <span className="text-xs font-semibold text-white">{collab.displayName}</span>
                           {isSelf && (
-                            <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-400 border border-amber-500/30">
-                              You
+                            <span className="text-[10px] bg-amber-500/20 text-amber-400 px-1.5 py-0.2 rounded font-mono font-medium">
+                              (Owner)
                             </span>
                           )}
                         </div>
@@ -169,10 +181,10 @@ export const ShareModal: React.FC<ShareModalProps> = ({
                     </div>
 
                     <div className="flex items-center gap-2">
-                      {isSelf ? (
+                      {isSelf || !isOwner ? (
                         <div className="flex items-center gap-1.5 px-2.5 py-1 rounded bg-[#20242e] text-amber-400 text-xs font-mono">
-                          <Shield className="w-3.5 h-3.5" />
-                          <span>Owner</span>
+                          <RoleIcon className="w-3.5 h-3.5" />
+                          <span className="capitalize">{collab.role}</span>
                         </div>
                       ) : (
                         <>
@@ -182,7 +194,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({
                             className="px-2 py-1 bg-[#0f1115] border border-[#2b303e] rounded text-xs text-gray-300 font-mono focus:outline-none"
                           >
                             <option value="co-writer">Co-Writer</option>
-                            <option value="commenter">Commenter</option>
+                            <option value="guest">Guest</option>
                             <option value="reader">Reader</option>
                           </select>
                           <button
@@ -211,7 +223,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({
               Preview how OpenScript behaves under different production permissions:
             </p>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 pt-1">
-              {(['owner', 'co-writer', 'commenter', 'reader'] as CollaboratorRole[]).map((role) => (
+              {(['owner', 'co-writer', 'guest', 'reader'] as CollaboratorRole[]).map((role) => (
                 <button
                   key={role}
                   type="button"

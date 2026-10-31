@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { CollaboratorRole, canReorderScenes } from '@openscript/screenplay-schema';
 import { 
   Film, 
   Folder, 
@@ -43,6 +44,8 @@ interface SceneNavigatorProps {
   onAddScene: (insertAfterSceneIndex?: number) => void;
   onDeleteScene: (sceneIndex: number) => void;
   onExportSelectedScenes: (selectedScenes: SceneItem[]) => void;
+  currentUserRole?: CollaboratorRole;
+  onOpenTakes?: (scene: SceneItem) => void;
 }
 
 const DEFAULT_FOLDERS: SceneFolder[] = [
@@ -57,7 +60,10 @@ export const SceneNavigator: React.FC<SceneNavigatorProps> = ({
   onAddScene,
   onDeleteScene,
   onExportSelectedScenes,
+  currentUserRole = 'owner',
+  onOpenTakes,
 }) => {
+  const canManageScenes = canReorderScenes(currentUserRole);
   // Navigation display mode preference: 'flat' (scenes only) or 'acts' (folders & acts)
   const [viewMode, setViewMode] = useState<'flat' | 'acts'>(() => {
     const saved = localStorage.getItem('openscript_outliner_view_mode');
@@ -270,7 +276,7 @@ export const SceneNavigator: React.FC<SceneNavigatorProps> = ({
           </button>
         </div>
 
-        {viewMode === 'flat' ? (
+        {canManageScenes && (viewMode === 'flat' ? (
           <button
             onClick={() => onAddScene()}
             className="flex items-center gap-1 px-2.5 py-1 rounded bg-amber-500 hover:bg-amber-400 text-black font-semibold font-mono text-[11px] transition-all shadow-sm shadow-amber-500/20 active:scale-95"
@@ -288,7 +294,7 @@ export const SceneNavigator: React.FC<SceneNavigatorProps> = ({
             <FolderPlus className="w-3.5 h-3.5" />
             <span>New Act</span>
           </button>
-        )}
+        ))}
       </div>
 
       {/* 2. Search & Filter Bar */}
@@ -408,6 +414,8 @@ export const SceneNavigator: React.FC<SceneNavigatorProps> = ({
                 onRequestDelete={() => setConfirmingDeleteSceneId(scene.id)}
                 onCancelDelete={() => setConfirmingDeleteSceneId(null)}
                 onConfirmDelete={() => handleDeleteSceneConfirmed(scene.id)}
+                canDelete={canManageScenes}
+                onOpenTakes={onOpenTakes ? () => onOpenTakes(scene) : undefined}
                 onToggleSelect={() => toggleSelectScene(scene.id)}
                 onSelect={() => {
                   setActiveSceneId(scene.id);
@@ -550,7 +558,9 @@ export const SceneNavigator: React.FC<SceneNavigatorProps> = ({
                             scene={scene}
                             isActive={activeSceneId === scene.id}
                             isSelected={selectedSceneIds.includes(scene.id)}
-                            isDraggable={true}
+                            isDraggable={canManageScenes}
+                        canDelete={canManageScenes}
+                        onOpenTakes={onOpenTakes ? () => onOpenTakes(scene) : undefined}
                             isDragging={draggedSceneId === scene.id}
                             onDragStart={(e) => {
                               e.dataTransfer.setData('text/plain', String(scene.id));
@@ -666,6 +676,8 @@ export const SceneNavigator: React.FC<SceneNavigatorProps> = ({
 
 interface SceneCardItemProps {
   scene: SceneItem;
+  canDelete?: boolean;
+  onOpenTakes?: () => void;
   isActive: boolean;
   isSelected: boolean;
   isDraggable?: boolean;
@@ -694,6 +706,8 @@ const SceneCardItem: React.FC<SceneCardItemProps> = ({
   onConfirmDelete,
   onToggleSelect,
   onSelect,
+  canDelete = true,
+  onOpenTakes,
 }) => {
   const isInt = scene.setting === 'INT';
   const isExt = scene.setting === 'EXT';
@@ -801,35 +815,47 @@ const SceneCardItem: React.FC<SceneCardItemProps> = ({
         )}
       </div>
 
-      {/* Right Controls: Scene Deletion with Inline Confirmation */}
+      {/* Right Controls: Scene Takes & Deletion */}
       <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
-        {confirmingDelete ? (
-          <div className="flex items-center gap-1 bg-red-950/90 border border-red-500/60 rounded px-1.5 py-0.5 z-10 shadow-lg">
-            <span className="text-[9px] text-red-300 font-mono">Delete?</span>
-            <button
-              type="button"
-              onClick={onConfirmDelete}
-              className="px-1.5 py-0.5 bg-red-600 hover:bg-red-500 text-white rounded text-[9px] font-bold shadow-sm"
-            >
-              Yes
-            </button>
-            <button
-              type="button"
-              onClick={onCancelDelete}
-              className="px-1 py-0.5 text-gray-400 hover:text-white text-[9px]"
-            >
-              Cancel
-            </button>
-          </div>
-        ) : (
+        {onOpenTakes && (
           <button
             type="button"
-            onClick={onRequestDelete}
-            className="opacity-0 group-hover:opacity-100 transition-opacity p-1 text-gray-500 hover:text-red-400 hover:bg-red-500/10 rounded"
-            title="Delete this scene"
+            onClick={onOpenTakes}
+            className="p-1 rounded text-gray-500 hover:text-amber-400 hover:bg-amber-500/10 transition-colors"
+            title="View & propose alternate scene takes"
           >
-            <Trash2 className="w-3.5 h-3.5" />
+            <Film className="w-3.5 h-3.5" />
           </button>
+        )}
+        {canDelete && (
+          confirmingDelete ? (
+            <div className="flex items-center gap-1 bg-red-950/90 border border-red-500/60 rounded px-1.5 py-0.5 z-10 shadow-lg">
+              <span className="text-[9px] text-red-300 font-mono">Delete?</span>
+              <button
+                type="button"
+                onClick={onConfirmDelete}
+                className="px-1.5 py-0.5 bg-red-600 hover:bg-red-500 text-white rounded text-[9px] font-bold shadow-sm"
+              >
+                Yes
+              </button>
+              <button
+                type="button"
+                onClick={onCancelDelete}
+                className="px-1 py-0.5 text-gray-400 hover:text-white text-[9px]"
+              >
+                Cancel
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={onRequestDelete}
+              className="opacity-0 group-hover:opacity-100 transition-opacity p-1 text-gray-500 hover:text-red-400 hover:bg-red-500/10 rounded"
+              title="Delete this scene"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+            </button>
+          )
         )}
       </div>
     </div>
