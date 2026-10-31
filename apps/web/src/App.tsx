@@ -671,9 +671,10 @@ Neon reflections shimmer in deep puddles. Sirens echo in the far distance.`;
             revisionMark: isTrackingRevisions,
             revisionColor: activeRevisionColor 
           },
-          content: [{ type: 'text', text: '' }] 
+          content: [{ type: 'text', text: 'Action description...' }] 
         }
       ]).run();
+      handleEditorUpdate(editorInstance.getHTML());
     } else {
       const addedHtml = `<div class="script-scene-heading" data-scene-number="${sceneNumberAttr}">${defaultSlugline}</div><div class="script-action"></div>`;
       setScriptHtml((prev) => prev + addedHtml);
