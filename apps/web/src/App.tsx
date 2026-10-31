@@ -731,7 +731,9 @@ Neon reflections shimmer in deep puddles. Sirens echo in the far distance.`;
     setActiveMode(newMode);
   };
 
-  const handleAddScene = () => {
+  const handleAddScene = (insertAfterSceneIndex?: number | any) => {
+    const targetInsertIndex = typeof insertAfterSceneIndex === 'number' ? insertAfterSceneIndex : undefined;
+
     if (activeMode !== 'screenplay') {
       setActiveMode('screenplay');
     }
@@ -748,35 +750,122 @@ Neon reflections shimmer in deep puddles. Sirens echo in the far distance.`;
       defaultSlugline = `INT. SCENE ${sceneNumberAttr} - DAY`;
     }
     
-    if (editorInstance) {
-      editorInstance.chain().focus('end').insertContent([
-        { 
-          type: 'sceneHeading', 
-          attrs: { 
-            sceneNumber: sceneNumberAttr,
-            revisionMark: isTrackingRevisions,
-            revisionColor: activeRevisionColor 
-          },
-          content: [{ type: 'text', text: defaultSlugline }] 
+    const newSceneNodes = [
+      { 
+        type: 'sceneHeading', 
+        attrs: { 
+          sceneNumber: sceneNumberAttr,
+          revisionMark: isTrackingRevisions,
+          revisionColor: activeRevisionColor 
         },
-        { 
-          type: 'action', 
-          attrs: { 
-            revisionMark: isTrackingRevisions,
-            revisionColor: activeRevisionColor 
-          },
-          content: [{ type: 'text', text: 'Action description...' }] 
+        content: [{ type: 'text', text: defaultSlugline }] 
+      },
+      { 
+        type: 'action', 
+        attrs: { 
+          revisionMark: isTrackingRevisions,
+          revisionColor: activeRevisionColor 
+        },
+        content: [{ type: 'text', text: 'Action description...' }] 
+      }
+    ];
+
+    if (editorInstance) {
+      if (
+        targetInsertIndex !== undefined &&
+        targetInsertIndex >= 0 &&
+        targetInsertIndex < scenes.length - 1
+      ) {
+        let headingIndex = 0;
+        let targetPos: number | null = null;
+        editorInstance.state.doc.descendants((node: any, pos: number) => {
+          if (node.type.name === 'sceneHeading') {
+            if (headingIndex === targetInsertIndex + 1) {
+              targetPos = pos;
+              return false;
+            }
+            headingIndex++;
+          }
+        });
+
+        if (targetPos !== null) {
+          editorInstance.chain().focus().insertContentAt(targetPos, newSceneNodes).run();
+          handleEditorUpdate(editorInstance.getHTML());
+          setTimeout(() => {
+            scrollToScene(targetInsertIndex + 1);
+          }, 150);
+          return;
         }
-      ]).run();
+      }
+
+      editorInstance.chain().focus('end').insertContent(newSceneNodes).run();
       handleEditorUpdate(editorInstance.getHTML());
     } else {
-      const addedHtml = `<div class="script-scene-heading" data-scene-number="${sceneNumberAttr}">${defaultSlugline}</div><div class="script-action"></div>`;
+      const addedHtml = `<div class="script-scene-heading" data-scene-number="${sceneNumberAttr}">${defaultSlugline}</div><div class="script-action">Action description...</div>`;
       setScriptHtml((prev) => prev + addedHtml);
     }
     
     setTimeout(() => {
       scrollToScene(scenes.length);
     }, 150);
+  };
+
+  const handleDeleteScene = (sceneIndex: number) => {
+    if (sceneIndex < 0 || sceneIndex >= scenes.length) return;
+
+    if (editorInstance) {
+      let headingIndex = 0;
+      let targetStart: number | null = null;
+      let targetEnd: number | null = null;
+
+      editorInstance.state.doc.descendants((node: any, pos: number) => {
+        if (node.type.name === 'sceneHeading') {
+          if (headingIndex === sceneIndex) {
+            targetStart = pos;
+          } else if (headingIndex === sceneIndex + 1 && targetStart !== null && targetEnd === null) {
+            targetEnd = pos;
+            return false;
+          }
+          headingIndex++;
+        }
+      });
+
+      if (targetStart !== null) {
+        if (targetEnd === null) {
+          targetEnd = editorInstance.state.doc.content.size;
+        }
+
+        if (scenes.length <= 1) {
+          const defaultSlugline = 'INT. SCENE 1 - DAY';
+          editorInstance.chain().focus().setContent([
+            {
+              type: 'sceneHeading',
+              attrs: { sceneNumber: '1' },
+              content: [{ type: 'text', text: defaultSlugline }],
+            },
+            {
+              type: 'action',
+              content: [{ type: 'text', text: 'Action description begins here.' }],
+            },
+          ]).run();
+        } else {
+          editorInstance.view.dispatch(editorInstance.state.tr.delete(targetStart, targetEnd));
+        }
+
+        handleEditorUpdate(editorInstance.getHTML());
+        setIsSaved(false);
+        return;
+      }
+    }
+
+    const remainingScenes = scenes.filter((_, idx) => idx !== sceneIndex);
+    const newFountain = remainingScenes.length > 0
+      ? remainingScenes.map((s) => s.fountainText).join('\n\n')
+      : 'INT. SCENE 1 - DAY\n\nAction description begins here.';
+    const newHtml = fountainToHtml(newFountain);
+    setScriptHtml(newHtml);
+    setFountainText(newFountain);
+    setIsSaved(false);
   };
 
   // Reorder scenes directly from the Beat Board (Stories #11 & #16)
@@ -1157,6 +1246,7 @@ Neon reflections shimmer in deep puddles. Sirens echo in the far distance.`;
               scenes={scenes}
               onSelectScene={scrollToScene}
               onAddScene={handleAddScene}
+              onDeleteScene={handleDeleteScene}
               onExportSelectedScenes={handleExportSelectedScenes}
             />
           </div>
@@ -1441,6 +1531,7 @@ Neon reflections shimmer in deep puddles. Sirens echo in the far distance.`;
               scenes={scenes}
               onOpenScene={scrollToScene}
               onAddScene={handleAddScene}
+              onDeleteScene={handleDeleteScene}
               onReorderScenes={handleReorderScenes}
             />
           )}

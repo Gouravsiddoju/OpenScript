@@ -9,12 +9,12 @@ import {
   CheckSquare, 
   Square, 
   Download, 
-  Search,
-  Filter,
-  Layers,
-  MapPin,
-  Users,
-  ListOrdered
+  Search, 
+  Filter, 
+  Layers, 
+  Users, 
+  ListOrdered,
+  Trash2
 } from 'lucide-react';
 
 export interface SceneItem {
@@ -38,7 +38,8 @@ export interface SceneFolder {
 interface SceneNavigatorProps {
   scenes: SceneItem[];
   onSelectScene: (sceneIndex: number) => void;
-  onAddScene: () => void;
+  onAddScene: (insertAfterSceneIndex?: number) => void;
+  onDeleteScene: (sceneIndex: number) => void;
   onExportSelectedScenes: (selectedScenes: SceneItem[]) => void;
 }
 
@@ -52,10 +53,19 @@ export const SceneNavigator: React.FC<SceneNavigatorProps> = ({
   scenes,
   onSelectScene,
   onAddScene,
+  onDeleteScene,
   onExportSelectedScenes,
 }) => {
-  // Navigation display mode: 'flat' (chronological scenes list) or 'acts' (folders)
-  const [viewMode, setViewMode] = useState<'flat' | 'acts'>('flat');
+  // Navigation display mode preference: 'flat' (scenes only) or 'acts' (folders & acts)
+  const [viewMode, setViewMode] = useState<'flat' | 'acts'>(() => {
+    const saved = localStorage.getItem('openscript_outliner_view_mode');
+    return saved === 'acts' ? 'acts' : 'flat';
+  });
+
+  const handleSetViewMode = (mode: 'flat' | 'acts') => {
+    setViewMode(mode);
+    localStorage.setItem('openscript_outliner_view_mode', mode);
+  };
 
   const [folders, setFolders] = useState<SceneFolder[]>(() => {
     const saved = localStorage.getItem('openscript_scene_folders');
@@ -74,6 +84,8 @@ export const SceneNavigator: React.FC<SceneNavigatorProps> = ({
   const [isAddingFolder, setIsAddingFolder] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
   const [activeSceneId, setActiveSceneId] = useState<number | null>(1);
+  const [confirmingDeleteSceneId, setConfirmingDeleteSceneId] = useState<number | null>(null);
+  const [confirmingDeleteFolderId, setConfirmingDeleteFolderId] = useState<string | null>(null);
 
   const saveFolders = (newFolders: SceneFolder[]) => {
     setFolders(newFolders);
@@ -101,19 +113,77 @@ export const SceneNavigator: React.FC<SceneNavigatorProps> = ({
     setIsAddingFolder(false);
   };
 
+  const handleDeleteFolder = (folderId: string) => {
+    const nextFolders = folders.filter((f) => f.id !== folderId);
+    saveFolders(nextFolders);
+    const nextMap = { ...sceneFolderMap };
+    Object.entries(nextMap).forEach(([k, fId]) => {
+      if (fId === folderId) {
+        delete nextMap[Number(k)];
+      }
+    });
+    saveFolderMap(nextMap);
+    setConfirmingDeleteFolderId(null);
+  };
+
+  const handleDeleteSceneConfirmed = (sceneId: number) => {
+    const sceneIndex = sceneId - 1;
+    const nextMap: Record<number, string> = {};
+    Object.entries(sceneFolderMap).forEach(([k, fId]) => {
+      const num = Number(k);
+      if (num < sceneId) {
+        nextMap[num] = fId;
+      } else if (num > sceneId) {
+        nextMap[num - 1] = fId;
+      }
+    });
+    saveFolderMap(nextMap);
+
+    setSelectedSceneIds((prev) =>
+      prev.filter((id) => id !== sceneId).map((id) => (id > sceneId ? id - 1 : id))
+    );
+
+    if (activeSceneId === sceneId) {
+      setActiveSceneId(Math.max(1, sceneId - 1));
+    } else if (activeSceneId && activeSceneId > sceneId) {
+      setActiveSceneId(activeSceneId - 1);
+    }
+
+    setConfirmingDeleteSceneId(null);
+    onDeleteScene(sceneIndex);
+  };
+
+  const handleCreateSceneInFolder = (folderId: string) => {
+    const folderScenes = scenesByFolder[folderId] || [];
+    let insertAfterIndex: number | undefined = undefined;
+    if (folderScenes.length > 0) {
+      const lastScene = folderScenes[folderScenes.length - 1];
+      const foundIdx = scenes.findIndex((s) => s.id === lastScene.id);
+      if (foundIdx !== -1) {
+        insertAfterIndex = foundIdx;
+      }
+    }
+
+    const targetId = insertAfterIndex !== undefined ? insertAfterIndex + 2 : scenes.length + 1;
+    const nextMap: Record<number, string> = {};
+    Object.entries(sceneFolderMap).forEach(([k, fId]) => {
+      const num = Number(k);
+      if (insertAfterIndex !== undefined && num >= targetId) {
+        nextMap[num + 1] = fId;
+      } else {
+        nextMap[num] = fId;
+      }
+    });
+    nextMap[targetId] = folderId;
+    saveFolderMap(nextMap);
+
+    onAddScene(insertAfterIndex);
+  };
+
   const toggleSelectScene = (sceneId: number) => {
     setSelectedSceneIds((prev) =>
       prev.includes(sceneId) ? prev.filter((id) => id !== sceneId) : [...prev, sceneId]
     );
-  };
-
-  const selectAllInFolder = (sceneIds: number[]) => {
-    const allSelected = sceneIds.every((id) => selectedSceneIds.includes(id));
-    if (allSelected) {
-      setSelectedSceneIds((prev) => prev.filter((id) => !sceneIds.includes(id)));
-    } else {
-      setSelectedSceneIds((prev) => Array.from(new Set([...prev, ...sceneIds])));
-    }
   };
 
   const handleExportSelected = () => {
@@ -155,60 +225,48 @@ export const SceneNavigator: React.FC<SceneNavigatorProps> = ({
 
   return (
     <div className="flex flex-col h-full overflow-hidden text-xs bg-[#090a0c]">
-      {/* 1. Header Toolbar */}
-      <div className="p-3 border-b border-[#1c1e24] flex items-center justify-between gap-2 bg-[#0d0e12]">
-        <div className="flex items-center gap-2">
-          <Film className="w-4 h-4 text-amber-500" />
-          <span className="font-mono text-xs text-white font-bold tracking-wide">
-            OUTLINER ({scenes.length})
-          </span>
-        </div>
-
-        <div className="flex items-center gap-1.5">
-          <button
-            onClick={onAddScene}
-            className="flex items-center gap-1 px-2.5 py-1 rounded bg-amber-500 hover:bg-amber-400 text-black font-semibold font-mono text-[11px] transition-all shadow-sm shadow-amber-500/20 active:scale-95"
-            title="Add a new Scene Heading to your script"
-          >
-            <Plus className="w-3.5 h-3.5 stroke-[3]" />
-            <span>New Scene</span>
-          </button>
-        </div>
-      </div>
-
-      {/* 2. View Mode Tabs (Scenes vs Acts) */}
-      <div className="px-3 pt-2.5 pb-1 border-b border-[#1c1e24] bg-[#0c0d10] flex items-center justify-between">
+      {/* 1. View Mode Switcher Header: Gives the choice cleanly between Scenes or Acts / Folders */}
+      <div className="p-2.5 border-b border-[#1c1e24] flex items-center justify-between gap-2 bg-[#0d0e12]">
         <div className="flex items-center bg-[#15171e] p-0.5 rounded-lg border border-[#232631]">
           <button
-            onClick={() => setViewMode('flat')}
-            className={`flex items-center gap-1 px-2.5 py-1 rounded text-[11px] font-mono transition-colors ${
+            onClick={() => handleSetViewMode('flat')}
+            className={`flex items-center gap-1.5 px-3 py-1 rounded text-[11px] font-mono transition-all ${
               viewMode === 'flat'
                 ? 'bg-amber-500/20 text-amber-300 font-bold border border-amber-500/40 shadow-sm'
                 : 'text-gray-400 hover:text-white'
             }`}
-            title="Chronological scene order"
+            title="Clean chronological scenes list"
           >
-            <ListOrdered className="w-3 h-3" />
+            <ListOrdered className="w-3.5 h-3.5" />
             <span>Scenes</span>
           </button>
           <button
-            onClick={() => setViewMode('acts')}
-            className={`flex items-center gap-1 px-2.5 py-1 rounded text-[11px] font-mono transition-colors ${
+            onClick={() => handleSetViewMode('acts')}
+            className={`flex items-center gap-1.5 px-3 py-1 rounded text-[11px] font-mono transition-all ${
               viewMode === 'acts'
                 ? 'bg-amber-500/20 text-amber-300 font-bold border border-amber-500/40 shadow-sm'
                 : 'text-gray-400 hover:text-white'
             }`}
             title="Organize scenes into Acts and Folders"
           >
-            <Folder className="w-3 h-3" />
+            <Folder className="w-3.5 h-3.5" />
             <span>Acts / Folders</span>
           </button>
         </div>
 
-        {viewMode === 'acts' && (
+        {viewMode === 'flat' ? (
+          <button
+            onClick={() => onAddScene()}
+            className="flex items-center gap-1 px-2.5 py-1 rounded bg-amber-500 hover:bg-amber-400 text-black font-semibold font-mono text-[11px] transition-all shadow-sm shadow-amber-500/20 active:scale-95"
+            title="Add a new Scene Heading to script"
+          >
+            <Plus className="w-3.5 h-3.5 stroke-[3]" />
+            <span>New Scene</span>
+          </button>
+        ) : (
           <button
             onClick={() => setIsAddingFolder(true)}
-            className="flex items-center gap-1 text-[11px] font-mono text-purple-400 hover:text-purple-300 transition-colors"
+            className="flex items-center gap-1 px-2.5 py-1 rounded bg-purple-600/30 hover:bg-purple-600/50 text-purple-300 border border-purple-500/40 font-mono text-[11px] font-semibold transition-all"
             title="Create a new Act / Folder"
           >
             <FolderPlus className="w-3.5 h-3.5" />
@@ -217,13 +275,13 @@ export const SceneNavigator: React.FC<SceneNavigatorProps> = ({
         )}
       </div>
 
-      {/* 3. Search & Filter Bar */}
+      {/* 2. Search & Filter Bar */}
       <div className="p-2.5 border-b border-[#1a1c22] space-y-2 bg-[#0c0d0f]">
         <div className="relative">
           <Search className="w-3.5 h-3.5 absolute left-2.5 top-2 text-gray-500" />
           <input
             type="text"
-            placeholder="Search scenes, characters, or text..."
+            placeholder={viewMode === 'flat' ? "Search scenes, characters, or text..." : "Filter scenes across acts..."}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full pl-8 pr-2 py-1 bg-[#14161a] border border-[#23262e] rounded-lg text-gray-200 placeholder-gray-500 focus:outline-none focus:border-amber-500/50 text-[11px]"
@@ -252,7 +310,7 @@ export const SceneNavigator: React.FC<SceneNavigatorProps> = ({
         </div>
       </div>
 
-      {/* 4. Selective Export Floating Bar (when scenes are checked) */}
+      {/* 3. Selective Export Floating Bar (when scenes are checked) */}
       {selectedSceneIds.length > 0 && (
         <div className="p-2 bg-amber-500/10 border-b border-amber-500/30 flex items-center justify-between">
           <span className="text-[11px] font-mono text-amber-300 font-semibold">
@@ -277,12 +335,12 @@ export const SceneNavigator: React.FC<SceneNavigatorProps> = ({
         </div>
       )}
 
-      {/* 5. New Folder Input Form */}
+      {/* 4. New Folder Input Form */}
       {isAddingFolder && (
         <div className="p-2 border-b border-purple-500/40 bg-purple-950/20 flex items-center gap-1.5">
           <input
             type="text"
-            placeholder="Act / Folder Name (e.g. Act I — The Inciting Incident)"
+            placeholder="Act / Folder Name (e.g. Act IV — The Epilogue)"
             value={newFolderName}
             onChange={(e) => setNewFolderName(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleAddFolder()}
@@ -304,14 +362,14 @@ export const SceneNavigator: React.FC<SceneNavigatorProps> = ({
         </div>
       )}
 
-      {/* 6. Scene Sequence or Acts View */}
+      {/* 5. Scenes Sequence or Acts View */}
       <div className="flex-1 overflow-y-auto p-2 space-y-2">
         {filteredScenes.length === 0 ? (
           <div className="h-48 flex flex-col items-center justify-center text-center p-4 text-gray-500">
             <Film className="w-8 h-8 text-gray-600 mb-2 stroke-1" />
             <p className="text-xs font-medium text-gray-400">No scenes in outline</p>
             <button
-              onClick={onAddScene}
+              onClick={() => onAddScene()}
               className="mt-3 px-3 py-1.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/30 rounded-lg text-xs font-mono font-medium transition-all"
             >
               + Create First Scene
@@ -319,7 +377,7 @@ export const SceneNavigator: React.FC<SceneNavigatorProps> = ({
           </div>
         ) : viewMode === 'flat' ? (
           /* ========================================================== */
-          /* FLAT CHRONOLOGICAL SCENE LIST (Clean & Intuitive)         */
+          /* PURE SCENES LIST (Simple, Direct, Scene Deletion Support)  */
           /* ========================================================== */
           <div className="space-y-1.5">
             {filteredScenes.map((scene) => (
@@ -328,6 +386,11 @@ export const SceneNavigator: React.FC<SceneNavigatorProps> = ({
                 scene={scene}
                 isActive={activeSceneId === scene.id}
                 isSelected={selectedSceneIds.includes(scene.id)}
+                showFolderSelect={false}
+                confirmingDelete={confirmingDeleteSceneId === scene.id}
+                onRequestDelete={() => setConfirmingDeleteSceneId(scene.id)}
+                onCancelDelete={() => setConfirmingDeleteSceneId(null)}
+                onConfirmDelete={() => handleDeleteSceneConfirmed(scene.id)}
                 onToggleSelect={() => toggleSelectScene(scene.id)}
                 onSelect={() => {
                   setActiveSceneId(scene.id);
@@ -343,16 +406,18 @@ export const SceneNavigator: React.FC<SceneNavigatorProps> = ({
           </div>
         ) : (
           /* ========================================================== */
-          /* ACTS & FOLDERS VIEW                                       */
+          /* ACTS & FOLDERS VIEW (Create Acts & Create Scenes Inside)   */
           /* ========================================================== */
           <div className="space-y-3">
             {folders.map((folder) => {
               const folderScenes = scenesByFolder[folder.id] || [];
               const isCollapsed = collapsedFolders[folder.id];
+              const isCustom = !DEFAULT_FOLDERS.some((df) => df.id === folder.id);
 
               return (
-                <div key={folder.id} className="space-y-1">
-                  <div className="flex items-center justify-between p-1.5 bg-[#131519] rounded-lg border border-[#20232a] group">
+                <div key={folder.id} className="space-y-1 bg-[#101216]/60 p-1.5 rounded-xl border border-[#1e2128]">
+                  {/* Folder / Act Header */}
+                  <div className="flex items-center justify-between gap-1 group">
                     <button
                       onClick={() => toggleFolderCollapse(folder.id)}
                       className="flex items-center gap-1.5 font-mono text-[11px] font-bold text-gray-300 hover:text-white truncate flex-1 text-left"
@@ -364,18 +429,64 @@ export const SceneNavigator: React.FC<SceneNavigatorProps> = ({
                       )}
                       <Folder className="w-3.5 h-3.5 text-amber-500/80 flex-shrink-0" />
                       <span className="truncate">{folder.name}</span>
-                      <span className="text-[10px] font-normal text-gray-500">
+                      <span className="text-[10px] font-normal text-gray-500 font-mono">
                         ({folderScenes.length})
                       </span>
                     </button>
+
+                    {/* Act Controls: Create Scene directly in Act + Delete custom folder */}
+                    <div className="flex items-center gap-1 shrink-0">
+                      <button
+                        onClick={() => handleCreateSceneInFolder(folder.id)}
+                        className="flex items-center gap-1 px-2 py-0.5 rounded bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/30 text-[10px] font-mono font-semibold transition-all"
+                        title={`Add a new scene directly into ${folder.name}`}
+                      >
+                        <Plus className="w-3 h-3 stroke-[2.5]" />
+                        <span>Scene</span>
+                      </button>
+
+                      {isCustom && (
+                        confirmingDeleteFolderId === folder.id ? (
+                          <div className="flex items-center gap-1 bg-red-950/80 border border-red-500/50 rounded px-1 py-0.2">
+                            <span className="text-[9px] text-red-300">Delete Act?</span>
+                            <button
+                              onClick={() => handleDeleteFolder(folder.id)}
+                              className="px-1 bg-red-600 text-white rounded text-[9px] font-bold"
+                            >
+                              Yes
+                            </button>
+                            <button
+                              onClick={() => setConfirmingDeleteFolderId(null)}
+                              className="text-gray-400 hover:text-white text-[9px]"
+                            >
+                              X
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => setConfirmingDeleteFolderId(folder.id)}
+                            className="p-1 text-gray-500 hover:text-red-400 transition-colors rounded"
+                            title="Delete this custom Act folder (scenes stay safe in script)"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </button>
+                        )
+                      )}
+                    </div>
                   </div>
 
+                  {/* Folder Scenes or Empty State */}
                   {!isCollapsed && (
-                    <div className="pl-2 space-y-1">
+                    <div className="pt-1 pl-1 space-y-1">
                       {folderScenes.length === 0 ? (
-                        <div className="text-[10px] text-gray-500 italic py-1 pl-3 bg-[#111317] rounded border border-dashed border-[#22252e]">
-                          Drop or assign scenes to {folder.name}
-                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleCreateSceneInFolder(folder.id)}
+                          className="w-full text-left text-[11px] font-mono text-amber-400/80 hover:text-amber-300 py-2 px-2.5 bg-[#13151b] hover:bg-[#181b24] rounded-lg border border-dashed border-[#242834] hover:border-amber-500/40 transition-all flex items-center gap-2 group/btn"
+                        >
+                          <Plus className="w-3.5 h-3.5 text-amber-500 group-hover/btn:scale-110 transition-transform" />
+                          <span>+ Create First Scene in {folder.name}</span>
+                        </button>
                       ) : (
                         folderScenes.map((scene) => (
                           <SceneCardItem
@@ -383,6 +494,11 @@ export const SceneNavigator: React.FC<SceneNavigatorProps> = ({
                             scene={scene}
                             isActive={activeSceneId === scene.id}
                             isSelected={selectedSceneIds.includes(scene.id)}
+                            showFolderSelect={true}
+                            confirmingDelete={confirmingDeleteSceneId === scene.id}
+                            onRequestDelete={() => setConfirmingDeleteSceneId(scene.id)}
+                            onCancelDelete={() => setConfirmingDeleteSceneId(null)}
+                            onConfirmDelete={() => handleDeleteSceneConfirmed(scene.id)}
                             onToggleSelect={() => toggleSelectScene(scene.id)}
                             onSelect={() => {
                               setActiveSceneId(scene.id);
@@ -403,19 +519,24 @@ export const SceneNavigator: React.FC<SceneNavigatorProps> = ({
             })}
 
             {/* Unassigned Category in Acts View */}
-            {(scenesByFolder['unassigned']?.length > 0) && (
-              <div className="space-y-1">
-                <div className="p-1.5 bg-[#111317] rounded-lg border border-[#1d2027] font-mono text-[11px] text-gray-400 font-semibold flex items-center gap-1.5">
+            {scenesByFolder['unassigned']?.length > 0 && (
+              <div className="space-y-1 bg-[#101216]/40 p-1.5 rounded-xl border border-[#1b1d24]">
+                <div className="p-1 font-mono text-[11px] text-gray-400 font-semibold flex items-center gap-1.5">
                   <Layers className="w-3.5 h-3.5 text-gray-500" />
                   <span>Unassigned Scenes ({scenesByFolder['unassigned'].length})</span>
                 </div>
-                <div className="pl-2 space-y-1">
+                <div className="pl-1 space-y-1">
                   {scenesByFolder['unassigned'].map((scene) => (
                     <SceneCardItem
                       key={scene.id}
                       scene={scene}
                       isActive={activeSceneId === scene.id}
                       isSelected={selectedSceneIds.includes(scene.id)}
+                      showFolderSelect={true}
+                      confirmingDelete={confirmingDeleteSceneId === scene.id}
+                      onRequestDelete={() => setConfirmingDeleteSceneId(scene.id)}
+                      onCancelDelete={() => setConfirmingDeleteSceneId(null)}
+                      onConfirmDelete={() => handleDeleteSceneConfirmed(scene.id)}
                       onToggleSelect={() => toggleSelectScene(scene.id)}
                       onSelect={() => {
                         setActiveSceneId(scene.id);
@@ -442,6 +563,11 @@ interface SceneCardItemProps {
   scene: SceneItem;
   isActive: boolean;
   isSelected: boolean;
+  showFolderSelect: boolean;
+  confirmingDelete: boolean;
+  onRequestDelete: () => void;
+  onCancelDelete: () => void;
+  onConfirmDelete: () => void;
   onToggleSelect: () => void;
   onSelect: () => void;
   folders: SceneFolder[];
@@ -453,6 +579,11 @@ const SceneCardItem: React.FC<SceneCardItemProps> = ({
   scene,
   isActive,
   isSelected,
+  showFolderSelect,
+  confirmingDelete,
+  onRequestDelete,
+  onCancelDelete,
+  onConfirmDelete,
   onToggleSelect,
   onSelect,
   folders,
@@ -553,24 +684,56 @@ const SceneCardItem: React.FC<SceneCardItemProps> = ({
         )}
       </div>
 
-      {/* Move to folder dropdown on hover */}
-      <select
-        value={currentFolderId}
-        onChange={(e) => {
-          e.stopPropagation();
-          onMoveFolder(e.target.value);
-        }}
-        onClick={(e) => e.stopPropagation()}
-        className="opacity-0 group-hover:opacity-100 transition-opacity bg-[#161820] text-gray-400 hover:text-white border border-[#2b303d] rounded text-[10px] px-1 py-0.5 focus:outline-none shrink-0"
-        title="Assign scene to Act / Folder"
-      >
-        <option value="unassigned">Act: None</option>
-        {folders.map((f) => (
-          <option key={f.id} value={f.id}>
-            {f.name.split(' — ')[0]}
-          </option>
-        ))}
-      </select>
+      {/* Right Controls: Folder Selector (only in Acts view) + Scene Deletion */}
+      <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
+        {showFolderSelect && (
+          <select
+            value={currentFolderId}
+            onChange={(e) => {
+              e.stopPropagation();
+              onMoveFolder(e.target.value);
+            }}
+            className="opacity-0 group-hover:opacity-100 transition-opacity bg-[#161820] text-gray-400 hover:text-white border border-[#2b303d] rounded text-[10px] px-1 py-0.5 focus:outline-none"
+            title="Assign scene to Act / Folder"
+          >
+            <option value="unassigned">Act: None</option>
+            {folders.map((f) => (
+              <option key={f.id} value={f.id}>
+                {f.name.split(' — ')[0]}
+              </option>
+            ))}
+          </select>
+        )}
+
+        {confirmingDelete ? (
+          <div className="flex items-center gap-1 bg-red-950/90 border border-red-500/60 rounded px-1.5 py-0.5 z-10 shadow-lg">
+            <span className="text-[9px] text-red-300 font-mono">Delete?</span>
+            <button
+              type="button"
+              onClick={onConfirmDelete}
+              className="px-1.5 py-0.5 bg-red-600 hover:bg-red-500 text-white rounded text-[9px] font-bold shadow-sm"
+            >
+              Yes
+            </button>
+            <button
+              type="button"
+              onClick={onCancelDelete}
+              className="px-1 py-0.5 text-gray-400 hover:text-white text-[9px]"
+            >
+              Cancel
+            </button>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={onRequestDelete}
+            className="opacity-0 group-hover:opacity-100 transition-opacity p-1 text-gray-500 hover:text-red-400 hover:bg-red-500/10 rounded"
+            title="Delete this scene"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+          </button>
+        )}
+      </div>
     </div>
   );
 };
