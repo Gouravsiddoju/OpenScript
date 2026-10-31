@@ -660,7 +660,7 @@ Neon reflections shimmer in deep puddles. Sirens echo in the far distance.`;
     return { words, estimatedPages };
   }, [scriptHtml]);
 
-  const handleAddNote = async (category: ScriptNoteCategory, content: string, blockId?: string) => {
+  const handleAddNote = async (category: ScriptNoteCategory, content: string, blockId?: string, selectedText?: string) => {
     const authorName = currentUserRole === 'owner' ? 'Gourav (SSN)' : 'Navateja';
     const authorColor = currentUserRole === 'owner' ? '#f59e0b' : '#3b82f6';
     const blockTargetId = blockId || '00000000-0000-0000-0000-000000000001';
@@ -675,6 +675,7 @@ Neon reflections shimmer in deep puddles. Sirens echo in the far distance.`;
           authorColor,
           category,
           content,
+          selectedText,
         }),
       });
       if (res.ok) {
@@ -694,11 +695,13 @@ Neon reflections shimmer in deep puddles. Sirens echo in the far distance.`;
       authorColor,
       category,
       content,
+      selectedText,
       createdAt: new Date().toISOString(),
       resolved: false,
       replies: [],
     };
     setNotes((prev) => [newNote, ...prev]);
+    setIsNotesPanelOpen(true);
   };
 
   const handleAddReply = async (noteId: string, replyContent: string) => {
@@ -1631,6 +1634,7 @@ Neon reflections shimmer in deep puddles. Sirens echo in the far distance.`;
               isolatedCharacter={isolatedCharacter}
               currentUserRole={currentUserRole}
               notes={notes}
+              onAddNoteFromSelection={(selectedText, commentText, category) => handleAddNote(category, commentText, undefined, selectedText)}
             />
           )}
 

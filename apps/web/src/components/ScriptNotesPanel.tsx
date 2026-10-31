@@ -19,7 +19,7 @@ interface ScriptNotesPanelProps {
   isOpen: boolean;
   onClose: () => void;
   notes: ScriptNote[];
-  onAddNote: (category: ScriptNoteCategory, content: string, blockId?: string) => void;
+  onAddNote: (category: ScriptNoteCategory, content: string, blockId?: string, selectedText?: string) => void;
   onAddReply: (noteId: string, content: string) => void;
   onToggleResolve: (noteId: string, currentStatus: boolean) => void;
   onDeleteNote: (noteId: string) => void;
