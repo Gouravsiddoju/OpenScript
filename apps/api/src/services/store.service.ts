@@ -1,6 +1,21 @@
-import { db, projects, documents, documentRevisions, projectMembers, scriptNotes, scriptNoteReplies, users } from '@openscript/database';
+import { db, projects, documents, documentRevisions, projectMembers, scriptNotes, scriptNoteReplies, users, sessions } from '@openscript/database';
 import { eq, and, desc, asc } from 'drizzle-orm';
 import { CanonicalScreenplayDocument } from '@openscript/screenplay-schema';
+
+export interface InMemUser {
+  id: string;
+  email: string;
+  displayName: string;
+  passwordHash: string;
+  role: string;
+  createdAt: Date;
+}
+
+export interface InMemSession {
+  userId: string;
+  tokenHash: string;
+  expiresAt: Date;
+}
 
 export interface InMemProject {
   id: string;
@@ -68,11 +83,41 @@ class MemoryStore {
   members = new Map<string, InMemMember>();
   notes = new Map<string, InMemNote>();
   replies = new Map<string, InMemReply[]>();
+  users = new Map<string, InMemUser>();
+  sessions = new Map<string, InMemSession>();
 
   constructor() {
     // Seed default demo project & document
     const defaultProjectId = '00000000-0000-0000-0000-000000000000';
     const defaultOwnerId = '11111111-1111-1111-1111-111111111111';
+
+    // Seed default users for instant login & preview
+    this.users.set(defaultOwnerId, {
+      id: defaultOwnerId,
+      email: 'gourav@ssnpictures.in',
+      displayName: 'Gourav (SSN)',
+      passwordHash: 'demo',
+      role: 'owner',
+      createdAt: new Date(),
+    });
+
+    this.users.set('22222222-2222-2222-2222-222222222222', {
+      id: '22222222-2222-2222-2222-222222222222',
+      email: 'navateja@ssnpictures.in',
+      displayName: 'Navateja',
+      passwordHash: 'demo',
+      role: 'co-writer',
+      createdAt: new Date(),
+    });
+
+    this.users.set('33333333-3333-3333-3333-333333333333', {
+      id: '33333333-3333-3333-3333-333333333333',
+      email: 'sarah.prod@hollywood.com',
+      displayName: 'Sarah (Producer)',
+      passwordHash: 'demo',
+      role: 'commenter',
+      createdAt: new Date(),
+    });
 
     this.projects.set(defaultProjectId, {
       id: defaultProjectId,
@@ -381,5 +426,122 @@ export class ResilientStore {
     memStore.notes.delete(noteId);
     memStore.replies.delete(noteId);
     return true;
+  }
+
+  // ---- USERS & AUTH ----
+  static async findUserByEmail(email: string): Promise<InMemUser | null> {
+    const cleanEmail = email.toLowerCase().trim();
+    try {
+      const u = await db.query.users.findFirst({
+        where: eq(users.email, cleanEmail),
+      });
+      if (u) {
+        return {
+          id: u.id,
+          email: u.email,
+          displayName: u.displayName,
+          passwordHash: u.passwordHash,
+          role: 'owner',
+          createdAt: u.createdAt,
+        };
+      }
+    } catch {}
+
+    for (const u of memStore.users.values()) {
+      if (u.email.toLowerCase().trim() === cleanEmail) {
+        return u;
+      }
+    }
+    return null;
+  }
+
+  static async findUserById(id: string): Promise<InMemUser | null> {
+    try {
+      const u = await db.query.users.findFirst({
+        where: eq(users.id, id),
+      });
+      if (u) {
+        return {
+          id: u.id,
+          email: u.email,
+          displayName: u.displayName,
+          passwordHash: u.passwordHash,
+          role: 'owner',
+          createdAt: u.createdAt,
+        };
+      }
+    } catch {}
+
+    return memStore.users.get(id) || null;
+  }
+
+  static async createUser(email: string, passwordHash: string, displayName: string): Promise<InMemUser> {
+    const cleanEmail = email.toLowerCase().trim();
+    try {
+      const [u] = await db.insert(users).values({
+        email: cleanEmail,
+        passwordHash,
+        displayName,
+      }).returning();
+      if (u) {
+        const userObj: InMemUser = {
+          id: u.id,
+          email: u.email,
+          displayName: u.displayName,
+          passwordHash: u.passwordHash,
+          role: 'owner',
+          createdAt: u.createdAt,
+        };
+        memStore.users.set(u.id, userObj);
+        return userObj;
+      }
+    } catch {}
+
+    const id = crypto.randomUUID();
+    const userObj: InMemUser = {
+      id,
+      email: cleanEmail,
+      displayName,
+      passwordHash,
+      role: 'owner',
+      createdAt: new Date(),
+    };
+    memStore.users.set(id, userObj);
+    return userObj;
+  }
+
+  static async createSession(userId: string, tokenHash: string, expiresAt: Date) {
+    try {
+      await db.insert(sessions).values({
+        userId,
+        tokenHash,
+        expiresAt,
+      });
+    } catch {}
+
+    memStore.sessions.set(tokenHash, {
+      userId,
+      tokenHash,
+      expiresAt,
+    });
+  }
+
+  static async findSession(tokenHash: string): Promise<InMemSession | null> {
+    try {
+      const s = await db.query.sessions.findFirst({
+        where: eq(sessions.tokenHash, tokenHash),
+      });
+      if (s) return s as InMemSession;
+    } catch {}
+
+    return memStore.sessions.get(tokenHash) || null;
+  }
+
+  static async deleteSession(tokenHash: string) {
+    try {
+      await db.delete(sessions).where(eq(sessions.tokenHash, tokenHash));
+    } catch {}
+
+    memStore.sessions.delete(tokenHash);
   }
 }

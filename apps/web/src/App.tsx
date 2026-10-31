@@ -38,6 +38,8 @@ import { ScriptNotesPanel } from './components/ScriptNotesPanel';
 import { ShareModal } from './components/ShareModal';
 import { CollaborationBar } from './components/CollaborationBar';
 import { KeyboardShortcutsModal } from './components/KeyboardShortcutsModal';
+import { UserProfileModal, UserProfileData } from './components/UserProfileModal';
+import { AuthModal } from './components/AuthModal';
 import { fountainToHtml, parseFountain, blocksToHtml } from '@openscript/fountain';
 import { parseFdx, serializeFdx } from '@openscript/fdx';
 import { 
@@ -168,6 +170,29 @@ export default function App() {
   const [isNotesPanelOpen, setIsNotesPanelOpen] = useState(false);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [isShortcutsModalOpen, setIsShortcutsModalOpen] = useState(false);
+
+  // User Profile & Authentication state
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [selectedPeerProfile, setSelectedPeerProfile] = useState<UserProfileData | null>(null);
+  const [authToken, setAuthToken] = useState<string | null>(() => {
+    return localStorage.getItem('openscript_auth_token');
+  });
+  const [currentUser, setCurrentUser] = useState<UserProfileData>(() => {
+    const saved = localStorage.getItem('openscript_current_user');
+    if (saved) {
+      try { return JSON.parse(saved); } catch {}
+    }
+    return {
+      id: '11111111-1111-1111-1111-111111111111',
+      email: 'gourav@ssnpictures.in',
+      displayName: 'Gourav (SSN)',
+      role: 'owner',
+      studio: 'SSN Pictures Studio',
+      color: '#f59e0b',
+    };
+  });
+
   const [currentUserRole, setCurrentUserRole] = useState<CollaboratorRole>(() => {
     return (localStorage.getItem('openscript_user_role') as CollaboratorRole) || 'owner';
   });
@@ -247,6 +272,72 @@ export default function App() {
   });
 
   const [livePeers, setLivePeers] = useState<LivePresence[]>([]);
+
+  // 0. Auto-sync authenticated profile from backend
+  useEffect(() => {
+    if (authToken) {
+      fetch('/api/v1/auth/me', {
+        headers: { 'Authorization': `Bearer ${authToken}` },
+      })
+        .then((r) => r.ok ? r.json() : null)
+        .then((data) => {
+          if (data?.user) {
+            setCurrentUser((prev) => ({
+              ...prev,
+              id: data.user.id,
+              email: data.user.email,
+              displayName: data.user.displayName,
+              role: data.user.role || prev.role,
+            }));
+            setCurrentUserRole(data.user.role || 'owner');
+          }
+        })
+        .catch(() => {});
+    }
+  }, [authToken]);
+
+  const handleUpdateDisplayName = async (newName: string) => {
+    if (authToken) {
+      try {
+        await fetch('/api/v1/auth/profile', {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${authToken}`,
+          },
+          body: JSON.stringify({ displayName: newName }),
+        });
+      } catch {}
+    }
+    setCurrentUser((prev) => {
+      const updated = { ...prev, displayName: newName };
+      localStorage.setItem('openscript_current_user', JSON.stringify(updated));
+      return updated;
+    });
+  };
+
+  const handleLogout = async () => {
+    if (authToken) {
+      try {
+        await fetch('/api/v1/auth/logout', {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${authToken}` },
+        });
+      } catch {}
+    }
+    localStorage.removeItem('openscript_auth_token');
+    setAuthToken(null);
+    setIsAuthModalOpen(true);
+  };
+
+  const handleAuthSuccess = (user: UserProfileData, token: string) => {
+    setCurrentUser(user);
+    setAuthToken(token);
+    setCurrentUserRole(user.role);
+    localStorage.setItem('openscript_current_user', JSON.stringify(user));
+    localStorage.setItem('openscript_auth_token', token);
+    localStorage.setItem('openscript_user_role', user.role);
+  };
 
   // 1. Initial backend sync for Notes & Collaborators
   useEffect(() => {
@@ -1297,10 +1388,26 @@ Neon reflections shimmer in deep puddles. Sirens echo in the far distance.`;
               <CollaborationBar
                 presencePeers={presencePeers}
                 currentUserRole={currentUserRole}
+                currentUser={currentUser}
                 unresolvedNotesCount={notes.filter((n) => !n.resolved).length}
                 isNotesPanelOpen={isNotesPanelOpen}
                 onToggleNotesPanel={() => setIsNotesPanelOpen(!isNotesPanelOpen)}
                 onOpenShareModal={() => setIsShareModalOpen(true)}
+                onOpenProfileModal={() => {
+                  setSelectedPeerProfile(null);
+                  setIsProfileModalOpen(true);
+                }}
+                onSelectPeerProfile={(peer) => {
+                  setSelectedPeerProfile({
+                    id: peer.userId,
+                    email: peer.userId === '11111111-1111-1111-1111-111111111111' ? 'gourav@ssnpictures.in' : peer.userId === '22222222-2222-2222-2222-222222222222' ? 'navateja@ssnpictures.in' : 'sarah.prod@hollywood.com',
+                    displayName: peer.displayName,
+                    role: peer.role,
+                    color: peer.color,
+                    studio: 'SSN Pictures Studio',
+                  });
+                  setIsProfileModalOpen(true);
+                }}
               />
             </div>
           </div>
@@ -1465,6 +1572,31 @@ Neon reflections shimmer in deep puddles. Sirens echo in the far distance.`;
       <KeyboardShortcutsModal
         isOpen={isShortcutsModalOpen}
         onClose={() => setIsShortcutsModalOpen(false)}
+      />
+
+      {/* User Profile Modal */}
+      <UserProfileModal
+        isOpen={isProfileModalOpen}
+        onClose={() => {
+          setIsProfileModalOpen(false);
+          setSelectedPeerProfile(null);
+        }}
+        user={selectedPeerProfile || currentUser}
+        onUpdateDisplayName={selectedPeerProfile ? undefined : handleUpdateDisplayName}
+        onChangeRolePreview={(newRole) => {
+          setCurrentUserRole(newRole);
+          setCurrentUser((prev) => ({ ...prev, role: newRole }));
+          localStorage.setItem('openscript_user_role', newRole);
+        }}
+        onLogout={handleLogout}
+        onOpenLogin={() => setIsAuthModalOpen(true)}
+      />
+
+      {/* Authentication & Login/Register Modal */}
+      <AuthModal
+        isOpen={isAuthModalOpen}
+        onClose={() => setIsAuthModalOpen(false)}
+        onAuthSuccess={handleAuthSuccess}
       />
     </div>
   );
