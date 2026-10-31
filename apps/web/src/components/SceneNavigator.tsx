@@ -25,6 +25,7 @@ export interface SceneItem {
   location: string;
   timeOfDay: string;
   fountainText: string;
+  sceneHtml?: string;
   characters: string[];
   actionSnippet?: string;
   eighths?: string;

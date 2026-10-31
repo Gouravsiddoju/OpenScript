@@ -83,17 +83,20 @@ function extractScenes(html: string): SceneItem[] {
   
   const scenes: SceneItem[] = [];
   let currentScene: SceneItem | null = null;
-  let currentLines: string[] = [];
+  let currentFountainPieces: string[] = [];
+  let currentHtmlPieces: string[] = [];
   let sceneIndex = 0;
+  let lineCount = 0;
 
   for (const el of children) {
     const text = el.textContent?.trim() || '';
-    if (!text) continue;
+    if (!text && !el.classList.contains('script-dual-dialogue')) continue;
 
     if (el.classList.contains('script-scene-heading')) {
       if (currentScene) {
-        currentScene.fountainText = currentLines.join('\n\n').trim();
-        currentScene.eighths = computeEighths(currentLines.length);
+        currentScene.fountainText = currentFountainPieces.join('').trim();
+        currentScene.sceneHtml = currentHtmlPieces.join('');
+        currentScene.eighths = computeEighths(lineCount);
         scenes.push(currentScene);
       }
       sceneIndex++;
@@ -115,31 +118,55 @@ function extractScenes(html: string): SceneItem[] {
         location,
         timeOfDay,
         fountainText: '',
+        sceneHtml: '',
         characters: [],
         actionSnippet: '',
       };
-      currentLines = [upper];
+      currentFountainPieces = [upper + '\n\n'];
+      currentHtmlPieces = [el.outerHTML];
+      lineCount = 1;
     } else if (currentScene) {
-      if (el.classList.contains('script-action') && !currentScene.actionSnippet) {
-        currentScene.actionSnippet = text;
-      }
-      if (el.classList.contains('script-character')) {
+      currentHtmlPieces.push(el.outerHTML);
+      lineCount++;
+
+      if (el.classList.contains('script-action')) {
+        if (!currentScene.actionSnippet) {
+          currentScene.actionSnippet = text;
+        }
+        currentFountainPieces.push(text + '\n\n');
+      } else if (el.classList.contains('script-character')) {
         const charName = text.replace(/\s*\(.*\)$/, '').trim().toUpperCase();
         if (charName && !currentScene.characters.includes(charName)) {
           currentScene.characters.push(charName);
         }
-        currentLines.push(charName);
+        // In Fountain spec: Character cue MUST be followed immediately by parenthetical or dialogue with \n (single newline)
+        currentFountainPieces.push(charName + '\n');
+      } else if (el.classList.contains('script-parenthetical')) {
+        // Parenthetical must be followed by single \n before dialogue
+        currentFountainPieces.push(text + '\n');
+      } else if (el.classList.contains('script-dialogue')) {
+        // Dialogue terminates character speech block with double newline \n\n
+        currentFountainPieces.push(text + '\n\n');
       } else if (el.classList.contains('script-transition')) {
-        currentLines.push(`> ${text}`);
+        currentFountainPieces.push(`> ${text}\n\n`);
+      } else if (el.classList.contains('script-dual-dialogue')) {
+        el.querySelectorAll('.script-character').forEach((c) => {
+          const name = c.textContent?.replace(/\s*\(.*\)$/, '').trim().toUpperCase();
+          if (name && currentScene && !currentScene.characters.includes(name)) {
+            currentScene.characters.push(name);
+          }
+        });
+        currentFountainPieces.push(text + '\n\n');
       } else {
-        currentLines.push(text);
+        currentFountainPieces.push(text + '\n\n');
       }
     }
   }
 
   if (currentScene) {
-    currentScene.fountainText = currentLines.join('\n\n').trim();
-    currentScene.eighths = computeEighths(currentLines.length);
+    currentScene.fountainText = currentFountainPieces.join('').trim();
+    currentScene.sceneHtml = currentHtmlPieces.join('');
+    currentScene.eighths = computeEighths(lineCount);
     scenes.push(currentScene);
   }
 
@@ -859,10 +886,12 @@ Neon reflections shimmer in deep puddles. Sirens echo in the far distance.`;
     }
 
     const remainingScenes = scenes.filter((_, idx) => idx !== sceneIndex);
+    const newHtml = remainingScenes.length > 0
+      ? remainingScenes.map((s) => s.sceneHtml || fountainToHtml(s.fountainText)).join('')
+      : fountainToHtml('INT. SCENE 1 - DAY\n\nAction description begins here.');
     const newFountain = remainingScenes.length > 0
       ? remainingScenes.map((s) => s.fountainText).join('\n\n')
       : 'INT. SCENE 1 - DAY\n\nAction description begins here.';
-    const newHtml = fountainToHtml(newFountain);
     setScriptHtml(newHtml);
     setFountainText(newFountain);
     setIsSaved(false);
@@ -875,12 +904,13 @@ Neon reflections shimmer in deep puddles. Sirens echo in the far distance.`;
     const [moved] = reordered.splice(fromIndex, 1);
     reordered.splice(toIndex, 0, moved);
 
+    // Exact HTML preservation prevents lossy conversion of dialogues into action blocks
+    const reorderedHtml = reordered.map((s) => s.sceneHtml || fountainToHtml(s.fountainText)).join('');
     const reorderedFountain = reordered.map((s) => s.fountainText).join('\n\n');
-    const newHtml = fountainToHtml(reorderedFountain);
-    setScriptHtml(newHtml);
+    setScriptHtml(reorderedHtml);
     setFountainText(reorderedFountain);
     if (editorInstance) {
-      editorInstance.commands.setContent(newHtml);
+      editorInstance.commands.setContent(reorderedHtml);
     }
     setIsSaved(false);
   };
