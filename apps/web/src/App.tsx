@@ -41,6 +41,8 @@ import { KeyboardShortcutsModal } from './components/KeyboardShortcutsModal';
 import { UserProfileModal, UserProfileData } from './components/UserProfileModal';
 import { AuthModal } from './components/AuthModal';
 import { SceneTakesModal } from './components/SceneTakesModal';
+import { ImportModal } from './components/ImportModal';
+import { ImportedScreenplayResult } from './utils/importer';
 import { fountainToHtml, parseFountain, blocksToHtml } from '@openscript/fountain';
 import { parseFdx, serializeFdx } from '@openscript/fdx';
 import { 
@@ -408,6 +410,27 @@ export default function App() {
       }
       setIsSaved(false);
     }
+  };
+
+
+  // Screenplay Project Importer State (Final Draft, Scrivener, Highland, Text)
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [droppedImportFile, setDroppedImportFile] = useState<File | null>(null);
+
+  const handleApplyImportedScreenplay = (result: ImportedScreenplayResult) => {
+    setScriptHtml(result.scriptHtml);
+    setFountainText(result.fountainText);
+    if (editorInstance) {
+      editorInstance.commands.setContent(result.scriptHtml);
+    }
+    if (result.title || result.author) {
+      setTitleMetadata((prev) => ({
+        ...prev,
+        title: result.title || prev.title,
+        author: result.author || prev.author,
+      }));
+    }
+    setIsSaved(false);
   };
 
   const [currentUserRole, setCurrentUserRole] = useState<CollaboratorRole>(() => {
@@ -1108,25 +1131,14 @@ Neon reflections shimmer in deep puddles. Sirens echo in the far distance.`;
     setIsSaved(false);
   };
 
-  // Drag and Drop File Import (Story #29)
+  // Drag and Drop File Import (Supports Final Draft, Scrivener, Highland, etc.)
   const handleDropFile = async (e: React.DragEvent) => {
     e.preventDefault();
     const file = e.dataTransfer.files?.[0];
     if (!file) return;
 
-    const fileName = file.name.toLowerCase();
-    if (fileName.endsWith('.fdx')) {
-      await handleFdxFileChange({ target: { files: [file] } } as any);
-    } else if (fileName.endsWith('.fountain') || fileName.endsWith('.txt')) {
-      const text = await file.text();
-      const generatedHtml = fountainToHtml(text);
-      setFountainText(text);
-      setScriptHtml(generatedHtml);
-      if (editorInstance) {
-        editorInstance.commands.setContent(generatedHtml);
-      }
-      setIsSaved(false);
-    }
+    setDroppedImportFile(file);
+    setIsImportModalOpen(true);
   };
 
   // Final Draft FDX Import
@@ -1645,12 +1657,15 @@ Neon reflections shimmer in deep puddles. Sirens echo in the far distance.`;
             {/* 3. Export & File Cluster */}
             <div className="flex items-center bg-[#14161d] border border-[#242835] rounded-xl p-0.5 shadow-sm">
               <button
-                onClick={() => fileInputRef.current?.click()}
-                className="hidden xl:flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg hover:bg-[#1f222b] text-xs font-mono text-gray-300 transition-colors"
-                title="Import Final Draft (.fdx) file"
+                onClick={() => {
+                  setDroppedImportFile(null);
+                  setIsImportModalOpen(true);
+                }}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg hover:bg-[#1f222b] text-xs font-mono text-gray-300 transition-colors"
+                title="Import screenplay from Final Draft, Scrivener, Highland, or text"
               >
                 <Upload className="w-3.5 h-3.5 text-amber-500" />
-                <span>FDX</span>
+                <span>Import</span>
               </button>
 
               <button
@@ -1890,6 +1905,17 @@ Neon reflections shimmer in deep puddles. Sirens echo in the far distance.`;
       <KeyboardShortcutsModal
         isOpen={isShortcutsModalOpen}
         onClose={() => setIsShortcutsModalOpen(false)}
+      />
+
+      {/* Universal Screenplay Import Modal (Final Draft, Scrivener, Highland, Text) */}
+      <ImportModal
+        isOpen={isImportModalOpen}
+        onClose={() => {
+          setIsImportModalOpen(false);
+          setDroppedImportFile(null);
+        }}
+        onImportScreenplay={handleApplyImportedScreenplay}
+        droppedFile={droppedImportFile}
       />
 
       {/* Scene Takes & Alternate Drafts Modal */}
