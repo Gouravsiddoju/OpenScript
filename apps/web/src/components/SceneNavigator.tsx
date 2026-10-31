@@ -30,6 +30,8 @@ export interface SceneItem {
   characters: string[];
   actionSnippet?: string;
   eighths?: string;
+  hasRevisions?: boolean;
+  revisedLines?: string[];
 }
 
 export interface SceneFolder {
@@ -781,6 +783,12 @@ const SceneCardItem: React.FC<SceneCardItemProps> = ({
           {scene.eighths && (
             <span className="font-mono text-[10px] text-gray-400 bg-[#16181f] px-1.5 py-0.5 rounded border border-[#262a34] shrink-0 font-medium" title="Estimated scene duration">
               {scene.eighths} pgs
+            </span>
+          )}
+          {scene.hasRevisions && (
+            <span className="font-mono text-[9px] font-bold text-red-400 bg-red-500/15 border border-red-500/30 px-1.5 py-0.5 rounded shrink-0 flex items-center gap-0.5" title="Contains revised lines (*)">
+              <span>*</span>
+              <span>REV</span>
             </span>
           )}
         </div>

@@ -124,6 +124,8 @@ function extractScenes(html: string): SceneItem[] {
         sceneHtml: '',
         characters: [],
         actionSnippet: '',
+        hasRevisions: false,
+        revisedLines: [],
       };
       currentFountainPieces = [upper + '\n\n'];
       currentHtmlPieces = [el.outerHTML];
@@ -132,11 +134,19 @@ function extractScenes(html: string): SceneItem[] {
       currentHtmlPieces.push(el.outerHTML);
       lineCount++;
 
+      const isBlockRevised = el.classList.contains('revision-marker') || el.getAttribute('data-revision-mark') === 'true';
+      if (isBlockRevised) {
+        currentScene.hasRevisions = true;
+        if (!currentScene.revisedLines) currentScene.revisedLines = [];
+        currentScene.revisedLines.push(text);
+      }
+      const asteriskSuffix = isBlockRevised ? ' *' : '';
+
       if (el.classList.contains('script-action')) {
         if (!currentScene.actionSnippet) {
           currentScene.actionSnippet = text;
         }
-        currentFountainPieces.push(text + '\n\n');
+        currentFountainPieces.push(text + asteriskSuffix + '\n\n');
       } else if (el.classList.contains('script-character')) {
         const charName = text.replace(/\s*\(.*\)$/, '').trim().toUpperCase();
         if (charName && !currentScene.characters.includes(charName)) {
@@ -149,7 +159,7 @@ function extractScenes(html: string): SceneItem[] {
         currentFountainPieces.push(text + '\n');
       } else if (el.classList.contains('script-dialogue')) {
         // Dialogue terminates character speech block with double newline \n\n
-        currentFountainPieces.push(text + '\n\n');
+        currentFountainPieces.push(text + asteriskSuffix + '\n\n');
       } else if (el.classList.contains('script-transition')) {
         currentFountainPieces.push(`> ${text}\n\n`);
       } else if (el.classList.contains('script-dual-dialogue')) {
@@ -247,8 +257,102 @@ export default function App() {
     ];
   });
 
+
+  const handleOpenSceneTakesForBlockText = (blockText: string) => {
+    const textSnippet = blockText.trim();
+    const matchingScene = scenes.find((s) => 
+      s.fountainText.includes(textSnippet) || 
+      (s.revisedLines && s.revisedLines.some(l => textSnippet.includes(l) || l.includes(textSnippet)))
+    );
+    if (matchingScene) {
+      handleOpenSceneTakes(matchingScene);
+    } else if (scenes.length > 0) {
+      handleOpenSceneTakes(scenes[0]);
+    }
+  };
+
   const handleOpenSceneTakes = (scene: SceneItem) => {
     setSelectedSceneForTakes(scene);
+
+    const existingTakesForScene = sceneTakes.filter((t) => t.sceneId === scene.id);
+
+    if (existingTakesForScene.length === 0) {
+      const newTakes: SceneTake[] = [];
+
+      if (scene.hasRevisions) {
+        // Take 1: Baseline before revisions
+        const baselineFountain = scene.fountainText
+          .split('\n')
+          .map((line) => line.replace(/\s*\*$/, '').trimEnd())
+          .join('\n');
+
+        const baselineTake: SceneTake = {
+          id: `take-${scene.id}-baseline`,
+          sceneId: scene.id,
+          takeNumber: 1,
+          title: 'Take 1 (Original Baseline)',
+          fountainText: baselineFountain,
+          authorName: 'Master Script',
+          authorRole: 'owner',
+          createdAt: new Date(Date.now() - 3600000).toISOString(),
+          isFinalized: false,
+        };
+
+        // Take 2: Active Revision Draft with asterisks
+        const revisionTake: SceneTake = {
+          id: `take-${scene.id}-revision`,
+          sceneId: scene.id,
+          takeNumber: 2,
+          title: `Take 2 (${activeRevisionColor.toUpperCase()} Draft Revision) *`,
+          fountainText: scene.fountainText,
+          authorName: currentUser.displayName,
+          authorRole: currentUserRole,
+          createdAt: new Date().toISOString(),
+          isFinalized: true,
+        };
+
+        newTakes.push(baselineTake, revisionTake);
+      } else {
+        const masterTake: SceneTake = {
+          id: `take-${scene.id}-master`,
+          sceneId: scene.id,
+          takeNumber: 1,
+          title: 'Take 1 (Original Master)',
+          fountainText: scene.fountainText,
+          authorName: currentUser.displayName,
+          authorRole: currentUserRole,
+          createdAt: new Date().toISOString(),
+          isFinalized: true,
+        };
+        newTakes.push(masterTake);
+      }
+
+      const updated = [...sceneTakes, ...newTakes];
+      setSceneTakes(updated);
+      localStorage.setItem('openscript_scene_takes', JSON.stringify(updated));
+    } else if (scene.hasRevisions) {
+      // If takes exist, check if an active revision take with asterisk exists
+      const hasRevTake = existingTakesForScene.some((t) => t.title.includes('*'));
+      if (!hasRevTake) {
+        const nextNum = existingTakesForScene.length + 1;
+        const newRevTake: SceneTake = {
+          id: `take-${scene.id}-rev-${Date.now()}`,
+          sceneId: scene.id,
+          takeNumber: nextNum,
+          title: `Take ${nextNum} (${activeRevisionColor.toUpperCase()} Draft Revision) *`,
+          fountainText: scene.fountainText,
+          authorName: currentUser.displayName,
+          authorRole: currentUserRole,
+          createdAt: new Date().toISOString(),
+          isFinalized: true,
+        };
+        const updated = sceneTakes.map((t) => t.sceneId === scene.id ? { ...t, isFinalized: false } : t);
+        updated.push(newRevTake);
+        setSceneTakes(updated);
+        localStorage.setItem('openscript_scene_takes', JSON.stringify(updated));
+      }
+    }
+
     setIsSceneTakesModalOpen(true);
   };
 
@@ -1635,6 +1739,7 @@ Neon reflections shimmer in deep puddles. Sirens echo in the far distance.`;
               currentUserRole={currentUserRole}
               notes={notes}
               onAddNoteFromSelection={(selectedText, commentText, category) => handleAddNote(category, commentText, undefined, selectedText)}
+              onOpenSceneTakesForBlock={handleOpenSceneTakesForBlockText}
             />
           )}
 

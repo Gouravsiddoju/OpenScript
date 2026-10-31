@@ -133,7 +133,14 @@
   font-weight: bold;
   font-size: 14pt;
   line-height: 1;
-  pointer-events: none;
+  pointer-events: auto;
+  cursor: pointer;
+  transition: transform 0.15s ease, filter 0.15s ease;
+}
+
+.revision-marker:hover::after {
+  transform: scale(1.25);
+  filter: drop-shadow(0 0 6px rgba(220, 38, 38, 0.7));
 }
 
 /* Security Watermark Overlay */
