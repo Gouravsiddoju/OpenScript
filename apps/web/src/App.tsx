@@ -1269,7 +1269,7 @@ Neon reflections shimmer in deep puddles. Sirens echo in the far distance.`;
         className="flex-1 flex flex-col bg-[#111215] overflow-hidden"
       >
         {/* Top Header Bar */}
-        <header className="no-print h-14 border-b border-[#1c1e24] bg-[#0c0d0f] px-4 flex items-center justify-between">
+        <header className="no-print h-14 shrink-0 border-b border-[#1c1e24] bg-[#0c0d0f] px-4 flex items-center justify-between">
           <div className="flex items-center gap-2 sm:gap-3">
             {!focusMode && (
               <button
@@ -1297,16 +1297,6 @@ Neon reflections shimmer in deep puddles. Sirens echo in the far distance.`;
                 <span>Page 1 of {metrics.estimatedPages} ({metrics.estimatedPages} mins)</span>
               </span>
             </div>
-
-            {/* Quick Header + Add Scene Button */}
-            <button
-              onClick={handleAddScene}
-              className="hidden xl:flex items-center gap-1.5 px-2.5 py-1 rounded bg-[#1c1f26] hover:bg-[#252832] text-amber-400 hover:text-amber-300 border border-amber-500/30 text-xs font-mono font-medium transition-all ml-1"
-              title="Add a new Scene to your screenplay"
-            >
-              <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
-              <span>Add Scene</span>
-            </button>
           </div>
 
           {/* Studio Header Toolbar & Action Clusters */}
@@ -1509,7 +1499,7 @@ Neon reflections shimmer in deep puddles. Sirens echo in the far distance.`;
         </header>
 
         {/* Workspace Canvas Area */}
-        <div className="flex-1 overflow-y-auto p-4 sm:p-8 flex justify-center bg-[#0d0e11]">
+        <div className="flex-1 flex flex-col overflow-hidden bg-[#0d0e11]">
           {activeMode === 'screenplay' && (
             <ScreenplayEditor
               initialContent={scriptHtml}
@@ -1527,27 +1517,33 @@ Neon reflections shimmer in deep puddles. Sirens echo in the far distance.`;
           )}
 
           {activeMode === 'beats' && (
-            <BeatBoard
-              scenes={scenes}
-              onOpenScene={scrollToScene}
-              onAddScene={handleAddScene}
-              onDeleteScene={handleDeleteScene}
-              onReorderScenes={handleReorderScenes}
-            />
+            <div className="flex-1 overflow-y-auto p-4 sm:p-8 flex justify-center">
+              <BeatBoard
+                scenes={scenes}
+                onOpenScene={scrollToScene}
+                onAddScene={handleAddScene}
+                onDeleteScene={handleDeleteScene}
+                onReorderScenes={handleReorderScenes}
+              />
+            </div>
           )}
 
           {activeMode === 'fountain' && (
-            <FountainView
-              fountainText={fountainText}
-              onChange={(newText) => {
-                setFountainText(newText);
-                setIsSaved(false);
-              }}
-            />
+            <div className="flex-1 overflow-y-auto p-4 sm:p-8 flex justify-center">
+              <FountainView
+                fountainText={fountainText}
+                onChange={(newText) => {
+                  setFountainText(newText);
+                  setIsSaved(false);
+                }}
+              />
+            </div>
           )}
 
           {activeMode === 'reports' && (
-            <ProductionReports contentHtml={scriptHtml} />
+            <div className="flex-1 overflow-y-auto p-4 sm:p-8 flex justify-center">
+              <ProductionReports contentHtml={scriptHtml} />
+            </div>
           )}
         </div>
 
