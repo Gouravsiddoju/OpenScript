@@ -1161,13 +1161,13 @@ Neon reflections shimmer in deep puddles. Sirens echo in the far distance.`;
             />
           </div>
 
-          {/* Footer Metadata */}
-          <div className="p-3 border-t border-[#1c1e24] text-[11px] text-gray-400 flex items-center justify-between">
-            <span className="flex items-center gap-1.5 text-emerald-400 font-mono">
-              <CheckCircle2 className="w-3.5 h-3.5" />
-              {isSaved ? 'Saved locally' : 'Saving...'}
+          {/* Sidebar Footer Scene & Word Stats */}
+          <div className="p-3 border-t border-[#1c1e24] text-[11px] text-gray-400 flex items-center justify-between font-mono">
+            <span className="text-gray-300 flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+              <span>{scenes.length} {scenes.length === 1 ? 'Scene' : 'Scenes'}</span>
             </span>
-            <span className="font-mono text-gray-500">{metrics.words} words</span>
+            <span className="text-gray-500">{metrics.words} words</span>
           </div>
         </div>
       </aside>
