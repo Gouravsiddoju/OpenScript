@@ -1499,7 +1499,7 @@ Neon reflections shimmer in deep puddles. Sirens echo in the far distance.`;
         </header>
 
         {/* Workspace Canvas Area */}
-        <div className="flex-1 flex flex-col overflow-hidden bg-[#0d0e11]">
+        <div className="flex-1 overflow-y-auto p-4 sm:p-8 flex justify-center bg-[#0d0e11]">
           {activeMode === 'screenplay' && (
             <ScreenplayEditor
               initialContent={scriptHtml}
@@ -1517,33 +1517,27 @@ Neon reflections shimmer in deep puddles. Sirens echo in the far distance.`;
           )}
 
           {activeMode === 'beats' && (
-            <div className="flex-1 overflow-y-auto p-4 sm:p-8 flex justify-center">
-              <BeatBoard
-                scenes={scenes}
-                onOpenScene={scrollToScene}
-                onAddScene={handleAddScene}
-                onDeleteScene={handleDeleteScene}
-                onReorderScenes={handleReorderScenes}
-              />
-            </div>
+            <BeatBoard
+              scenes={scenes}
+              onOpenScene={scrollToScene}
+              onAddScene={handleAddScene}
+              onDeleteScene={handleDeleteScene}
+              onReorderScenes={handleReorderScenes}
+            />
           )}
 
           {activeMode === 'fountain' && (
-            <div className="flex-1 overflow-y-auto p-4 sm:p-8 flex justify-center">
-              <FountainView
-                fountainText={fountainText}
-                onChange={(newText) => {
-                  setFountainText(newText);
-                  setIsSaved(false);
-                }}
-              />
-            </div>
+            <FountainView
+              fountainText={fountainText}
+              onChange={(newText) => {
+                setFountainText(newText);
+                setIsSaved(false);
+              }}
+            />
           )}
 
           {activeMode === 'reports' && (
-            <div className="flex-1 overflow-y-auto p-4 sm:p-8 flex justify-center">
-              <ProductionReports contentHtml={scriptHtml} />
-            </div>
+            <ProductionReports contentHtml={scriptHtml} />
           )}
         </div>
 
