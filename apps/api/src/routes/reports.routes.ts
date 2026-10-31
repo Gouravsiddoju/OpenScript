@@ -1,21 +1,22 @@
 import { FastifyPluginAsync } from 'fastify';
-import { eq } from 'drizzle-orm';
-import { db, documents } from '@openscript/database';
+import { ResilientStore } from '../services/store.service';
 import { CanonicalScreenplayDocument } from '@openscript/screenplay-schema';
 
 export const reportRoutes: FastifyPluginAsync = async (server) => {
   // Cast Speaking Report
   server.get<{ Params: { id: string } }>('/api/v1/documents/:id/reports/speaking-cast', async (request, reply) => {
     const { id } = request.params;
-    const docRow = await db.query.documents.findFirst({
-      where: eq(documents.id, id),
-    });
+    const docRow = await ResilientStore.getDocument(id);
 
     if (!docRow) {
       return reply.status(404).send({ error: 'Document not found' });
     }
 
     const doc = docRow.contentJson as CanonicalScreenplayDocument;
+    if (!doc || !Array.isArray(doc.content)) {
+      return { documentId: id, totalSpeakingCharacters: 0, totalScriptWords: 0, castReport: [] };
+    }
+
     const castMap = new Map<string, { scenes: Set<number>; dialogueCount: number; wordCount: number }>();
     let currentSceneIndex = 0;
     let totalScriptWords = 0;
@@ -63,15 +64,17 @@ export const reportRoutes: FastifyPluginAsync = async (server) => {
   // Location / Set Breakdown Report
   server.get<{ Params: { id: string } }>('/api/v1/documents/:id/reports/locations', async (request, reply) => {
     const { id } = request.params;
-    const docRow = await db.query.documents.findFirst({
-      where: eq(documents.id, id),
-    });
+    const docRow = await ResilientStore.getDocument(id);
 
     if (!docRow) {
       return reply.status(404).send({ error: 'Document not found' });
     }
 
     const doc = docRow.contentJson as CanonicalScreenplayDocument;
+    if (!doc || !Array.isArray(doc.content)) {
+      return { documentId: id, totalUniqueLocations: 0, locations: [] };
+    }
+
     const locationMap = new Map<string, { type: string; scenes: { sceneNumber?: string; text: string }[] }>();
 
     let sceneCounter = 1;

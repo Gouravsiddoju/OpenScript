@@ -1,7 +1,6 @@
 import { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
-import { eq, and } from 'drizzle-orm';
-import { db, documents, documentRevisions } from '@openscript/database';
+import { ResilientStore } from '../services/store.service';
 import { 
   CanonicalScreenplayDocumentSchema, 
   CanonicalScreenplayDocument,
@@ -25,7 +24,6 @@ export const documentRoutes: FastifyPluginAsync = async (server) => {
     const { title } = parseResult.data;
     const documentId = crypto.randomUUID();
 
-    // Default starter screenplay AST
     const initialAst: CanonicalScreenplayDocument = {
       schemaVersion: 2,
       id: documentId,
@@ -55,33 +53,14 @@ export const documentRoutes: FastifyPluginAsync = async (server) => {
       ],
     };
 
-    const [newDoc] = await db.insert(documents).values({
-      id: documentId,
-      projectId,
-      title,
-      schemaVersion: 2,
-      contentJson: initialAst,
-      revisionNumber: 1,
-      isLocked: false,
-    }).returning();
-
-    // Initial revision snapshot
-    await db.insert(documentRevisions).values({
-      documentId,
-      revisionNumber: 1,
-      contentSnapshot: initialAst,
-      reason: 'Initial creation',
-    });
-
-    return reply.status(201).send({ document: newDoc });
+    const res = await ResilientStore.saveDocument(documentId, projectId, title, initialAst, 0);
+    return reply.status(201).send({ document: res.doc });
   });
 
   // Get document by ID
   server.get<{ Params: { id: string } }>('/api/v1/documents/:id', async (request, reply) => {
     const { id } = request.params;
-    const doc = await db.query.documents.findFirst({
-      where: eq(documents.id, id),
-    });
+    const doc = await ResilientStore.getDocument(id);
 
     if (!doc) {
       return reply.status(404).send({ error: 'Document not found' });
@@ -96,7 +75,7 @@ export const documentRoutes: FastifyPluginAsync = async (server) => {
     Body: { revisionNumber: number; content: any; title?: string };
   }>('/api/v1/documents/:id', async (request, reply) => {
     const { id } = request.params;
-    const { revisionNumber, content, title } = request.body;
+    const { revisionNumber, content, title } = request.body || {};
 
     if (typeof revisionNumber !== 'number') {
       return reply.status(400).send({ error: 'Missing revisionNumber for optimistic locking' });
@@ -108,48 +87,22 @@ export const documentRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(400).send({ error: 'Invalid screenplay document AST', details: parsedDoc.error.flatten() });
     }
 
-    // Atomic update with revision_number condition
-    const updated = await db
-      .update(documents)
-      .set({
-        contentJson: parsedDoc.data,
-        revisionNumber: revisionNumber + 1,
-        ...(title && { title }),
-        updatedAt: new Date(),
-      })
-      .where(and(eq(documents.id, id), eq(documents.revisionNumber, revisionNumber)))
-      .returning();
+    const projectId = content.projectId || '00000000-0000-0000-0000-000000000000';
+    const docTitle = title || content.metadata?.title || 'Untitled Screenplay';
 
-    // Conflict detection
-    if (updated.length === 0) {
-      const currentDoc = await db.query.documents.findFirst({ where: eq(documents.id, id) });
+    const saveResult = await ResilientStore.saveDocument(id, projectId, docTitle, parsedDoc.data, revisionNumber);
+
+    if (saveResult.isConflict) {
       return reply.status(409).send({
         error: 'Conflict: Document was modified by another session or tab',
-        serverRevisionNumber: currentDoc?.revisionNumber,
-      });
-    }
-
-    // Automated revision checkpoint every 10 updates
-    if ((revisionNumber + 1) % 10 === 0) {
-      await db.insert(documentRevisions).values({
-        documentId: id,
-        revisionNumber: revisionNumber + 1,
-        contentSnapshot: parsedDoc.data,
-        reason: 'Automated 10-revision checkpoint',
+        serverRevisionNumber: saveResult.serverRevisionNumber,
       });
     }
 
     return {
       success: true,
-      newRevisionNumber: revisionNumber + 1,
-      updatedAt: updated[0].updatedAt,
+      newRevisionNumber: saveResult.newRevisionNumber,
+      updatedAt: (saveResult.doc as any)?.updatedAt || new Date(),
     };
-  });
-
-  // Delete document
-  server.delete<{ Params: { id: string } }>('/api/v1/documents/:id', async (request, reply) => {
-    const { id } = request.params;
-    await db.delete(documents).where(eq(documents.id, id));
-    return { success: true };
   });
 };

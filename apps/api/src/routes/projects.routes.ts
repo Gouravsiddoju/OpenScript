@@ -1,20 +1,17 @@
 import { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
-import { eq, desc } from 'drizzle-orm';
-import { db, projects, documents } from '@openscript/database';
+import { ResilientStore, memStore } from '../services/store.service';
 
 const CreateProjectSchema = z.object({
   name: z.string().min(1, 'Project name is required'),
   description: z.string().optional(),
-  ownerId: z.string().uuid(),
+  ownerId: z.string().uuid().optional(),
 });
 
 export const projectRoutes: FastifyPluginAsync = async (server) => {
   // List all projects
-  server.get('/api/v1/projects', async (request, reply) => {
-    const list = await db.query.projects.findMany({
-      orderBy: [desc(projects.updatedAt)],
-    });
+  server.get('/api/v1/projects', async () => {
+    const list = await ResilientStore.listProjects();
     return { projects: list };
   });
 
@@ -26,11 +23,7 @@ export const projectRoutes: FastifyPluginAsync = async (server) => {
     }
 
     const { name, description, ownerId } = parseResult.data;
-    const [newProject] = await db.insert(projects).values({
-      name,
-      description,
-      ownerId,
-    }).returning();
+    const newProject = await ResilientStore.createProject(name, description, ownerId);
 
     return reply.status(201).send({ project: newProject });
   });
@@ -38,50 +31,13 @@ export const projectRoutes: FastifyPluginAsync = async (server) => {
   // Get project by ID
   server.get<{ Params: { id: string } }>('/api/v1/projects/:id', async (request, reply) => {
     const { id } = request.params;
-    const project = await db.query.projects.findFirst({
-      where: eq(projects.id, id),
-    });
+    const project = await ResilientStore.getProject(id);
 
     if (!project) {
       return reply.status(404).send({ error: 'Project not found' });
     }
 
-    const projectDocs = await db.query.documents.findMany({
-      where: eq(documents.projectId, id),
-      orderBy: [desc(documents.updatedAt)],
-    });
-
+    const projectDocs = Array.from(memStore.documents.values()).filter((d) => d.projectId === id);
     return { project, documents: projectDocs };
-  });
-
-  // Update project
-  server.patch<{ Params: { id: string }; Body: { name?: string; description?: string } }>(
-    '/api/v1/projects/:id',
-    async (request, reply) => {
-      const { id } = request.params;
-      const { name, description } = request.body;
-
-      const [updated] = await db.update(projects)
-        .set({
-          ...(name && { name }),
-          ...(description !== undefined && { description }),
-          updatedAt: new Date(),
-        })
-        .where(eq(projects.id, id))
-        .returning();
-
-      if (!updated) {
-        return reply.status(404).send({ error: 'Project not found' });
-      }
-
-      return { project: updated };
-    }
-  );
-
-  // Delete project
-  server.delete<{ Params: { id: string } }>('/api/v1/projects/:id', async (request, reply) => {
-    const { id } = request.params;
-    await db.delete(projects).where(eq(projects.id, id));
-    return { success: true };
   });
 };

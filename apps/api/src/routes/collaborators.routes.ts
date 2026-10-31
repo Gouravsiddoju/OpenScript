@@ -1,7 +1,6 @@
 import { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
-import { eq, and } from 'drizzle-orm';
-import { db, projectMembers, users, projects } from '@openscript/database';
+import { ResilientStore } from '../services/store.service';
 
 const AddCollaboratorSchema = z.object({
   email: z.string().email(),
@@ -15,31 +14,10 @@ const UpdateRoleSchema = z.object({
 
 export const collaboratorRoutes: FastifyPluginAsync = async (server) => {
   // List project collaborators
-  server.get<{ Params: { id: string } }>('/api/v1/projects/:id/collaborators', async (request, reply) => {
+  server.get<{ Params: { id: string } }>('/api/v1/projects/:id/collaborators', async (request) => {
     const { id } = request.params;
-
-    const members = await db.query.projectMembers.findMany({
-      where: eq(projectMembers.projectId, id),
-    });
-
-    const detailedMembers = await Promise.all(
-      members.map(async (m) => {
-        const u = await db.query.users.findFirst({
-          where: eq(users.id, m.userId),
-        });
-        return {
-          id: m.id,
-          userId: m.userId,
-          projectId: m.projectId,
-          role: m.role,
-          email: u?.email || 'unknown',
-          displayName: u?.displayName || 'Collaborator',
-          createdAt: m.createdAt,
-        };
-      })
-    );
-
-    return { collaborators: detailedMembers };
+    const members = await ResilientStore.listCollaborators(id);
+    return { collaborators: members };
   });
 
   // Add / invite collaborator to project
@@ -51,59 +29,8 @@ export const collaboratorRoutes: FastifyPluginAsync = async (server) => {
     }
 
     const { email, role, invitedBy } = parseResult.data;
-
-    // Check project exists
-    const project = await db.query.projects.findFirst({
-      where: eq(projects.id, id),
-    });
-    if (!project) {
-      return reply.status(404).send({ error: 'Project not found' });
-    }
-
-    // Find or create user placeholder by email
-    let user = await db.query.users.findFirst({
-      where: eq(users.email, email),
-    });
-
-    if (!user) {
-      const [created] = await db.insert(users).values({
-        email,
-        displayName: email.split('@')[0],
-        passwordHash: 'placeholder',
-      }).returning();
-      user = created;
-    }
-
-    // Check if already a member
-    const existing = await db.query.projectMembers.findFirst({
-      where: and(
-        eq(projectMembers.projectId, id),
-        eq(projectMembers.userId, user.id)
-      ),
-    });
-
-    if (existing) {
-      return reply.status(409).send({ error: 'User is already a collaborator on this project' });
-    }
-
-    const [member] = await db.insert(projectMembers).values({
-      projectId: id,
-      userId: user.id,
-      role,
-      invitedBy,
-    }).returning();
-
-    return reply.status(201).send({
-      collaborator: {
-        id: member.id,
-        userId: member.userId,
-        projectId: member.projectId,
-        role: member.role,
-        email: user.email,
-        displayName: user.displayName,
-        createdAt: member.createdAt,
-      },
-    });
+    const member = await ResilientStore.addCollaborator(id, email, role, invitedBy);
+    return reply.status(201).send({ collaborator: member });
   });
 
   // Update collaborator role
@@ -114,14 +41,7 @@ export const collaboratorRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(400).send({ error: 'Validation failed', details: parseResult.error.flatten() });
     }
 
-    const [updated] = await db.update(projectMembers)
-      .set({ role: parseResult.data.role })
-      .where(and(
-        eq(projectMembers.projectId, id),
-        eq(projectMembers.userId, userId)
-      ))
-      .returning();
-
+    const updated = await ResilientStore.updateCollaboratorRole(id, userId, parseResult.data.role);
     if (!updated) {
       return reply.status(404).send({ error: 'Collaborator not found' });
     }
@@ -130,14 +50,9 @@ export const collaboratorRoutes: FastifyPluginAsync = async (server) => {
   });
 
   // Remove collaborator
-  server.delete<{ Params: { id: string; userId: string } }>('/api/v1/projects/:id/collaborators/:userId', async (request, reply) => {
+  server.delete<{ Params: { id: string; userId: string } }>('/api/v1/projects/:id/collaborators/:userId', async (request) => {
     const { id, userId } = request.params;
-    await db.delete(projectMembers)
-      .where(and(
-        eq(projectMembers.projectId, id),
-        eq(projectMembers.userId, userId)
-      ));
-
+    await ResilientStore.removeCollaborator(id, userId);
     return { success: true };
   });
 };
