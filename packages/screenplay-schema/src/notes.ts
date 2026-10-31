@@ -27,6 +27,7 @@ export const ScriptNoteSchema = z.object({
   authorColor: z.string().default('#eab308'),
   category: ScriptNoteCategorySchema.default('general'),
   content: z.string().min(1),
+  selectedText: z.string().optional(),
   createdAt: z.string(),
   resolved: z.boolean().default(false),
   resolvedAt: z.string().optional(),

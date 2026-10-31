@@ -3,8 +3,8 @@ import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import { screenplayNodes, ScreenplayKeymap, ScreenplayUppercase } from '@openscript/editor';
 import { TitlePageMetadata } from './TitlePageModal';
-import { Lock, Sparkles, Columns, Eye, Keyboard } from 'lucide-react';
-import { CollaboratorRole, ScriptNote, canEditScreenplay, isWatermarkRequired } from '@openscript/screenplay-schema';
+import { Lock, Sparkles, Columns, Eye, Keyboard, MessageSquare } from 'lucide-react';
+import { CollaboratorRole, ScriptNote, ScriptNoteCategory, canEditScreenplay, canAddNotes, isWatermarkRequired } from '@openscript/screenplay-schema';
 
 interface ScreenplayEditorProps {
   initialContent?: string;
@@ -19,6 +19,7 @@ interface ScreenplayEditorProps {
   currentUserRole?: CollaboratorRole;
   notes?: ScriptNote[];
   onSelectBlockForNotes?: (blockId: string) => void;
+  onAddNoteFromSelection?: (selectedText: string, commentText: string, category: ScriptNoteCategory) => void;
 }
 
 const DEFAULT_SCRIPT_HTML = `
@@ -47,6 +48,7 @@ export const ScreenplayEditor: React.FC<ScreenplayEditorProps> = ({
   currentUserRole = 'owner',
   notes = [],
   onSelectBlockForNotes,
+  onAddNoteFromSelection,
 }) => {
   const initialKnownChars = useMemo(() => {
     const chars = new Set<string>(['MAYA', 'GOURAV']);
@@ -73,6 +75,71 @@ export const ScreenplayEditor: React.FC<ScreenplayEditorProps> = ({
   const [activeSuggestion, setActiveSuggestion] = useState<string | null>(null);
   const [matchedSuggestions, setMatchedSuggestions] = useState<string[]>([]);
   const [suggestionCoords, setSuggestionCoords] = useState<{ top: number; left: number } | null>(null);
+
+
+  // Floating Selection -> Comment trigger
+  const [selectedTextSnippet, setSelectedTextSnippet] = useState<string>('');
+  const [selectionCoords, setSelectionCoords] = useState<{ top: number; left: number } | null>(null);
+  const [isCommentInputOpen, setIsCommentInputOpen] = useState(false);
+  const [inlineCommentCategory, setInlineCommentCategory] = useState<ScriptNoteCategory>('general');
+  const [inlineCommentText, setInlineCommentText] = useState('');
+  const paperContainerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleSelectionChange = () => {
+      if (isCommentInputOpen) return;
+
+      const sel = window.getSelection();
+      if (!sel || sel.isCollapsed) {
+        setSelectionCoords(null);
+        setSelectedTextSnippet('');
+        return;
+      }
+
+      const text = sel.toString().trim();
+      if (!text || text.length === 0) {
+        setSelectionCoords(null);
+        setSelectedTextSnippet('');
+        return;
+      }
+
+      if (paperContainerRef.current && paperContainerRef.current.contains(sel.anchorNode)) {
+        try {
+          const range = sel.getRangeAt(0);
+          const rect = range.getBoundingClientRect();
+          if (rect.width > 0 && rect.height > 0) {
+            setSelectionCoords({
+              top: Math.max(10, rect.top - 44),
+              left: Math.max(20, rect.left + rect.width / 2),
+            });
+            setSelectedTextSnippet(text);
+          }
+        } catch {
+          setSelectionCoords(null);
+        }
+      } else {
+        setSelectionCoords(null);
+      }
+    };
+
+    document.addEventListener('selectionchange', handleSelectionChange);
+    return () => {
+      document.removeEventListener('selectionchange', handleSelectionChange);
+    };
+  }, [isCommentInputOpen]);
+
+  const handlePostInlineNote = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!inlineCommentText.trim()) return;
+    if (onAddNoteFromSelection) {
+      onAddNoteFromSelection(selectedTextSnippet, inlineCommentText.trim(), inlineCommentCategory);
+    }
+    setInlineCommentText('');
+    setIsCommentInputOpen(false);
+    setSelectionCoords(null);
+    window.getSelection()?.removeAllRanges();
+  };
+
 
   const checkSmartType = (currentEditor: any) => {
     if (!currentEditor || currentEditor.isDestroyed) return;
@@ -569,7 +636,7 @@ export const ScreenplayEditor: React.FC<ScreenplayEditorProps> = ({
       )}
 
       {/* 3. Authentic Screenplay Paper Canvas */}
-      <div className={`screenplay-page font-screenplay select-text relative ${isolatedCharacter ? 'isolating-active' : ''}`}>
+      <div ref={paperContainerRef} className={`screenplay-page font-screenplay select-text relative ${isolatedCharacter ? 'isolating-active' : ''}`}>
         {(metadata?.showWatermark && metadata?.watermarkText) ? (
           <div className="screenplay-watermark">{metadata.watermarkText}</div>
         ) : isWatermarkRequired(currentUserRole) ? (
@@ -587,6 +654,123 @@ export const ScreenplayEditor: React.FC<ScreenplayEditorProps> = ({
         {/* Tiptap Screenplay Content */}
         <EditorContent editor={editor} />
       </div>
+
+      {/* Floating Selection -> Add ScriptNote Action Trigger */}
+      {selectionCoords && canAddNotes(currentUserRole) && (
+        <div
+          style={{
+            position: 'fixed',
+            top: selectionCoords.top,
+            left: selectionCoords.left,
+            transform: 'translateX(-50%)',
+            zIndex: 65,
+          }}
+          className="no-print animate-in fade-in zoom-in-95 duration-100 select-none pointer-events-auto"
+        >
+          {!isCommentInputOpen ? (
+            <button
+              type="button"
+              onMouseDown={(e) => {
+                e.preventDefault();
+                setIsCommentInputOpen(true);
+              }}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-[#12141a] hover:bg-[#1c1f28] text-amber-300 border border-amber-500/50 rounded-full shadow-2xl text-xs font-mono font-bold tracking-wide transition-transform hover:scale-105 active:scale-95 ring-2 ring-black/50"
+            >
+              <MessageSquare className="w-3.5 h-3.5 text-amber-400" />
+              <span>Add Note</span>
+            </button>
+          ) : (
+            <div 
+              onMouseDown={(e) => e.stopPropagation()}
+              className="w-80 p-3.5 bg-[#12141a]/95 backdrop-blur-md border border-amber-500/50 rounded-2xl shadow-2xl flex flex-col gap-2.5 animate-in fade-in duration-150"
+            >
+              <div className="flex items-center justify-between border-b border-[#222530] pb-2">
+                <span className="text-[11px] font-mono font-bold text-amber-400 flex items-center gap-1">
+                  <MessageSquare className="w-3.5 h-3.5" />
+                  <span>ScriptNote on Selection</span>
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsCommentInputOpen(false);
+                    setSelectionCoords(null);
+                  }}
+                  className="text-gray-400 hover:text-white text-xs px-1"
+                >
+                  ✕
+                </button>
+              </div>
+
+              {/* Quoted Text Preview */}
+              <div className="text-[11px] font-mono text-gray-300 italic bg-[#0c0d11] p-2 rounded-lg border border-[#232733] max-h-16 overflow-y-auto line-clamp-2">
+                "{selectedTextSnippet}"
+              </div>
+
+              {/* Category Selector */}
+              <div className="flex items-center justify-between gap-1">
+                <span className="text-[10px] font-mono text-gray-400">Category:</span>
+                <select
+                  value={inlineCommentCategory}
+                  onChange={(e) => setInlineCommentCategory(e.target.value as ScriptNoteCategory)}
+                  className="px-2 py-0.5 bg-[#0e1014] border border-[#2b303d] rounded text-[11px] text-amber-300 font-mono focus:outline-none"
+                >
+                  <option value="general">General</option>
+                  <option value="dialogue">Dialogue</option>
+                  <option value="action">Action</option>
+                  <option value="production">Production</option>
+                  <option value="director">Director</option>
+                  <option value="legal">Legal</option>
+                </select>
+              </div>
+
+              {/* Comment Input */}
+              <textarea
+                value={inlineCommentText}
+                onChange={(e) => setInlineCommentText(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    handlePostInlineNote();
+                  }
+                  if (e.key === 'Escape') {
+                    setIsCommentInputOpen(false);
+                    setSelectionCoords(null);
+                  }
+                }}
+                autoFocus
+                placeholder="Type your note or feedback (Enter to post)..."
+                rows={2}
+                className="w-full px-2.5 py-1.5 bg-[#0e1014] border border-[#2b303d] rounded-lg text-xs text-white placeholder-gray-500 focus:outline-none focus:border-amber-500/60 resize-none font-sans"
+              />
+
+              <div className="flex items-center justify-between pt-1">
+                <span className="text-[9px] text-gray-500 font-mono">Press Enter to save</span>
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsCommentInputOpen(false);
+                      setSelectionCoords(null);
+                    }}
+                    className="px-2 py-1 text-xs text-gray-400 hover:text-white rounded"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handlePostInlineNote()}
+                    disabled={!inlineCommentText.trim()}
+                    className="px-3 py-1 bg-amber-500 hover:bg-amber-400 disabled:opacity-40 text-black text-xs font-mono font-bold rounded-lg shadow transition-all"
+                  >
+                    Post Note
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
     </div>
   );
 };
