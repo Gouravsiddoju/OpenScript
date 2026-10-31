@@ -25,6 +25,7 @@ export interface SceneItem {
   fountainText: string;
   characters: string[];
   actionSnippet?: string;
+  eighths?: string;
 }
 
 export interface SceneFolder {
@@ -439,9 +440,14 @@ const SceneRowItem: React.FC<SceneRowItemProps> = ({
             >
               {scene.setting}
             </span>
-            <span className="font-mono text-gray-200 group-hover:text-amber-300 truncate text-[11px] font-semibold">
+            <span className="font-mono text-gray-200 group-hover:text-amber-300 truncate text-[11px] font-semibold flex-1">
               {scene.slugline}
             </span>
+            {scene.eighths && (
+              <span className="font-mono text-[10px] text-gray-500 bg-[#16181f] px-1 rounded border border-[#262933] flex-shrink-0" title="Scene length in page eighths">
+                {scene.eighths} pgs
+              </span>
+            )}
           </div>
 
           {scene.characters.length > 0 && (

@@ -52,6 +52,15 @@ const INITIAL_SCRIPT_HTML = `
   <div class="script-action">Neon reflections shimmer in deep puddles. Sirens echo in the far distance.</div>
 `;
 
+function computeEighths(lineCount: number): string {
+  const eighths = Math.max(1, Math.round((lineCount / 54) * 8));
+  const pages = Math.floor(eighths / 8);
+  const rem = eighths % 8;
+  if (pages === 0) return `${rem}/8`;
+  if (rem === 0) return `${pages}`;
+  return `${pages} ${rem}/8`;
+}
+
 function extractScenes(html: string): SceneItem[] {
   const parser = new DOMParser();
   const doc = parser.parseFromString(html, 'text/html');
@@ -69,6 +78,7 @@ function extractScenes(html: string): SceneItem[] {
     if (el.classList.contains('script-scene-heading')) {
       if (currentScene) {
         currentScene.fountainText = currentLines.join('\n\n').trim();
+        currentScene.eighths = computeEighths(currentLines.length);
         scenes.push(currentScene);
       }
       sceneIndex++;
@@ -114,6 +124,7 @@ function extractScenes(html: string): SceneItem[] {
 
   if (currentScene) {
     currentScene.fountainText = currentLines.join('\n\n').trim();
+    currentScene.eighths = computeEighths(currentLines.length);
     scenes.push(currentScene);
   }
 
