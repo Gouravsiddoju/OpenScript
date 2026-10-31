@@ -43,6 +43,8 @@ import { AuthModal } from './components/AuthModal';
 import { SceneTakesModal } from './components/SceneTakesModal';
 import { ImportModal } from './components/ImportModal';
 import { ExportModal } from './components/ExportModal';
+import { ProjectDashboard } from './components/ProjectDashboard';
+import { listProjects, getProject, saveProject, createProject, getActiveProjectId, setActiveProjectId } from './utils/projectStore';
 import { htmlToBlocks } from './utils/exporter';
 import { ImportedScreenplayResult } from './utils/importer';
 import { fountainToHtml, parseFountain, blocksToHtml } from '@openscript/fountain';
@@ -191,7 +193,7 @@ function extractScenes(html: string): SceneItem[] {
 }
 
 export default function App() {
-  const [documentId] = useState<string>(() => {
+  const [documentId, setDocumentId] = useState<string>(() => {
     let id = localStorage.getItem('openscript_doc_id');
     if (!id) {
       id = crypto.randomUUID();
@@ -418,9 +420,85 @@ export default function App() {
   // Screenplay Project Importer State (Final Draft, Scrivener, Highland, Text)
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
+  const [isDashboardOpen, setIsDashboardOpen] = useState(false);
   const [droppedImportFile, setDroppedImportFile] = useState<File | null>(null);
+  const saveCurrentProject = () => {
+    const activeId = getActiveProjectId();
+    const existing = getProject(activeId);
+    if (existing) {
+      saveProject({
+        ...existing,
+        title: titleMetadata.title,
+        author: titleMetadata.author,
+        credit: titleMetadata.credit,
+        draftLabel: titleMetadata.draftLabel,
+        draftColor: activeRevisionColor,
+        scriptHtml,
+        fountainText,
+        sceneCount: scenes.length,
+        wordCount: metrics.words,
+        isLocked: isScriptLocked,
+        sceneTakes,
+        notes,
+      });
+    }
+  };
+
+  const handleOpenProject = (projectId: string) => {
+    saveCurrentProject();
+    const proj = getProject(projectId);
+    if (!proj) return;
+
+    setActiveProjectId(projectId);
+    setDocumentId(proj.id);
+    setScriptHtml(proj.scriptHtml);
+    setFountainText(proj.fountainText);
+    if (editorInstance) {
+      editorInstance.commands.setContent(proj.scriptHtml);
+    }
+    setTitleMetadata({
+      title: proj.title,
+      author: proj.author,
+      credit: proj.credit || 'written by',
+      draftLabel: proj.draftLabel || 'First Draft',
+      draftDate: new Date(proj.updatedAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }),
+      showTitlePage: true,
+      contact: 'SSN Pictures\ncontact@ssnpictures.in',
+      basedOn: '',
+      showWatermark: false,
+      watermarkText: '',
+    });
+    if (proj.draftColor) {
+      setActiveRevisionColor(proj.draftColor);
+    }
+    if (proj.isLocked !== undefined) {
+      setIsScriptLocked(proj.isLocked);
+    }
+    if (proj.sceneTakes) {
+      setSceneTakes(proj.sceneTakes);
+    }
+    if (proj.notes) {
+      setNotes(proj.notes);
+    }
+    setIsSaved(true);
+    setIsDashboardOpen(false);
+  };
+
 
   const handleApplyImportedScreenplay = (result: ImportedScreenplayResult) => {
+    // 1. Create and persist project into projectStore
+    const newProj = createProject(result.title || 'Imported Screenplay', result.author || 'Author');
+    newProj.scriptHtml = result.scriptHtml;
+    newProj.fountainText = result.fountainText;
+    newProj.sceneCount = result.sceneCount;
+    newProj.wordCount = result.wordCount;
+    if (result.sceneTakes) newProj.sceneTakes = result.sceneTakes;
+    if (result.notes) newProj.notes = result.notes;
+    saveProject(newProj);
+    setActiveProjectId(newProj.id);
+
+    // 2. Load into editor state
+    setDocumentId(newProj.id);
     setScriptHtml(result.scriptHtml);
     setFountainText(result.fountainText);
     if (editorInstance) {
@@ -443,6 +521,7 @@ export default function App() {
       localStorage.setItem('openscript_script_notes', JSON.stringify(result.notes));
     }
     setIsSaved(false);
+    setIsDashboardOpen(false);
   };
 
   const [currentUserRole, setCurrentUserRole] = useState<CollaboratorRole>(() => {
@@ -1420,6 +1499,31 @@ Neon reflections shimmer in deep puddles. Sirens echo in the far distance.`;
 
   const effectiveSidebarOpen = sidebarOpen && !focusMode;
 
+  if (isDashboardOpen) {
+    return (
+      <div className="min-h-screen bg-[#0a0b0e]">
+        <ProjectDashboard
+          onOpenProject={handleOpenProject}
+          onOpenImportModal={() => {
+            setDroppedImportFile(null);
+            setIsImportModalOpen(true);
+          }}
+          currentUser={currentUser}
+        />
+
+        <ImportModal
+          isOpen={isImportModalOpen}
+          onClose={() => {
+            setIsImportModalOpen(false);
+            setDroppedImportFile(null);
+          }}
+          onImportScreenplay={handleApplyImportedScreenplay}
+          droppedFile={droppedImportFile}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="flex h-screen bg-[#0c0d0e] text-[#e5e5e5] overflow-hidden font-sans">
       <input
@@ -1536,6 +1640,18 @@ Neon reflections shimmer in deep puddles. Sirens echo in the far distance.`;
                 {sidebarOpen ? <X className="w-4 h-4" /> : <Menu className="w-4 h-4" />}
               </button>
             )}
+
+            <button
+              onClick={() => {
+                saveCurrentProject();
+                setIsDashboardOpen(true);
+              }}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-[#14161d] hover:bg-[#1f222b] border border-[#242835] text-xs font-mono text-gray-300 hover:text-white transition-colors shadow-sm"
+              title="Open Project Dashboard (switch or create scripts)"
+            >
+              <Layers className="w-3.5 h-3.5 text-amber-500" />
+              <span className="hidden sm:inline">Projects</span>
+            </button>
 
             <div className="flex items-center gap-2 text-xs font-mono text-gray-400">
               <button

@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { importScreenplayFile } from '../importer';
+import { importScreenplayFile, rtfToText } from '../importer';
+import JSZip from 'jszip';
 
 // Helper to create mock File in Node environment
 function createMockFile(content: string, name: string): File {
@@ -32,7 +33,7 @@ We are running out of time.
     expect(result.scriptHtml).toContain('GOURAV');
   });
 
-  it('parses Scrivener (.scrivx) project XML structure into screenplay scenes', async () => {
+  it('parses standalone Scrivener (.scrivx) project outline and includes guidance warnings', async () => {
     const scrivenerXml = `<?xml version="1.0" encoding="UTF-8"?>
 <ScrivenerProject Version="1.0">
   <ProjectTitle>Cyberpunk Detective</ProjectTitle>
@@ -61,6 +62,70 @@ We are running out of time.
     expect(result.fountainText).toContain('INT. CYBER CAFE - DAY');
     expect(result.fountainText).toContain('EXT. ROOFTOP - NIGHT');
     expect(result.fountainText).toContain('Kai plugs his neural deck');
+    expect(result.warnings?.length).toBeGreaterThan(0);
+  });
+
+  it('converts RTF formatted text into clean screenplay text', () => {
+    const sampleRtf = `{\\rtf1\\ansi\\ansicpg1252\\deff0\\nouicompat
+{\\fonttbl{\\f0\\fnil\\fcharset0 Courier Prime;}}
+{\\colortbl ;\\red0\\green0\\blue0;}
+\\pard\\qc\\b\\f0\\fs24 INT. SUBWAY TUNNEL - NIGHT\\b0\\par
+\\pard\\ql Water drips into rusted tracks.\\par
+\\pard\\qc MARCUS\\par
+\\pard\\qr Keep your flashlight pointed down.\\par
+}`;
+
+    const text = rtfToText(sampleRtf);
+    expect(text).toContain('INT. SUBWAY TUNNEL - NIGHT');
+    expect(text).toContain('Water drips into rusted tracks.');
+    expect(text).toContain('MARCUS');
+    expect(text).toContain('Keep your flashlight pointed down.');
+  });
+
+  it('parses full Scrivener zip archive (.scriv.zip) with binder XML and Files/Data content.rtf', async () => {
+    const zip = new JSZip();
+
+    // 1. Add project.scrivx binder
+    const scrivx = `<?xml version="1.0" encoding="UTF-8"?>
+<ScrivenerProject Version="1.0">
+  <ProjectTitle>Neon Syndicate</ProjectTitle>
+  <Binder>
+    <BinderItem ID="10" Type="Text">
+      <Title>INT. ALLEYWAY - NIGHT</Title>
+    </BinderItem>
+    <BinderItem ID="11" Type="Text">
+      <Title>Scene 2</Title>
+    </BinderItem>
+  </Binder>
+</ScrivenerProject>`;
+    zip.file('project.scrivx', scrivx);
+
+    // 2. Add scene 1 content.rtf
+    const scene1Rtf = `{\\rtf1\\ansi
+\\pard Rain pours on neon pavement.\\par
+\\pard JIN\\par
+\\pard They found us.\\par
+}`;
+    zip.file('Files/Data/10/content.rtf', scene1Rtf);
+
+    // 3. Add scene 2 content.rtf
+    const scene2Rtf = `{\\rtf1\\ansi
+\\pard Jin leaps over the dumpster into darkness.\\par
+}`;
+    zip.file('Files/Data/11/content.rtf', scene2Rtf);
+
+    const zipBlob = await zip.generateAsync({ type: 'blob' });
+    const zipFile = new File([zipBlob], 'Neon_Syndicate.scriv.zip', { type: 'application/zip' });
+
+    const result = await importScreenplayFile(zipFile);
+
+    expect(result.sourceApp).toBe('Scrivener');
+    expect(result.title).toBe('Neon Syndicate');
+    expect(result.fountainText).toContain('INT. ALLEYWAY - NIGHT');
+    expect(result.fountainText).toContain('Rain pours on neon pavement.');
+    expect(result.fountainText).toContain('JIN');
+    expect(result.fountainText).toContain('They found us.');
+    expect(result.fountainText).toContain('Jin leaps over the dumpster');
   });
 
   it('parses HTML screenplay exports (Celtx / Web exports)', async () => {

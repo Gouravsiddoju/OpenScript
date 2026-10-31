@@ -1,20 +1,20 @@
 import React, { useState, useRef } from 'react';
-import { 
-  X, 
-  Upload, 
-  FileText, 
-  Film, 
-  CheckCircle, 
-  AlertCircle, 
-  FileCode, 
-  Layers, 
-  BookOpen, 
+import {
+  Upload,
+  FileCode,
+  FileText,
+  CheckCircle,
+  AlertCircle,
+  AlertTriangle,
+  X,
+  ArrowRight,
   Sparkles,
-  ArrowRight
+  Info,
 } from 'lucide-react';
 import { importScreenplayFile, ImportedScreenplayResult } from '../utils/importer';
+import JSZip from 'jszip';
 
-interface ImportModalProps {
+export interface ImportModalProps {
   isOpen: boolean;
   onClose: () => void;
   onImportScreenplay: (result: ImportedScreenplayResult) => void;
@@ -73,9 +73,60 @@ export const ImportModal: React.FC<ImportModalProps> = ({
     setIsDragging(false);
   };
 
-  const handleDrop = (e: React.DragEvent) => {
+  const handleDrop = async (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragging(false);
+
+    // Check for directory items
+    const items = e.dataTransfer.items;
+    if (items && items.length > 0) {
+      const firstEntry = items[0].webkitGetAsEntry?.();
+      if (firstEntry && firstEntry.isDirectory) {
+        // Folder dropped (e.g. MyProject.scriv)
+        try {
+          setIsLoading(true);
+          const files: File[] = [];
+          const readDirectory = async (dirEntry: any): Promise<void> => {
+            const reader = dirEntry.createReader();
+            const entries: any[] = await new Promise((res, rej) => reader.readEntries(res, rej));
+            for (const entry of entries) {
+              if (entry.isFile) {
+                const f: File = await new Promise((res, rej) => entry.file(res, rej));
+                files.push(f);
+              } else if (entry.isDirectory) {
+                await readDirectory(entry);
+              }
+            }
+          };
+
+          await readDirectory(firstEntry);
+
+          // Find .scrivx file
+          const scrivxFile = files.find((f) => f.name.toLowerCase().endsWith('.scrivx'));
+          if (scrivxFile) {
+            // Find all content.rtf or content.txt files
+            const contentFiles = files.filter(
+              (f) => f.name.toLowerCase() === 'content.rtf' || f.name.toLowerCase() === 'content.txt'
+            );
+
+            if (contentFiles.length > 0) {
+              // Zip the files on the fly and parse
+              const zip = new JSZip();
+              for (const f of files) {
+                const buffer = await f.arrayBuffer();
+                zip.file(f.name, buffer);
+              }
+              const blob = await zip.generateAsync({ type: 'blob' });
+              const virtualZip = new File([blob], `${firstEntry.name}.zip`, { type: 'application/zip' });
+              return await processFile(virtualZip);
+            } else {
+              return await processFile(scrivxFile);
+            }
+          }
+        } catch {}
+      }
+    }
+
     const file = e.dataTransfer.files?.[0];
     if (file) {
       processFile(file);
@@ -83,28 +134,31 @@ export const ImportModal: React.FC<ImportModalProps> = ({
   };
 
   const handleConfirmImport = () => {
-    if (!previewResult) return;
-    onImportScreenplay(previewResult);
-    onClose();
-    setPreviewResult(null);
+    if (previewResult) {
+      onImportScreenplay(previewResult);
+      onClose();
+      setPreviewResult(null);
+    }
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-150">
-      <div className="bg-[#12141a] border border-[#242834] rounded-2xl w-full max-w-xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
-        
-        {/* Header */}
-        <div className="p-5 border-b border-[#20232e] bg-[#161821] flex items-center justify-between">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+      <div 
+        className="w-full max-w-2xl bg-[#111319] border border-[#242838] rounded-2xl shadow-2xl flex flex-col max-h-[90vh] overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Modal Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-[#1c1f2b] bg-[#141622]">
           <div className="flex items-center gap-3">
-            <div className="p-2 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-400">
+            <div className="w-9 h-9 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400">
               <Upload className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-base font-bold text-white flex items-center gap-2">
-                Import Existing Screenplay
+              <h2 className="text-base font-bold text-white tracking-wide">
+                Import Existing Screenplay Project
               </h2>
-              <p className="text-xs text-gray-400">
-                Load scripts from Final Draft, Scrivener, Highland, WriterDuet, or text
+              <p className="text-xs text-gray-400 font-mono">
+                Load scripts from Final Draft, Scrivener, Highland, Fountain, RTF, or Celtx
               </p>
             </div>
           </div>
@@ -112,9 +166,8 @@ export const ImportModal: React.FC<ImportModalProps> = ({
             onClick={() => {
               onClose();
               setPreviewResult(null);
-              setError(null);
             }}
-            className="p-1 rounded-lg text-gray-400 hover:text-white hover:bg-[#20232c] transition-colors"
+            className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-[#1f2333] transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
@@ -126,7 +179,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({
           <input
             ref={fileInputRef}
             type="file"
-            accept=".fdx,.fountain,.spmd,.scrivx,.scriv,.html,.htm,.txt,.json,.openscript"
+            accept=".fdx,.fountain,.spmd,.scrivx,.scriv,.zip,.rtf,.html,.htm,.txt,.json,.openscript"
             onChange={handleFileChange}
             className="hidden"
           />
@@ -149,10 +202,10 @@ export const ImportModal: React.FC<ImportModalProps> = ({
               </div>
 
               <h3 className="text-sm font-bold text-white mb-1">
-                Drag & drop your screenplay file here
+                Drag & drop your screenplay file or folder here
               </h3>
               <p className="text-xs text-gray-400 max-w-sm mb-4">
-                or click to browse from your computer. Only standard screenplay content is imported.
+                or click to browse. Drop .scriv folder, .zip, .fdx, .fountain, or .rtf files.
               </p>
 
               <button
@@ -204,6 +257,18 @@ export const ImportModal: React.FC<ImportModalProps> = ({
                     </span>
                   </div>
                 </div>
+
+                {/* Warnings Banner if present */}
+                {previewResult.warnings && previewResult.warnings.length > 0 && (
+                  <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-xs text-amber-200 space-y-1.5">
+                    {previewResult.warnings.map((w, idx) => (
+                      <div key={idx} className="flex items-start gap-2">
+                        <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                        <span className="leading-relaxed">{w}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
 
                 {/* Script Snippet Preview */}
                 <div className="pt-2">
@@ -262,7 +327,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({
                 <span className="text-blue-400">🖋️</span>
                 <div>
                   <span className="text-gray-200 block text-[11px] font-bold">Scrivener</span>
-                  <span className="text-[10px] text-gray-500">.scrivx, .txt</span>
+                  <span className="text-[10px] text-gray-500">.scriv folder, .zip, .rtf</span>
                 </div>
               </div>
 
@@ -294,12 +359,12 @@ export const ImportModal: React.FC<ImportModalProps> = ({
                 <span className="text-rose-400">💾</span>
                 <div>
                   <span className="text-gray-200 block text-[11px] font-bold">OpenScript</span>
-                  <span className="text-[10px] text-gray-500">.json</span>
+                  <span className="text-[10px] text-gray-500">.openscript, .json</span>
                 </div>
               </div>
             </div>
             <p className="text-[10px] text-gray-500 italic pt-1">
-              * Note: Imports scenes, sluglines, characters, dialogues, parentheticals, and transitions. Unsupported custom plugins, font files, or proprietary layout settings are omitted.
+              * Note: Scrivener scripts can be imported by dropping the entire <code className="text-gray-400 font-mono">.scriv</code> folder, a <code className="text-gray-400 font-mono">.zip</code> of it, or an exported <code className="text-gray-400 font-mono">.rtf</code> / <code className="text-gray-400 font-mono">.fountain</code>.
             </p>
           </div>
 
