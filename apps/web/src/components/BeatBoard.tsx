@@ -8,7 +8,8 @@ import {
   Sparkles,
   Layers,
   ArrowRight,
-  GripVertical
+  GripVertical,
+  Trash2
 } from 'lucide-react';
 import { SceneItem } from './SceneNavigator';
 
@@ -16,6 +17,7 @@ interface BeatBoardProps {
   scenes: SceneItem[];
   onOpenScene: (sceneIndex: number) => void;
   onAddScene: () => void;
+  onDeleteScene?: (sceneIndex: number) => void;
   onReorderScenes?: (fromIndex: number, toIndex: number) => void;
 }
 
@@ -23,11 +25,13 @@ export const BeatBoard: React.FC<BeatBoardProps> = ({
   scenes,
   onOpenScene,
   onAddScene,
+  onDeleteScene,
   onReorderScenes,
 }) => {
   const [search, setSearch] = useState('');
   const [filterSetting, setFilterSetting] = useState<'ALL' | 'INT' | 'EXT' | 'INT/EXT'>('ALL');
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
 
   const filtered = scenes.filter((s) => {
     const matchesSearch =
@@ -159,9 +163,55 @@ export const BeatBoard: React.FC<BeatBoardProps> = ({
                         SCENE #{scene.id}
                       </span>
                     </div>
-                    <span className={`text-[10px] font-mono uppercase px-1.5 py-0.5 rounded border ${settingBadge}`}>
-                      {scene.setting}
-                    </span>
+
+                    {confirmDeleteId === scene.id ? (
+                      <div
+                        onClick={(e) => e.stopPropagation()}
+                        className="flex items-center gap-1 bg-red-950/90 border border-red-500/60 rounded px-1.5 py-0.5 z-10"
+                      >
+                        <span className="text-[10px] text-red-300 font-mono">Delete?</span>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onDeleteScene?.(originalIndex);
+                            setConfirmDeleteId(null);
+                          }}
+                          className="px-1.5 py-0.5 bg-red-600 hover:bg-red-500 text-white rounded text-[9px] font-bold"
+                        >
+                          Yes
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setConfirmDeleteId(null);
+                          }}
+                          className="px-1 py-0.5 text-gray-400 hover:text-white text-[9px]"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-1.5">
+                        <span className={`text-[10px] font-mono uppercase px-1.5 py-0.5 rounded border ${settingBadge}`}>
+                          {scene.setting}
+                        </span>
+                        {onDeleteScene && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setConfirmDeleteId(scene.id);
+                            }}
+                            className="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 text-gray-500 hover:text-red-400 hover:bg-red-500/10 rounded"
+                            title="Delete scene"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
+                    )}
                   </div>
 
                   {/* Slugline */}
