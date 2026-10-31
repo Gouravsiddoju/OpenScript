@@ -375,7 +375,7 @@ export const ScreenplayEditor: React.FC<ScreenplayEditorProps> = ({
   const isCurrentBlockMarked = Boolean(currentSelectionParent.attrs.revisionMark);
 
   return (
-    <div className="flex-1 flex flex-col h-full w-full overflow-hidden">
+    <div className="flex flex-col items-center w-full">
       {/* Dynamic Dialogue Isolator Styles */}
       {isolatedCharacter && (
         <style>{`
@@ -396,9 +396,9 @@ export const ScreenplayEditor: React.FC<ScreenplayEditorProps> = ({
         `}</style>
       )}
 
-      {/* 1. Professional Studio Element Ribbon (Fixed Subheader Toolbar) */}
-      <div className="no-print h-12 shrink-0 bg-[#0c0d10] border-b border-[#1c1e24] px-4 flex items-center justify-center z-20 shadow-sm select-none">
-        <div className="flex items-center gap-1.5 max-w-full overflow-x-auto no-scrollbar">
+      {/* 1. Sleek Floating Island / Pill Ribbon (Sticky, elevated, beautifully formatted) */}
+      <div className="no-print sticky top-3 z-30 mb-6 flex justify-center pointer-events-none w-full animate-fadeIn select-none">
+        <div className="pointer-events-auto bg-[#13151b]/95 backdrop-blur-md border border-[#272b38] rounded-2xl p-1.5 shadow-2xl shadow-black/70 flex items-center gap-1">
           {[
             { type: 'sceneHeading', label: 'Scene Heading', shortcut: '1' },
             { type: 'action', label: 'Action', shortcut: '2' },
@@ -413,13 +413,13 @@ export const ScreenplayEditor: React.FC<ScreenplayEditorProps> = ({
                 key={type}
                 onClick={() => editor.chain().focus().setNode(type).run()}
                 title={`Switch to ${label} (Ctrl+${shortcut} / Alt+${shortcut} or Tab)`}
-                className={`px-3 py-1.5 rounded-lg text-xs font-mono transition-all flex items-center gap-1.5 whitespace-nowrap ${
+                className={`px-3 py-1.5 rounded-xl text-xs font-mono transition-all flex items-center gap-1.5 whitespace-nowrap ${
                   isActive
-                    ? 'bg-[#1e222b] text-white font-semibold border border-amber-500/40 shadow-sm'
-                    : 'text-gray-400 hover:text-gray-200 hover:bg-[#181a20]'
+                    ? 'bg-amber-500/20 text-amber-300 font-bold border border-amber-500/50 shadow-sm'
+                    : 'text-gray-400 hover:text-white hover:bg-[#1a1d26]'
                 }`}
               >
-                <span className={isActive ? 'text-amber-400 font-bold' : 'text-gray-300'}>
+                <span className={isActive ? 'text-amber-400 font-semibold' : 'text-gray-300'}>
                   {label}
                 </span>
                 <span className="text-[10px] text-gray-500 font-sans opacity-70">
@@ -429,12 +429,12 @@ export const ScreenplayEditor: React.FC<ScreenplayEditorProps> = ({
             );
           })}
 
-          <div className="h-4 w-[1px] bg-[#242835] mx-1" />
+          <div className="h-4 w-[1px] bg-[#272b3a] mx-1" />
 
           {/* Dual Dialogue Quick Insert */}
           <button
             onClick={handleInsertDualDialogue}
-            className="px-2.5 py-1.5 rounded-lg text-xs font-mono transition-all flex items-center gap-1.5 text-gray-400 hover:text-gray-200 hover:bg-[#181a20] whitespace-nowrap"
+            className="px-2.5 py-1.5 rounded-xl text-xs font-mono transition-all flex items-center gap-1.5 text-gray-400 hover:text-white hover:bg-[#1a1d26] whitespace-nowrap"
             title="Insert Dual Dialogue (Simultaneous Speech Columns)"
           >
             <Columns className="w-3.5 h-3.5 text-amber-500/80" />
@@ -449,10 +449,10 @@ export const ScreenplayEditor: React.FC<ScreenplayEditorProps> = ({
                 revisionColor: activeRevisionColor,
               }).run();
             }}
-            className={`px-2.5 py-1.5 rounded-lg text-xs font-mono transition-all flex items-center gap-1.5 whitespace-nowrap ${
+            className={`px-2.5 py-1.5 rounded-xl text-xs font-mono transition-all flex items-center gap-1.5 whitespace-nowrap ${
               isCurrentBlockMarked
-                ? 'bg-red-500/20 text-red-300 border border-red-500/40 shadow-sm'
-                : 'text-gray-400 hover:text-gray-200 hover:bg-[#181a20]'
+                ? 'bg-red-500/20 text-red-300 border border-red-500/40 shadow-sm font-semibold'
+                : 'text-gray-400 hover:text-white hover:bg-[#1a1d26]'
             }`}
             title="Toggle Hollywood revision asterisk (*) on current block (Alt+T)"
           >
@@ -461,10 +461,6 @@ export const ScreenplayEditor: React.FC<ScreenplayEditorProps> = ({
           </button>
         </div>
       </div>
-
-      {/* 2. Scrollable Canvas Area (Dedicated to Screenplay Sheets) */}
-      <div className="flex-1 overflow-y-auto p-4 sm:p-8 flex justify-center bg-[#0d0e11]">
-        <div className="flex flex-col items-center w-full">
 
       {/* SmartType Floating Autocomplete Popup positioned right at the typing cursor */}
       {activeSuggestion && (
@@ -578,7 +574,5 @@ export const ScreenplayEditor: React.FC<ScreenplayEditorProps> = ({
         <EditorContent editor={editor} />
       </div>
     </div>
-  </div>
-</div>
-);
+  );
 };
