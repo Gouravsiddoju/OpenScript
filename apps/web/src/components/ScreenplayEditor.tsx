@@ -3,7 +3,7 @@ import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import { screenplayNodes, ScreenplayKeymap, ScreenplayUppercase } from '@openscript/editor';
 import { TitlePageMetadata } from './TitlePageModal';
-import { Lock, Sparkles, Columns, Eye, Keyboard, HelpCircle } from 'lucide-react';
+import { Lock, Sparkles, Columns, Eye, Keyboard } from 'lucide-react';
 import { CollaboratorRole, ScriptNote } from '@openscript/screenplay-schema';
 
 interface ScreenplayEditorProps {
@@ -19,7 +19,6 @@ interface ScreenplayEditorProps {
   currentUserRole?: CollaboratorRole;
   notes?: ScriptNote[];
   onSelectBlockForNotes?: (blockId: string) => void;
-  onOpenShortcutsModal?: () => void;
 }
 
 const DEFAULT_SCRIPT_HTML = `
@@ -48,7 +47,6 @@ export const ScreenplayEditor: React.FC<ScreenplayEditorProps> = ({
   currentUserRole = 'owner',
   notes = [],
   onSelectBlockForNotes,
-  onOpenShortcutsModal,
 }) => {
   const knownCharactersRef = useRef<string[]>(['MAYA']);
   const isTrackingRef = useRef(isTrackingRevisions);
@@ -275,106 +273,67 @@ export const ScreenplayEditor: React.FC<ScreenplayEditorProps> = ({
       )}
 
       {/* 1. Professional Studio Element Ribbon */}
-      <div className="no-print sticky top-0 z-10 w-full max-w-[8.5in] mb-4 bg-[#111317]/95 backdrop-blur-md border border-[#22252e] rounded-xl px-2.5 py-1.5 flex items-center justify-between shadow-lg">
-        <div className="flex items-center gap-1.5 no-scrollbar">
-          {[
-            { type: 'sceneHeading', label: 'Scene Heading', shortcut: '1' },
-            { type: 'action', label: 'Action', shortcut: '2' },
-            { type: 'character', label: 'Character', shortcut: '3' },
-            { type: 'parenthetical', label: 'Parenthetical', shortcut: '4' },
-            { type: 'dialogue', label: 'Dialogue', shortcut: '5' },
-            { type: 'transition', label: 'Transition', shortcut: '6' },
-          ].map(({ type, label, shortcut }) => {
-            const isActive = activeNodeType === type;
-            return (
-              <button
-                key={type}
-                onClick={() => editor.chain().focus().setNode(type).run()}
-                title={`Shortcut: Ctrl+${shortcut} / ⌘${shortcut}`}
-                className={`px-3 py-1.5 rounded-lg text-xs font-mono transition-all flex items-center gap-2 whitespace-nowrap ${
-                  isActive
-                    ? 'bg-[#1e222b] text-white font-semibold border border-amber-500/40 shadow-sm'
-                    : 'text-gray-400 hover:text-gray-200 hover:bg-[#181a20]'
-                }`}
-              >
-                <span className={isActive ? 'text-amber-400' : 'text-gray-400'}>
-                  {label}
-                </span>
-                <span className="text-[10px] text-gray-500 font-sans opacity-70">
-                  ⌘{shortcut}
-                </span>
-              </button>
-            );
-          })}
+      <div className="no-print sticky top-0 z-10 w-full max-w-[8.5in] mb-4 bg-[#111317]/95 backdrop-blur-md border border-[#22252e] rounded-xl px-2 py-1.5 flex items-center justify-center gap-1.5 shadow-lg">
+        {[
+          { type: 'sceneHeading', label: 'Scene Heading', shortcut: '1' },
+          { type: 'action', label: 'Action', shortcut: '2' },
+          { type: 'character', label: 'Character', shortcut: '3' },
+          { type: 'parenthetical', label: 'Parenthetical', shortcut: '4' },
+          { type: 'dialogue', label: 'Dialogue', shortcut: '5' },
+          { type: 'transition', label: 'Transition', shortcut: '6' },
+        ].map(({ type, label, shortcut }) => {
+          const isActive = activeNodeType === type;
+          return (
+            <button
+              key={type}
+              onClick={() => editor.chain().focus().setNode(type).run()}
+              title={`Switch to ${label} (Ctrl+${shortcut} / Alt+${shortcut} or Tab)`}
+              className={`px-3 py-1.5 rounded-lg text-xs font-mono transition-all flex items-center gap-1.5 whitespace-nowrap ${
+                isActive
+                  ? 'bg-[#1e222b] text-white font-semibold border border-amber-500/40 shadow-sm'
+                  : 'text-gray-400 hover:text-gray-200 hover:bg-[#181a20]'
+              }`}
+            >
+              <span className={isActive ? 'text-amber-400 font-bold' : 'text-gray-300'}>
+                {label}
+              </span>
+              <span className="text-[10px] text-gray-500 font-sans opacity-70">
+                ⌘{shortcut}
+              </span>
+            </button>
+          );
+        })}
 
-          {/* Dual Dialogue Quick Insert */}
-          <button
-            onClick={handleInsertDualDialogue}
-            className="px-2.5 py-1.5 rounded-lg text-xs font-mono transition-all flex items-center gap-1.5 text-gray-400 hover:text-gray-200 hover:bg-[#181a20]"
-            title="Insert Dual Dialogue (Simultaneous Speech Columns)"
-          >
-            <Columns className="w-3.5 h-3.5 text-amber-500/80" />
-            <span className="hidden sm:inline">Dual</span>
-          </button>
+        {/* Dual Dialogue Quick Insert */}
+        <button
+          onClick={handleInsertDualDialogue}
+          className="px-2.5 py-1.5 rounded-lg text-xs font-mono transition-all flex items-center gap-1.5 text-gray-400 hover:text-gray-200 hover:bg-[#181a20]"
+          title="Insert Dual Dialogue (Simultaneous Speech Columns)"
+        >
+          <Columns className="w-3.5 h-3.5 text-amber-500/80" />
+          <span>Dual</span>
+        </button>
 
-          <div className="h-4 w-[1px] bg-[#2a2d37] mx-1" />
+        <div className="h-4 w-[1px] bg-[#2a2d37] mx-0.5" />
 
-          {/* Hollywood Revision Asterisk Toggle */}
-          <button
-            onClick={() => {
-              editor.chain().focus().updateAttributes(activeNodeType, {
-                revisionMark: !isCurrentBlockMarked,
-                revisionColor: activeRevisionColor,
-              }).run();
-            }}
-            className={`px-2.5 py-1.5 rounded-lg text-xs font-mono transition-all flex items-center gap-1.5 ${
-              isCurrentBlockMarked
-                ? 'bg-red-500/20 text-red-300 border border-red-500/40 shadow-sm'
-                : 'text-gray-400 hover:text-gray-200 hover:bg-[#181a20]'
-            }`}
-            title="Toggle Hollywood revision asterisk (*) on current block"
-          >
-            <span className="text-red-400 font-bold text-sm leading-none">*</span>
-            <span>Revision</span>
-          </button>
-        </div>
-
-        <div className="hidden lg:flex items-center gap-3 text-[11px] text-gray-400 font-mono pr-1">
-          {isTypewriterMode && (
-            <span className="text-[10px] text-amber-400/90 font-mono bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20">
-              Typewriter Mode
-            </span>
-          )}
-          {isScriptLocked && (
-            <span className="flex items-center gap-1 text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/30">
-              <Lock className="w-3 h-3" />
-              <span>Locked Script</span>
-            </span>
-          )}
-          <span className="flex items-center gap-1.5">
-            <kbd className="px-1.5 py-0.5 bg-[#1a1c22] rounded border border-[#2b2e38] text-gray-300 text-[10px]">Tab</kbd>
-            <span className="text-gray-500">cycle</span>
-          </span>
-          <span className="text-gray-600">·</span>
-          <span className="flex items-center gap-1.5">
-            <kbd className="px-1.5 py-0.5 bg-[#1a1c22] rounded border border-[#2b2e38] text-gray-300 text-[10px]">Enter</kbd>
-            <span className="text-gray-500">advance</span>
-          </span>
-          {onOpenShortcutsModal && (
-            <>
-              <span className="text-gray-600">·</span>
-              <button
-                onClick={onOpenShortcutsModal}
-                className="flex items-center gap-1 text-amber-400 hover:text-amber-300 bg-amber-500/10 hover:bg-amber-500/20 px-2 py-0.5 rounded border border-amber-500/30 transition-colors"
-                title="View All Keyboard Shortcuts (? or Alt+/)"
-              >
-                <Keyboard className="w-3 h-3" />
-                <span>Shortcuts</span>
-                <kbd className="text-[9px] bg-[#1a1c22] px-1 py-0.2 rounded border border-amber-500/30 text-amber-300">?</kbd>
-              </button>
-            </>
-          )}
-        </div>
+        {/* Hollywood Revision Asterisk Toggle */}
+        <button
+          onClick={() => {
+            editor.chain().focus().updateAttributes(activeNodeType, {
+              revisionMark: !isCurrentBlockMarked,
+              revisionColor: activeRevisionColor,
+            }).run();
+          }}
+          className={`px-2.5 py-1.5 rounded-lg text-xs font-mono transition-all flex items-center gap-1.5 ${
+            isCurrentBlockMarked
+              ? 'bg-red-500/20 text-red-300 border border-red-500/40 shadow-sm'
+              : 'text-gray-400 hover:text-gray-200 hover:bg-[#181a20]'
+          }`}
+          title="Toggle Hollywood revision asterisk (*) on current block (Alt+T)"
+        >
+          <span className="text-red-400 font-bold text-sm leading-none">*</span>
+          <span>Revision</span>
+        </button>
       </div>
 
       {/* SmartType Suggestion Floating Pill (Stories #9, #24, #27) */}
@@ -452,42 +411,6 @@ export const ScreenplayEditor: React.FC<ScreenplayEditorProps> = ({
 
         {/* Tiptap Screenplay Content */}
         <EditorContent editor={editor} />
-      </div>
-
-      {/* 4. Bottom Floating Quick Element Switcher & Ergonomics Bar */}
-      <div className="no-print fixed bottom-4 z-30 flex items-center gap-2 px-3.5 py-1.5 bg-[#12141a]/95 backdrop-blur-md border border-[#2b2f3a] rounded-full shadow-2xl text-xs font-mono text-gray-300">
-        <span className="text-[11px] text-gray-500 uppercase tracking-wider font-semibold hidden sm:inline">Active:</span>
-        <span className="font-bold text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/30">
-          {activeNodeType.replace(/([A-Z])/g, ' $1').toUpperCase()}
-        </span>
-        <div className="h-3 w-[1px] bg-[#282b36] mx-1" />
-        <span className="text-[11px] text-gray-400 hidden sm:inline">Cycle:</span>
-        <button
-          onClick={() => editor.chain().focus().run()}
-          className="flex items-center gap-1 hover:text-amber-300 transition-colors"
-          title="Press Tab to cycle to next screenplay element"
-        >
-          <kbd className="px-1.5 py-0.5 bg-[#1b1e28] rounded border border-[#303546] text-amber-300 text-[10px] shadow-sm">Tab ⇥</kbd>
-        </button>
-        <button
-          onClick={() => editor.chain().focus().run()}
-          className="hidden md:flex items-center gap-1 hover:text-amber-300 transition-colors"
-          title="Press Shift+Tab to cycle backward"
-        >
-          <kbd className="px-1.5 py-0.5 bg-[#1b1e28] rounded border border-[#303546] text-amber-300 text-[10px] shadow-sm">Shift+Tab ⇤</kbd>
-        </button>
-        <div className="h-3 w-[1px] bg-[#282b36] mx-1 hidden sm:block" />
-        {onOpenShortcutsModal && (
-          <button
-            onClick={onOpenShortcutsModal}
-            className="flex items-center gap-1 text-[11px] text-gray-400 hover:text-amber-300 transition-colors ml-0.5"
-            title="Open Complete Keyboard Shortcuts Guide (?)"
-          >
-            <HelpCircle className="w-3.5 h-3.5 text-amber-400" />
-            <span className="hidden sm:inline">Shortcuts</span>
-            <kbd className="px-1 py-0.2 bg-[#1b1e28] text-[9px] text-gray-400 rounded border border-[#303546]">?</kbd>
-          </button>
-        )}
       </div>
     </div>
   );

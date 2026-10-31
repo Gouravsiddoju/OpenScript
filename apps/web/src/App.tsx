@@ -1219,172 +1219,177 @@ Neon reflections shimmer in deep puddles. Sirens echo in the far distance.`;
             </button>
           </div>
 
-          {/* Export & Action Buttons */}
-          <div className="flex items-center gap-1.5 sm:gap-2">
-            {/* Writing Sprint Stopwatch Button (Section 7) */}
-            <button
-              onClick={() => setIsSprintWidgetOpen(!isSprintWidgetOpen)}
-              className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-mono border transition-all ${
-                isSprintWidgetOpen
-                  ? 'bg-amber-500/20 text-amber-300 border-amber-500/50 shadow-sm'
-                  : 'bg-[#181a1f] hover:bg-[#22252c] text-gray-400 hover:text-white border-[#2b2e36]'
-              }`}
-              title="Sprint Stopwatch & Output Goals"
-            >
-              <Zap className="w-3.5 h-3.5 text-amber-400" />
-              <span className="hidden lg:inline">Sprint</span>
-            </button>
-
-            {/* Typewriter Mode Toggle (Section 7) */}
-            <button
-              onClick={() => setIsTypewriterMode(!isTypewriterMode)}
-              className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-mono border transition-all ${
-                isTypewriterMode
-                  ? 'bg-amber-500/20 text-amber-300 border-amber-500/50 shadow-sm'
-                  : 'bg-[#181a1f] hover:bg-[#22252c] text-gray-400 hover:text-white border-[#2b2e36]'
-              }`}
-              title="Typewriter Scrolling (Keeps cursor centered at 45% screen height)"
-            >
-              <span className="hidden lg:inline">Typewriter</span>
-            </button>
-
-            {/* Dialogue Voice Isolator Selector (Section 7) */}
-            {allScriptCharacters.length > 0 && (
-              <select
-                value={isolatedCharacter || ''}
-                onChange={(e) => setIsolatedCharacter(e.target.value || null)}
-                className="hidden xl:inline-block px-2 py-1.5 bg-[#181a1f] text-gray-300 border border-[#2b2e36] rounded-lg text-xs font-mono focus:outline-none"
-                title="Dialogue Voice Isolator: Highlight a single character's dialogue"
-              >
-                <option value="">Voice: All</option>
-                {allScriptCharacters.map((c) => (
-                  <option key={c} value={c}>{c}</option>
-                ))}
-              </select>
-            )}
-
-            {/* Hollywood Revision Draft Dropdown */}
-            <div className="relative">
+          {/* Studio Header Toolbar & Action Clusters */}
+          <div className="flex items-center gap-2">
+            {/* 1. Writing Ergonomics Cluster */}
+            <div className="hidden lg:flex items-center bg-[#14161d] border border-[#242835] rounded-xl p-0.5 shadow-sm">
               <button
-                onClick={() => setIsRevisionMenuOpen(!isRevisionMenuOpen)}
-                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#181a1f] hover:bg-[#22252c] text-xs font-mono border border-[#2b2e36] transition-colors"
-                title="Select Hollywood Production Revision Draft Color"
+                onClick={() => setIsSprintWidgetOpen(!isSprintWidgetOpen)}
+                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-mono transition-all ${
+                  isSprintWidgetOpen
+                    ? 'bg-amber-500/20 text-amber-300 font-semibold'
+                    : 'text-gray-400 hover:text-white hover:bg-[#1f222b]'
+                }`}
+                title="Writing Sprint Stopwatch & Goals (Alt+W)"
               >
-                <span
-                  className="w-2.5 h-2.5 rounded-full border border-black/40"
-                  style={{ backgroundColor: currentRevDraft.hex }}
-                />
-                <span className="hidden sm:inline text-gray-300">{currentRevDraft.name.split(' (')[0]}</span>
-                <ChevronDown className="w-3 h-3 text-gray-400" />
+                <Zap className="w-3.5 h-3.5 text-amber-400" />
+                <span>Sprint</span>
               </button>
 
-              {isRevisionMenuOpen && (
-                <div className="absolute right-0 mt-1 w-56 bg-[#16181f] border border-[#2b2f3a] rounded-xl shadow-2xl p-1.5 z-50">
-                  <div className="px-2 py-1 text-[10px] font-mono text-gray-400 uppercase tracking-wider">
-                    Hollywood Revision Sequence
-                  </div>
-                  {HOLLYWOOD_REVISION_SEQUENCE.map((rev) => (
-                    <button
-                      key={rev.color}
-                      onClick={() => handleSelectRevision(rev)}
-                      className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs font-mono text-left transition-colors ${
-                        activeRevisionColor === rev.color
-                          ? 'bg-amber-500/20 text-amber-300 font-semibold'
-                          : 'text-gray-300 hover:bg-[#21242d]'
-                      }`}
-                    >
-                      <span
-                        className="w-2.5 h-2.5 rounded-full border border-black/40 shrink-0"
-                        style={{ backgroundColor: rev.hex }}
-                      />
-                      <span className="truncate">{rev.name}</span>
-                    </button>
+              <button
+                onClick={() => setIsTypewriterMode(!isTypewriterMode)}
+                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-mono transition-all ${
+                  isTypewriterMode
+                    ? 'bg-amber-500/20 text-amber-300 font-semibold'
+                    : 'text-gray-400 hover:text-white hover:bg-[#1f222b]'
+                }`}
+                title="Typewriter Scrolling: Keep cursor vertically centered"
+              >
+                <span>Typewriter</span>
+              </button>
+
+              {allScriptCharacters.length > 0 && (
+                <select
+                  value={isolatedCharacter || ''}
+                  onChange={(e) => setIsolatedCharacter(e.target.value || null)}
+                  className="px-2 py-1 bg-transparent text-gray-300 text-xs font-mono focus:outline-none cursor-pointer border-l border-[#242835] ml-0.5 pl-2"
+                  title="Dialogue Voice Isolator: Highlight a single character's dialogue"
+                >
+                  <option value="" className="bg-[#14161d]">Voice: All</option>
+                  {allScriptCharacters.map((c) => (
+                    <option key={c} value={c} className="bg-[#14161d]">{c}</option>
                   ))}
-                </div>
+                </select>
               )}
             </div>
 
-            {/* Lock Script Mode Toggle */}
-            <button
-              onClick={() => setIsScriptLocked(!isScriptLocked)}
-              className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-mono border transition-all ${
-                isScriptLocked
-                  ? 'bg-amber-500/20 text-amber-300 border-amber-500/50'
-                  : 'bg-[#181a1f] hover:bg-[#22252c] text-gray-400 hover:text-white border-[#2b2e36]'
-              }`}
-              title={isScriptLocked ? 'Script is locked: Scene numbers are frozen (Alt+L)' : 'Lock Script: Freeze scene numbers (Alt+L)'}
-            >
-              {isScriptLocked ? <Lock className="w-3.5 h-3.5 text-amber-400" /> : <Unlock className="w-3.5 h-3.5" />}
-              <span className="hidden md:inline">{isScriptLocked ? 'Locked' : 'Lock'}</span>
-            </button>
+            {/* 2. Production Revision & Lock Cluster */}
+            <div className="flex items-center bg-[#14161d] border border-[#242835] rounded-xl p-0.5 shadow-sm">
+              {/* Hollywood Revision Draft Dropdown */}
+              <div className="relative">
+                <button
+                  onClick={() => setIsRevisionMenuOpen(!isRevisionMenuOpen)}
+                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg hover:bg-[#1f222b] text-xs font-mono transition-colors"
+                  title="Select Hollywood Production Revision Draft Color"
+                >
+                  <span
+                    className="w-2.5 h-2.5 rounded-full border border-black/40"
+                    style={{ backgroundColor: currentRevDraft.hex }}
+                  />
+                  <span className="hidden sm:inline text-gray-300">{currentRevDraft.name.split(' (')[0]}</span>
+                  <ChevronDown className="w-3 h-3 text-gray-400" />
+                </button>
 
-            {/* Track Revisions Toggle */}
-            <button
-              onClick={() => setIsTrackingRevisions(!isTrackingRevisions)}
-              className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-mono border transition-all ${
-                isTrackingRevisions
-                  ? 'bg-red-500/20 text-red-300 border-red-500/50'
-                  : 'bg-[#181a1f] hover:bg-[#22252c] text-gray-400 hover:text-white border-[#2b2e36]'
-              }`}
-              title={isTrackingRevisions ? 'Auto-marking edits with right-margin revision asterisks (*) (Alt+T)' : 'Track Revisions: Auto-mark asterisks (Alt+T)'}
-            >
-              <span className="text-red-400 font-bold leading-none text-base">*</span>
-              <span className="hidden md:inline">{isTrackingRevisions ? 'Tracking' : 'Track'}</span>
-            </button>
+                {isRevisionMenuOpen && (
+                  <div className="absolute right-0 mt-1 w-56 bg-[#16181f] border border-[#2b2f3a] rounded-xl shadow-2xl p-1.5 z-50">
+                    <div className="px-2 py-1 text-[10px] font-mono text-gray-400 uppercase tracking-wider">
+                      Hollywood Revision Sequence
+                    </div>
+                    {HOLLYWOOD_REVISION_SEQUENCE.map((rev) => (
+                      <button
+                        key={rev.color}
+                        onClick={() => handleSelectRevision(rev)}
+                        className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs font-mono text-left transition-colors ${
+                          activeRevisionColor === rev.color
+                            ? 'bg-amber-500/20 text-amber-300 font-semibold'
+                            : 'text-gray-300 hover:bg-[#21242d]'
+                        }`}
+                      >
+                        <span
+                          className="w-2.5 h-2.5 rounded-full border border-black/40 shrink-0"
+                          style={{ backgroundColor: rev.hex }}
+                        />
+                        <span className="truncate">{rev.name}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
 
-            {/* Final Draft FDX Import Button */}
-            <button
-              onClick={() => fileInputRef.current?.click()}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#181a1f] hover:bg-[#22252c] text-xs font-mono text-gray-300 border border-[#2b2e36] transition-colors"
-              title="Import Final Draft (.fdx) file"
-            >
-              <Upload className="w-3.5 h-3.5 text-amber-500" />
-              <span className="hidden 2xl:inline">Import FDX</span>
-            </button>
+              <div className="h-4 w-[1px] bg-[#242835] mx-0.5" />
 
-            {/* Final Draft FDX Export Button */}
-            <button
-              onClick={handleExportFdx}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#181a1f] hover:bg-[#22252c] text-xs font-mono text-gray-300 border border-[#2b2e36] transition-colors"
-              title="Export Final Draft (.fdx) file"
-            >
-              <FileCode className="w-3.5 h-3.5 text-amber-500" />
-              <span className="hidden 2xl:inline">Export FDX</span>
-            </button>
+              {/* Lock Script Mode Toggle */}
+              <button
+                onClick={() => setIsScriptLocked(!isScriptLocked)}
+                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-mono transition-all ${
+                  isScriptLocked
+                    ? 'bg-amber-500/20 text-amber-300 font-semibold border border-amber-500/40'
+                    : 'text-gray-400 hover:text-white hover:bg-[#1f222b]'
+                }`}
+                title={isScriptLocked ? 'Script is locked: Scene numbers are frozen (Alt+L)' : 'Lock Script: Freeze scene numbers (Alt+L)'}
+              >
+                {isScriptLocked ? <Lock className="w-3.5 h-3.5 text-amber-400" /> : <Unlock className="w-3.5 h-3.5" />}
+                <span className="hidden md:inline">{isScriptLocked ? 'Locked' : 'Lock'}</span>
+              </button>
 
-            {/* Fountain Export */}
-            <button
-              onClick={handleExportFountain}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#181a1f] hover:bg-[#22252c] text-xs font-mono text-gray-200 border border-[#2b2e36] transition-colors"
-              title="Download standard Fountain plain-text script"
-            >
-              <Download className="w-3.5 h-3.5 text-amber-500" />
-              <span className="hidden sm:inline">Fountain</span>
-            </button>
+              {/* Track Revisions Toggle */}
+              <button
+                onClick={() => setIsTrackingRevisions(!isTrackingRevisions)}
+                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-mono transition-all ${
+                  isTrackingRevisions
+                    ? 'bg-red-500/20 text-red-300 font-semibold border border-red-500/40'
+                    : 'text-gray-400 hover:text-white hover:bg-[#1f222b]'
+                }`}
+                title={isTrackingRevisions ? 'Auto-marking edits with right-margin revision asterisks (*) (Alt+T)' : 'Track Revisions: Auto-mark asterisks (Alt+T)'}
+              >
+                <span className="text-red-400 font-bold leading-none text-base">*</span>
+                <span className="hidden md:inline">{isTrackingRevisions ? 'Tracking' : 'Track'}</span>
+              </button>
+            </div>
 
-            {/* Print/PDF Export */}
-            <button
-              onClick={handlePrintPdf}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-xs font-bold text-black shadow-md shadow-amber-500/20 transition-all"
-              title="Print formatted script or save as PDF (Alt+P / Ctrl+P)"
-            >
-              <Printer className="w-3.5 h-3.5 text-black" />
-              <span className="hidden sm:inline">PDF</span>
-            </button>
+            {/* 3. Export & File Cluster */}
+            <div className="flex items-center bg-[#14161d] border border-[#242835] rounded-xl p-0.5 shadow-sm">
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                className="hidden xl:flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg hover:bg-[#1f222b] text-xs font-mono text-gray-300 transition-colors"
+                title="Import Final Draft (.fdx) file"
+              >
+                <Upload className="w-3.5 h-3.5 text-amber-500" />
+                <span>FDX</span>
+              </button>
 
-            {/* Keyboard Shortcuts Cheatsheet Button */}
+              <button
+                onClick={handleExportFdx}
+                className="hidden xl:flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg hover:bg-[#1f222b] text-xs font-mono text-gray-300 transition-colors"
+                title="Export Final Draft (.fdx) file"
+              >
+                <FileCode className="w-3.5 h-3.5 text-amber-500" />
+                <span>Export</span>
+              </button>
+
+              <button
+                onClick={handleExportFountain}
+                className="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg hover:bg-[#1f222b] text-xs font-mono text-gray-300 transition-colors"
+                title="Download standard Fountain plain-text script"
+              >
+                <Download className="w-3.5 h-3.5 text-amber-500" />
+                <span>Fountain</span>
+              </button>
+
+              {/* Primary PDF Print Button */}
+              <button
+                onClick={handlePrintPdf}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-xs font-bold text-black shadow-md shadow-amber-500/20 transition-all ml-0.5"
+                title="Print formatted script or save as PDF (Alt+P / Ctrl+P)"
+              >
+                <Printer className="w-3.5 h-3.5 text-black" />
+                <span>PDF</span>
+              </button>
+            </div>
+
+            {/* 4. Single Definitive Keyboard Shortcuts Button */}
             <button
               onClick={() => setIsShortcutsModalOpen(true)}
-              className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-[#181a1f] hover:bg-[#22252c] text-xs font-mono text-gray-300 border border-[#2b2e36] transition-colors"
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-[#14161d] hover:bg-[#1f222b] border border-[#242835] text-xs font-mono text-gray-300 hover:text-white transition-colors shadow-sm"
               title="View Complete Keyboard Shortcuts Guide (? or Alt+/)"
             >
               <Keyboard className="w-3.5 h-3.5 text-amber-400" />
               <span className="hidden xl:inline">Shortcuts</span>
-              <kbd className="hidden xl:inline text-[9px] bg-[#101216] px-1 py-0.2 rounded border border-[#2b2e36] text-amber-300">?</kbd>
+              <kbd className="text-[10px] bg-[#0c0d11] text-amber-300 px-1.5 py-0.5 rounded border border-[#2b2e3b] font-mono">?</kbd>
             </button>
 
-            {/* Phase 3 Collaboration & ScriptNotes Roster */}
-            <div className="pl-1 border-l border-[#262934] ml-1">
+            {/* 5. Phase 3 Collaboration & User Profile Bar */}
+            <div className="pl-1 border-l border-[#242835] ml-0.5">
               <CollaborationBar
                 presencePeers={presencePeers}
                 currentUserRole={currentUserRole}
@@ -1428,7 +1433,6 @@ Neon reflections shimmer in deep puddles. Sirens echo in the far distance.`;
               isolatedCharacter={isolatedCharacter}
               currentUserRole={currentUserRole}
               notes={notes}
-              onOpenShortcutsModal={() => setIsShortcutsModalOpen(true)}
             />
           )}
 
