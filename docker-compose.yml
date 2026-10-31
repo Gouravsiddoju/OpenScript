@@ -1,0 +1,67 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: openscript-postgres
+    restart: always
+    environment:
+      POSTGRES_DB: openscript
+      POSTGRES_USER: openscript
+      POSTGRES_PASSWORD: openscript_secure_password
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U openscript"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    container_name: openscript-api
+    restart: always
+    environment:
+      PORT: 3000
+      DATABASE_URL: postgres://openscript:openscript_secure_password@postgres:5432/openscript
+      CORS_ORIGIN: https://openscript.ssnpictures.in
+    ports:
+      - "3000:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    container_name: openscript-web
+    restart: always
+    ports:
+      - "8080:80"
+    depends_on:
+      - api
+
+  caddy:
+    image: caddy:2-alpine
+    container_name: openscript-caddy
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - web
+      - api
+
+volumes:
+  pgdata:
+  caddy_data:
+  caddy_config:

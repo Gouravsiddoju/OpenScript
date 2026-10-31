@@ -1,0 +1,38 @@
+name: 🚀 Feature / Task
+description: Technical feature or engineering task
+title: "[Feature]: "
+labels: ["feature"]
+body:
+  - type: textarea
+    id: feature-description
+    attributes:
+      label: Feature Description
+      description: Detailed explanation of the technical feature.
+      placeholder: Implement atomic optimistic revision concurrency in the Fastify PATCH document handler.
+    validations:
+      required: true
+  - type: textarea
+    id: technical-plan
+    attributes:
+      label: Technical Implementation Plan
+      description: What files or components are created/modified?
+      placeholder: |
+        - Create `apps/api/src/routes/documents.ts`
+        - Check `WHERE revision_number = $current`
+        - Return 409 Conflict if rows affected == 0
+    validations:
+      required: true
+  - type: dropdown
+    id: sprint
+    attributes:
+      label: Sprint Milestone
+      options:
+        - Sprint 1 (Foundation & Schema Handshake)
+        - Sprint 2 (Core Editor & REST API)
+        - Sprint 3 (Autosave & SmartType)
+        - Sprint 4 (Fountain Mode & Lossless Round-Trip)
+        - Sprint 5 (Virtual Pagination & PDF Export)
+        - Sprint 6 (Corkboard & Breakdown Reports)
+        - Sprint 7 (Production Hardening & Deployment)
+    validations:
+      required: true

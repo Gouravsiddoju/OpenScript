@@ -1,0 +1,65 @@
+services:
+  postgres-dev:
+    image: postgres:16-alpine
+    container_name: openscript-dev-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: openscript_dev
+      POSTGRES_PASSWORD: openscript_dev_secret
+      POSTGRES_DB: openscript_dev
+    ports:
+      - "5433:5432"
+    volumes:
+      - pgdata_dev:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U openscript_dev -d openscript_dev"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  api-dev:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    container_name: openscript-dev-api
+    restart: unless-stopped
+    environment:
+      NODE_ENV: development
+      PORT: 3000
+      DATABASE_URL: postgresql://openscript_dev:openscript_dev_secret@postgres-dev:5432/openscript_dev
+      SESSION_SECRET: dev_preview_secret_key_minimum_32_characters_long
+      CORS_ORIGIN: https://dev.openscript.ssnpictures.in
+      APP_URL: https://dev.openscript.ssnpictures.in
+      APP_BASE_URL: https://dev.openscript.ssnpictures.in
+    depends_on:
+      postgres-dev:
+        condition: service_healthy
+
+  web-dev:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    container_name: openscript-dev-web
+    restart: unless-stopped
+    depends_on:
+      - api-dev
+
+  caddy-dev:
+    image: caddy:2-alpine
+    container_name: openscript-dev-caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data_dev:/data
+      - caddy_config_dev:/config
+    depends_on:
+      - web-dev
+      - api-dev
+
+volumes:
+  pgdata_dev:
+  caddy_data_dev:
+  caddy_config_dev:

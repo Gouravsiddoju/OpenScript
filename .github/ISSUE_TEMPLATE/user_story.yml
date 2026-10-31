@@ -1,0 +1,39 @@
+name: 📖 User Story
+description: Define a user-facing story with acceptance criteria
+title: "[Story]: "
+labels: ["story"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ### Agile User Story Format
+  - type: textarea
+    id: user-story
+    attributes:
+      label: User Story
+      description: Follow the "As a [role], I want to [action] so that [benefit]" structure.
+      placeholder: As a screenwriter, I want to type character names and press Enter so that the editor automatically creates a dialogue block.
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance-criteria
+    attributes:
+      label: Acceptance Criteria
+      description: Specific conditions that must be met to consider this story Done.
+      placeholder: |
+        - [ ] Criterion 1
+        - [ ] Criterion 2
+        - [ ] Criterion 3
+    validations:
+      required: true
+  - type: dropdown
+    id: developer-role
+    attributes:
+      label: Assigned Role
+      description: Which developer leads this story?
+      options:
+        - Developer 1 (Frontend & Screenplay Engine)
+        - Developer 2 (Backend, Database & Production Engine)
+        - Full Stack (Both)
+    validations:
+      required: true

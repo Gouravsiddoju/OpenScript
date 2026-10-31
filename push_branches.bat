@@ -1,5 +1,5 @@
 @echo off
-echo Pushing all branches (main, dev, release) to GitHub...
-git push -u origin --all
+echo Pushing active branches (release, dev) to GitHub...
+git push -u origin release dev
 echo Done!
 pause

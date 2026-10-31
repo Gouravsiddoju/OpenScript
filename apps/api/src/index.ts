@@ -7,7 +7,7 @@ async function start() {
   const server = buildServer();
   try {
     await server.listen({ port, host });
-    console.log(`Scripto API server running at http://${host}:${port}`);
+    console.log(`OpenScript API server running at http://${host}:${port}`);
   } catch (err) {
     server.log.error(err);
     process.exit(1);

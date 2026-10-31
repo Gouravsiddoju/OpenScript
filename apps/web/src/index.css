@@ -1,4 +1,9 @@
-@import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=Courier+Prime:ital,wght@0,400;0,700;1,400;1,700&family=Inter:wght@400;500;600;700&display=swap');
+@import '../../../packages/editor/src/styles.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
 @layer base {
   body {
@@ -8,6 +13,61 @@
   }
 }
 
+/* Custom Sleek Studio Scrollbar (replaces chunky OS scrollbars) */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #23262f;
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #373b47;
+}
+
+/* Hide scrollbar utility */
+.no-scrollbar::-webkit-scrollbar {
+  display: none !important;
+}
+.no-scrollbar {
+  -ms-overflow-style: none !important;
+  scrollbar-width: none !important;
+}
+
 .font-screenplay {
   font-family: 'Courier Prime', Courier, monospace;
+}
+
+/* Tiptap ProseMirror Editor Reset */
+.ProseMirror {
+  outline: none !important;
+  min-height: 8.5in;
+  font-family: 'Courier Prime', Courier, monospace;
+  font-size: 12pt;
+  line-height: 1.0;
+}
+
+.ProseMirror p {
+  margin: 0;
+}
+
+/* Print Mode for Studio PDF Export */
+@media print {
+  body {
+    background: white !important;
+    color: black !important;
+  }
+  .no-print {
+    display: none !important;
+  }
+  .screenplay-page {
+    box-shadow: none !important;
+    margin: 0 !important;
+    width: 100% !important;
+    padding: 0.5in 0.5in 0.5in 1.0in !important;
+  }
 }

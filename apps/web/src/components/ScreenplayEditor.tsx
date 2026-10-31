@@ -1,0 +1,420 @@
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { useEditor, EditorContent } from '@tiptap/react';
+import StarterKit from '@tiptap/starter-kit';
+import { screenplayNodes, ScreenplayKeymap, ScreenplayUppercase } from '@openscript/editor';
+import { TitlePageMetadata } from './TitlePageModal';
+import { Lock, Sparkles, Columns } from 'lucide-react';
+
+interface ScreenplayEditorProps {
+  initialContent?: string;
+  onUpdate?: (html: string, json: any) => void;
+  onEditorReady?: (editor: any) => void;
+  metadata?: TitlePageMetadata;
+  isTrackingRevisions?: boolean;
+  activeRevisionColor?: string;
+  isScriptLocked?: boolean;
+  isTypewriterMode?: boolean;
+  isolatedCharacter?: string | null;
+}
+
+const DEFAULT_SCRIPT_HTML = `
+  <div class="script-scene-heading">INT. COFFEE SHOP - DAY</div>
+  <div class="script-action">Rain drums against the tall glass windows. A steaming cup of espresso rests on the counter.</div>
+  <div class="script-character">MAYA</div>
+  <div class="script-parenthetical">(checking her watch)</div>
+  <div class="script-dialogue">He should have been here twenty minutes ago. We don't have all day.</div>
+  <div class="script-action">The front door chimes. A soaked figure in a black trench coat steps inside.</div>
+  <div class="script-transition">CUT TO:</div>
+`;
+
+const STANDARD_TRANSITIONS = ['CUT TO:', 'FADE OUT.', 'DISSOLVE TO:', 'SMASH CUT TO:', 'MATCH CUT TO:'];
+const SLUGLINE_PREFIXES = ['INT. ', 'EXT. ', 'INT/EXT. '];
+
+export const ScreenplayEditor: React.FC<ScreenplayEditorProps> = ({
+  initialContent = DEFAULT_SCRIPT_HTML,
+  onUpdate,
+  onEditorReady,
+  metadata,
+  isTrackingRevisions = false,
+  activeRevisionColor = 'blue',
+  isScriptLocked = false,
+  isTypewriterMode = false,
+  isolatedCharacter = null,
+}) => {
+  const knownCharactersRef = useRef<string[]>(['MAYA']);
+  const isTrackingRef = useRef(isTrackingRevisions);
+  isTrackingRef.current = isTrackingRevisions;
+  const activeColorRef = useRef(activeRevisionColor);
+  activeColorRef.current = activeRevisionColor;
+  const isTypewriterRef = useRef(isTypewriterMode);
+  isTypewriterRef.current = isTypewriterMode;
+
+  const [activeSuggestion, setActiveSuggestion] = useState<string | null>(null);
+
+  const editor = useEditor({
+    extensions: [
+      StarterKit.configure({
+        blockquote: false,
+        codeBlock: false,
+        heading: false,
+      }),
+      ...screenplayNodes,
+      ScreenplayKeymap,
+      ScreenplayUppercase,
+    ],
+    editorProps: {
+      handleKeyDown(view, event) {
+        if (event.key === 'Tab' && !event.shiftKey) {
+          const { state } = view;
+          const { selection } = state;
+          const block = selection.$from.parent;
+          const blockType = block.type.name;
+          const text = block.textContent.trim();
+
+          // Transition autocomplete on Tab
+          if (blockType === 'transition' && text.length > 0) {
+            const match = STANDARD_TRANSITIONS.find((t) =>
+              t.toLowerCase().startsWith(text.toLowerCase())
+            );
+            if (match && match.toLowerCase() !== text.toLowerCase()) {
+              const from = selection.$from.start();
+              const to = selection.$from.end();
+              view.dispatch(state.tr.insertText(match, from, to));
+              setActiveSuggestion(null);
+              return true;
+            }
+          }
+
+          // Character autocomplete on Tab
+          if (blockType === 'character' && text.length > 0) {
+            const match = knownCharactersRef.current.find((c) =>
+              c.toLowerCase().startsWith(text.toLowerCase())
+            );
+            if (match && match.toLowerCase() !== text.toLowerCase()) {
+              const from = selection.$from.start();
+              const to = selection.$from.end();
+              view.dispatch(state.tr.insertText(match, from, to));
+              setActiveSuggestion(null);
+              return true;
+            }
+          }
+
+          // Scene Heading prefix autocomplete on Tab
+          if (blockType === 'sceneHeading' && text.length > 0 && !text.includes(' - ')) {
+            const prefixMatch = SLUGLINE_PREFIXES.find((p) =>
+              p.toLowerCase().startsWith(text.toLowerCase())
+            );
+            if (prefixMatch && prefixMatch.trim().toLowerCase() !== text.toLowerCase()) {
+              const from = selection.$from.start();
+              const to = selection.$from.end();
+              view.dispatch(state.tr.insertText(prefixMatch, from, to));
+              setActiveSuggestion(null);
+              return true;
+            }
+          }
+        }
+        return false;
+      },
+    },
+    content: initialContent,
+    onUpdate: ({ editor, transaction }) => {
+      // Auto-tag revision asterisk if revision tracking is active
+      if (isTrackingRef.current && transaction.docChanged) {
+        const { selection } = editor.state;
+        const currentBlock = selection.$from.parent;
+        if (currentBlock && !currentBlock.attrs.revisionMark && currentBlock.type.name !== 'doc') {
+          setTimeout(() => {
+            editor.commands.updateAttributes(currentBlock.type.name, {
+              revisionMark: true,
+              revisionColor: activeColorRef.current,
+            });
+          }, 0);
+        }
+      }
+
+      // Typewriter scrolling (Section 7)
+      if (isTypewriterRef.current && transaction.docChanged) {
+        setTimeout(() => {
+          const domSelection = window.getSelection();
+          if (domSelection && domSelection.focusNode) {
+            const el = domSelection.focusNode.parentElement;
+            if (el) {
+              el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+          }
+        }, 30);
+      }
+
+      // Check SmartType suggestions
+      const { selection } = editor.state;
+      const block = selection.$from.parent;
+      const blockType = block.type.name;
+      const text = block.textContent.trim();
+
+      if (blockType === 'character' && text.length > 0) {
+        const match = knownCharactersRef.current.find((c) =>
+          c.toLowerCase().startsWith(text.toLowerCase()) && c.toLowerCase() !== text.toLowerCase()
+        );
+        setActiveSuggestion(match || null);
+      } else if (blockType === 'transition' && text.length > 0) {
+        const match = STANDARD_TRANSITIONS.find((t) =>
+          t.toLowerCase().startsWith(text.toLowerCase()) && t.toLowerCase() !== text.toLowerCase()
+        );
+        setActiveSuggestion(match || null);
+      } else if (blockType === 'sceneHeading' && text.length > 0 && !text.includes(' - ')) {
+        const match = SLUGLINE_PREFIXES.find((p) =>
+          p.toLowerCase().startsWith(text.toLowerCase()) && p.trim().toLowerCase() !== text.toLowerCase()
+        );
+        setActiveSuggestion(match || null);
+      } else {
+        setActiveSuggestion(null);
+      }
+
+      if (onUpdate) {
+        onUpdate(editor.getHTML(), editor.getJSON());
+      }
+    },
+  });
+
+  useEffect(() => {
+    if (editor && onEditorReady) {
+      onEditorReady(editor);
+    }
+  }, [editor, onEditorReady]);
+
+  // Extract known characters in the script for autocomplete
+  const knownCharacters = useMemo(() => {
+    if (!editor) return ['MAYA'];
+    const characters = new Set<string>();
+    editor.state.doc.descendants((node) => {
+      if (node.type.name === 'character') {
+        const text = node.textContent.trim().toUpperCase().replace(/\s*\(.*\)$/, '');
+        if (text) characters.add(text);
+      }
+    });
+    const list = Array.from(characters);
+    knownCharactersRef.current = list;
+    return list;
+  }, [editor?.state.doc]);
+
+  const handleApplySuggestion = (suggestion: string) => {
+    if (!editor) return;
+    const { state } = editor;
+    const { selection } = state;
+    const from = selection.$from.start();
+    const to = selection.$from.end();
+    editor.view.dispatch(state.tr.insertText(suggestion, from, to));
+    editor.commands.focus();
+    setActiveSuggestion(null);
+  };
+
+  const handleInsertDualDialogue = () => {
+    if (!editor) return;
+    const dualHtml = `
+      <div class="script-dual-dialogue">
+        <div>
+          <div class="script-character">CHARACTER 1</div>
+          <div class="script-dialogue">Simultaneous speech.</div>
+        </div>
+        <div>
+          <div class="script-character">CHARACTER 2</div>
+          <div class="script-dialogue">Overlapping dialogue.</div>
+        </div>
+      </div>
+    `;
+    editor.chain().focus().insertContent(dualHtml).run();
+  };
+
+  if (!editor) {
+    return (
+      <div className="flex items-center justify-center p-12 text-gray-500 font-mono text-xs">
+        Loading OpenScript Studio Engine...
+      </div>
+    );
+  }
+
+  const currentSelectionParent = editor.state.selection.$from.parent;
+  const activeNodeType = currentSelectionParent.type.name;
+  const isCurrentBlockMarked = Boolean(currentSelectionParent.attrs.revisionMark);
+
+  return (
+    <div className="flex flex-col items-center w-full">
+      {/* Dynamic Dialogue Isolator Styles */}
+      {isolatedCharacter && (
+        <style>{`
+          .isolating-active .script-character,
+          .isolating-active .script-dialogue,
+          .isolating-active .script-parenthetical {
+            opacity: 0.3 !important;
+            filter: grayscale(80%);
+            transition: all 0.2s ease;
+          }
+          .isolating-active [data-speaker="${isolatedCharacter}"],
+          .isolating-active .isolated-match {
+            opacity: 1.0 !important;
+            filter: none !important;
+            background-color: rgba(245, 158, 11, 0.08);
+            border-radius: 4px;
+          }
+        `}</style>
+      )}
+
+      {/* 1. Professional Studio Element Ribbon */}
+      <div className="no-print sticky top-0 z-10 w-full max-w-[8.5in] mb-4 bg-[#111317]/95 backdrop-blur-md border border-[#22252e] rounded-xl px-2.5 py-1.5 flex items-center justify-between shadow-lg">
+        <div className="flex items-center gap-1.5 no-scrollbar">
+          {[
+            { type: 'sceneHeading', label: 'Scene Heading', shortcut: '1' },
+            { type: 'action', label: 'Action', shortcut: '2' },
+            { type: 'character', label: 'Character', shortcut: '3' },
+            { type: 'parenthetical', label: 'Parenthetical', shortcut: '4' },
+            { type: 'dialogue', label: 'Dialogue', shortcut: '5' },
+            { type: 'transition', label: 'Transition', shortcut: '6' },
+          ].map(({ type, label, shortcut }) => {
+            const isActive = activeNodeType === type;
+            return (
+              <button
+                key={type}
+                onClick={() => editor.chain().focus().setNode(type).run()}
+                title={`Shortcut: Ctrl+${shortcut} / ⌘${shortcut}`}
+                className={`px-3 py-1.5 rounded-lg text-xs font-mono transition-all flex items-center gap-2 whitespace-nowrap ${
+                  isActive
+                    ? 'bg-[#1e222b] text-white font-semibold border border-amber-500/40 shadow-sm'
+                    : 'text-gray-400 hover:text-gray-200 hover:bg-[#181a20]'
+                }`}
+              >
+                <span className={isActive ? 'text-amber-400' : 'text-gray-400'}>
+                  {label}
+                </span>
+                <span className="text-[10px] text-gray-500 font-sans opacity-70">
+                  ⌘{shortcut}
+                </span>
+              </button>
+            );
+          })}
+
+          {/* Dual Dialogue Quick Insert */}
+          <button
+            onClick={handleInsertDualDialogue}
+            className="px-2.5 py-1.5 rounded-lg text-xs font-mono transition-all flex items-center gap-1.5 text-gray-400 hover:text-gray-200 hover:bg-[#181a20]"
+            title="Insert Dual Dialogue (Simultaneous Speech Columns)"
+          >
+            <Columns className="w-3.5 h-3.5 text-amber-500/80" />
+            <span className="hidden sm:inline">Dual</span>
+          </button>
+
+          <div className="h-4 w-[1px] bg-[#2a2d37] mx-1" />
+
+          {/* Hollywood Revision Asterisk Toggle */}
+          <button
+            onClick={() => {
+              editor.chain().focus().updateAttributes(activeNodeType, {
+                revisionMark: !isCurrentBlockMarked,
+                revisionColor: activeRevisionColor,
+              }).run();
+            }}
+            className={`px-2.5 py-1.5 rounded-lg text-xs font-mono transition-all flex items-center gap-1.5 ${
+              isCurrentBlockMarked
+                ? 'bg-red-500/20 text-red-300 border border-red-500/40 shadow-sm'
+                : 'text-gray-400 hover:text-gray-200 hover:bg-[#181a20]'
+            }`}
+            title="Toggle Hollywood revision asterisk (*) on current block"
+          >
+            <span className="text-red-400 font-bold text-sm leading-none">*</span>
+            <span>Revision</span>
+          </button>
+        </div>
+
+        <div className="hidden lg:flex items-center gap-3 text-[11px] text-gray-400 font-mono pr-1">
+          {isTypewriterMode && (
+            <span className="text-[10px] text-amber-400/90 font-mono bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20">
+              Typewriter Mode
+            </span>
+          )}
+          {isScriptLocked && (
+            <span className="flex items-center gap-1 text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/30">
+              <Lock className="w-3 h-3" />
+              <span>Locked Script</span>
+            </span>
+          )}
+          <span className="flex items-center gap-1.5">
+            <kbd className="px-1.5 py-0.5 bg-[#1a1c22] rounded border border-[#2b2e38] text-gray-300 text-[10px]">Tab</kbd>
+            <span className="text-gray-500">cycle</span>
+          </span>
+          <span className="text-gray-600">·</span>
+          <span className="flex items-center gap-1.5">
+            <kbd className="px-1.5 py-0.5 bg-[#1a1c22] rounded border border-[#2b2e38] text-gray-300 text-[10px]">Enter</kbd>
+            <span className="text-gray-500">advance</span>
+          </span>
+        </div>
+      </div>
+
+      {/* SmartType Suggestion Floating Pill (Stories #9, #24, #27) */}
+      {activeSuggestion && (
+        <div className="no-print w-full max-w-[8.5in] mb-3 flex items-center justify-start animate-fadeIn">
+          <button
+            onClick={() => handleApplySuggestion(activeSuggestion)}
+            className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#181b22] hover:bg-[#20242e] border border-amber-500/40 text-amber-300 text-xs font-mono shadow-xl transition-all"
+            title="Click or press Tab to complete"
+          >
+            <Sparkles className="w-3.5 h-3.5 text-amber-400 animate-pulse" />
+            <span>Suggestion: <strong>{activeSuggestion}</strong></span>
+            <kbd className="ml-1.5 px-1.5 py-0.5 bg-[#111215] text-[10px] text-gray-400 rounded border border-[#2f3542]">Tab ⇥</kbd>
+          </button>
+        </div>
+      )}
+
+      {/* 2. Industry Standard Title Page (if enabled) */}
+      {metadata?.showTitlePage && (
+        <div className="screenplay-page font-screenplay select-text mb-8 relative flex flex-col justify-between print:break-after-page shadow-2xl">
+          {metadata.showWatermark && metadata.watermarkText && (
+            <div className="screenplay-watermark">{metadata.watermarkText}</div>
+          )}
+          <div className="mt-[3.0in] flex flex-col items-center gap-6 text-center">
+            <h1 className="text-xl font-bold uppercase underline tracking-wider font-screenplay text-black">
+              {metadata.title || 'UNTITLED SCREENPLAY'}
+            </h1>
+            <div className="text-sm italic text-gray-700">
+              {metadata.credit || 'written by'}
+            </div>
+            <div className="text-base font-semibold font-screenplay text-gray-900">
+              {metadata.author || 'Author Name'}
+            </div>
+            {metadata.basedOn && (
+              <div className="text-xs text-gray-600 max-w-md mx-auto mt-2 italic">
+                {metadata.basedOn}
+              </div>
+            )}
+          </div>
+
+          <div className="mt-auto w-full flex justify-between items-end text-[10pt] text-gray-700 pb-4 border-t border-gray-100 pt-4">
+            <div className="whitespace-pre-line text-left leading-relaxed">
+              {metadata.contact || 'SSN Pictures\ncontact@ssnpictures.in'}
+            </div>
+            <div className="text-right leading-relaxed">
+              <div className="font-semibold text-gray-900">{metadata.draftLabel || 'First Draft'}</div>
+              <div>{metadata.draftDate || new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 3. Authentic Screenplay Paper Canvas */}
+      <div className={`screenplay-page font-screenplay select-text relative ${isolatedCharacter ? 'isolating-active' : ''}`}>
+        {metadata?.showWatermark && metadata?.watermarkText && (
+          <div className="screenplay-watermark">{metadata.watermarkText}</div>
+        )}
+
+        {/* Page Top Running Header */}
+        <div className="text-right text-[10pt] text-gray-400 mb-6 border-b border-gray-100 pb-2 select-none no-print flex justify-between">
+          <span className="italic uppercase">
+            {metadata?.title ? `${metadata.title} — ${metadata.draftLabel || 'DRAFT'}` : 'OPENSCRIPT — FIRST DRAFT'}
+          </span>
+          <span>1.</span>
+        </div>
+
+        {/* Tiptap Screenplay Content */}
+        <EditorContent editor={editor} />
+      </div>
+    </div>
+  );
+};
