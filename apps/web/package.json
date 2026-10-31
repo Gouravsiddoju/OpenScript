@@ -10,16 +10,18 @@
   },
   "dependencies": {
     "@openscript/editor": "workspace:*",
-    "@openscript/screenplay-schema": "workspace:*",
-    "@openscript/fountain": "workspace:*",
     "@openscript/fdx": "workspace:*",
+    "@openscript/fountain": "workspace:*",
+    "@openscript/screenplay-schema": "workspace:*",
+    "@tiptap/react": "^2.10.3",
+    "@tiptap/starter-kit": "^2.10.3",
+    "jszip": "^3.10.2",
     "lucide-react": "^0.468.0",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0",
-    "@tiptap/react": "^2.10.3",
-    "@tiptap/starter-kit": "^2.10.3"
+    "react-dom": "^19.0.0"
   },
   "devDependencies": {
+    "@types/jszip": "^3.4.1",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "@vitejs/plugin-react": "^4.3.4",
