@@ -871,16 +871,16 @@ Neon reflections shimmer in deep puddles. Sirens echo in the far distance.`;
         type: 'sceneHeading', 
         attrs: { 
           sceneNumber: sceneNumberAttr,
-          revisionMark: isTrackingRevisions,
-          revisionColor: activeRevisionColor 
+          revisionMark: false,
+          revisionColor: null 
         },
         content: [{ type: 'text', text: defaultSlugline }] 
       },
       { 
         type: 'action', 
         attrs: { 
-          revisionMark: isTrackingRevisions,
-          revisionColor: activeRevisionColor 
+          revisionMark: false,
+          revisionColor: null 
         },
         content: [{ type: 'text', text: 'Action description...' }] 
       }
