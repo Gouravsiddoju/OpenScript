@@ -10,6 +10,7 @@ export interface TitlePageMetadata {
   draftLabel: string;
   draftDate: string;
   showTitlePage: boolean;
+  copyright?: string;
   watermarkText?: string;
   showWatermark?: boolean;
 }

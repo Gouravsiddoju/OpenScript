@@ -56,23 +56,75 @@
 }
 
 /* Print Mode for Studio PDF Export */
+@page {
+  size: letter portrait;
+  margin: 0.5in;
+}
+
 @media print {
-  body {
+  html, body, #root, #root > div, main {
+    overflow: visible !important;
+    height: auto !important;
+    min-height: auto !important;
+    max-height: none !important;
     background: white !important;
     color: black !important;
+    display: block !important;
+    position: static !important;
   }
+
   .no-print {
     display: none !important;
   }
+
   .screenplay-page {
     box-shadow: none !important;
-    margin: 0 !important;
-    width: 100% !important;
+    margin: 0 auto !important;
+    width: 8.5in !important;
+    max-width: 100% !important;
+    min-height: auto !important;
+    overflow: visible !important;
     padding: 0.5in 0.5in 0.5in 1.0in !important;
+    background: white !important;
+    color: black !important;
   }
+
   .screenplay-title-page {
     padding: 1.0in 1.0in 1.0in 1.0in !important;
+    min-height: 9.5in !important;
     page-break-after: always !important;
     break-after: page !important;
+  }
+
+  .script-scene-heading {
+    break-inside: avoid !important;
+    break-after: avoid !important;
+    page-break-inside: avoid !important;
+    page-break-after: avoid !important;
+  }
+
+  .script-character {
+    break-inside: avoid !important;
+    break-after: avoid !important;
+    page-break-inside: avoid !important;
+    page-break-after: avoid !important;
+  }
+
+  .script-parenthetical,
+  .script-dialogue,
+  .script-transition {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+
+  .screenplay-watermark {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  .revision-marker::after {
+    color: black !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
   }
 }
