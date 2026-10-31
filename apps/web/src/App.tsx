@@ -21,7 +21,9 @@ import {
   Unlock,
   Layers,
   ChevronDown,
-  AlertCircle
+  AlertCircle,
+  Zap,
+  Radio
 } from 'lucide-react';
 import { ScreenplayEditor } from './components/ScreenplayEditor';
 import { FountainView } from './components/FountainView';
@@ -30,6 +32,7 @@ import { SceneNavigator, SceneItem } from './components/SceneNavigator';
 import { BeatBoard } from './components/BeatBoard';
 import { TitlePageModal, TitlePageMetadata } from './components/TitlePageModal';
 import { ConflictModal } from './components/ConflictModal';
+import { SprintWidget } from './components/SprintWidget';
 import { fountainToHtml, parseFountain, blocksToHtml } from '@openscript/fountain';
 import { parseFdx, serializeFdx } from '@openscript/fdx';
 import { 
@@ -137,6 +140,11 @@ export default function App() {
   const [isTitleModalOpen, setIsTitleModalOpen] = useState(false);
   const [isRevisionMenuOpen, setIsRevisionMenuOpen] = useState(false);
   
+  // Phase 2 Ergonomics state
+  const [isSprintWidgetOpen, setIsSprintWidgetOpen] = useState(false);
+  const [isTypewriterMode, setIsTypewriterMode] = useState(false);
+  const [isolatedCharacter, setIsolatedCharacter] = useState<string | null>(null);
+
   // Production revision state
   const [isScriptLocked, setIsScriptLocked] = useState<boolean>(() => {
     return localStorage.getItem('openscript_is_locked') === 'true';
@@ -274,6 +282,13 @@ Neon reflections shimmer in deep puddles. Sirens echo in the far distance.`;
   const scenes = useMemo(() => {
     return extractScenes(scriptHtml);
   }, [scriptHtml]);
+
+  // Extract all characters across the script for the Voice Isolator
+  const allScriptCharacters = useMemo(() => {
+    const set = new Set<string>();
+    scenes.forEach((s) => s.characters.forEach((c) => set.add(c)));
+    return Array.from(set);
+  }, [scenes]);
 
   // Word count & estimated pages
   const metrics = useMemo(() => {
@@ -544,7 +559,7 @@ Neon reflections shimmer in deep puddles. Sirens echo in the far distance.`;
               </div>
               <div>
                 <span className="font-bold tracking-wider text-sm block text-white">
-                  OPENSCRIPT <span className="text-amber-500 text-xs font-mono font-normal">v0.1</span>
+                  OPENSCRIPT <span className="text-amber-500 text-xs font-mono font-normal">v0.2</span>
                 </span>
                 <span className="text-[10px] text-gray-500 block font-mono">openscript.ssnpictures.in</span>
               </div>
@@ -622,7 +637,7 @@ Neon reflections shimmer in deep puddles. Sirens echo in the far distance.`;
       >
         {/* Top Header Bar */}
         <header className="no-print h-14 border-b border-[#1c1e24] bg-[#0c0d0f] px-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
             {!focusMode && (
               <button
                 onClick={() => setSidebarOpen(!sidebarOpen)}
@@ -636,15 +651,15 @@ Neon reflections shimmer in deep puddles. Sirens echo in the far distance.`;
             <div className="flex items-center gap-2 text-xs font-mono text-gray-400">
               <button
                 onClick={() => setIsTitleModalOpen(true)}
-                className="text-gray-200 font-semibold hover:text-amber-400 transition-colors uppercase truncate max-w-[150px]"
+                className="text-gray-200 font-semibold hover:text-amber-400 transition-colors uppercase truncate max-w-[120px] sm:max-w-[160px]"
                 title="Click to edit Title Page"
               >
                 {titleMetadata.title}
               </button>
-              <ChevronRight className="w-3.5 h-3.5 text-gray-600" />
-              <span className="text-gray-400 hidden sm:inline">{scenes[0]?.slugline || 'SCENE 1'}</span>
               <ChevronRight className="w-3.5 h-3.5 text-gray-600 hidden sm:inline" />
-              <span className="text-amber-500/90 flex items-center gap-1">
+              <span className="text-gray-400 hidden sm:inline">{scenes[0]?.slugline || 'SCENE 1'}</span>
+              <ChevronRight className="w-3.5 h-3.5 text-gray-600 hidden md:inline" />
+              <span className="text-amber-500/90 hidden md:flex items-center gap-1">
                 <Clock className="w-3 h-3" />
                 <span>Page 1 of {metrics.estimatedPages} ({metrics.estimatedPages} mins)</span>
               </span>
@@ -653,7 +668,7 @@ Neon reflections shimmer in deep puddles. Sirens echo in the far distance.`;
             {/* Quick Header + Add Scene Button */}
             <button
               onClick={handleAddScene}
-              className="hidden lg:flex items-center gap-1.5 px-2.5 py-1 rounded bg-[#1c1f26] hover:bg-[#252832] text-amber-400 hover:text-amber-300 border border-amber-500/30 text-xs font-mono font-medium transition-all ml-1"
+              className="hidden xl:flex items-center gap-1.5 px-2.5 py-1 rounded bg-[#1c1f26] hover:bg-[#252832] text-amber-400 hover:text-amber-300 border border-amber-500/30 text-xs font-mono font-medium transition-all ml-1"
               title="Add a new Scene to your screenplay"
             >
               <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
@@ -662,7 +677,49 @@ Neon reflections shimmer in deep puddles. Sirens echo in the far distance.`;
           </div>
 
           {/* Export & Action Buttons */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 sm:gap-2">
+            {/* Writing Sprint Stopwatch Button (Section 7) */}
+            <button
+              onClick={() => setIsSprintWidgetOpen(!isSprintWidgetOpen)}
+              className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-mono border transition-all ${
+                isSprintWidgetOpen
+                  ? 'bg-amber-500/20 text-amber-300 border-amber-500/50 shadow-sm'
+                  : 'bg-[#181a1f] hover:bg-[#22252c] text-gray-400 hover:text-white border-[#2b2e36]'
+              }`}
+              title="Sprint Stopwatch & Output Goals"
+            >
+              <Zap className="w-3.5 h-3.5 text-amber-400" />
+              <span className="hidden lg:inline">Sprint</span>
+            </button>
+
+            {/* Typewriter Mode Toggle (Section 7) */}
+            <button
+              onClick={() => setIsTypewriterMode(!isTypewriterMode)}
+              className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-mono border transition-all ${
+                isTypewriterMode
+                  ? 'bg-amber-500/20 text-amber-300 border-amber-500/50 shadow-sm'
+                  : 'bg-[#181a1f] hover:bg-[#22252c] text-gray-400 hover:text-white border-[#2b2e36]'
+              }`}
+              title="Typewriter Scrolling (Keeps cursor centered at 45% screen height)"
+            >
+              <span className="hidden lg:inline">Typewriter</span>
+            </button>
+
+            {/* Dialogue Voice Isolator Selector (Section 7) */}
+            {allScriptCharacters.length > 0 && (
+              <select
+                value={isolatedCharacter || ''}
+                onChange={(e) => setIsolatedCharacter(e.target.value || null)}
+                className="hidden xl:inline-block px-2 py-1.5 bg-[#181a1f] text-gray-300 border border-[#2b2e36] rounded-lg text-xs font-mono focus:outline-none"
+                title="Dialogue Voice Isolator: Highlight a single character's dialogue"
+              >
+                <option value="">Voice: All</option>
+                {allScriptCharacters.map((c) => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </select>
+            )}
+
             {/* Hollywood Revision Draft Dropdown */}
             <div className="relative">
               <button
@@ -739,7 +796,7 @@ Neon reflections shimmer in deep puddles. Sirens echo in the far distance.`;
               title="Import Final Draft (.fdx) file"
             >
               <Upload className="w-3.5 h-3.5 text-amber-500" />
-              <span className="hidden xl:inline">Import FDX</span>
+              <span className="hidden 2xl:inline">Import FDX</span>
             </button>
 
             {/* Final Draft FDX Export Button */}
@@ -749,7 +806,7 @@ Neon reflections shimmer in deep puddles. Sirens echo in the far distance.`;
               title="Export Final Draft (.fdx) file"
             >
               <FileCode className="w-3.5 h-3.5 text-amber-500" />
-              <span className="hidden xl:inline">Export FDX</span>
+              <span className="hidden 2xl:inline">Export FDX</span>
             </button>
 
             {/* Fountain Export */}
@@ -785,6 +842,8 @@ Neon reflections shimmer in deep puddles. Sirens echo in the far distance.`;
               isTrackingRevisions={isTrackingRevisions}
               activeRevisionColor={activeRevisionColor}
               isScriptLocked={isScriptLocked}
+              isTypewriterMode={isTypewriterMode}
+              isolatedCharacter={isolatedCharacter}
             />
           )}
 
@@ -834,6 +893,18 @@ Neon reflections shimmer in deep puddles. Sirens echo in the far distance.`;
                 </span>
               </>
             )}
+            {isTypewriterMode && (
+              <>
+                <span className="text-gray-600">·</span>
+                <span className="text-amber-400">Typewriter</span>
+              </>
+            )}
+            {isolatedCharacter && (
+              <>
+                <span className="text-gray-600">·</span>
+                <span className="text-amber-400">Voice: {isolatedCharacter}</span>
+              </>
+            )}
           </div>
 
           <div className="flex items-center gap-3">
@@ -878,6 +949,13 @@ Neon reflections shimmer in deep puddles. Sirens echo in the far distance.`;
           setConflictModalOpen(false);
           if (serverRevision) setRevisionNumber(serverRevision);
         }}
+      />
+
+      {/* Sprint Stopwatch & Writing Goals Widget (Section 7) */}
+      <SprintWidget
+        isOpen={isSprintWidgetOpen}
+        onClose={() => setIsSprintWidgetOpen(false)}
+        currentWordCount={metrics.words}
       />
     </div>
   );

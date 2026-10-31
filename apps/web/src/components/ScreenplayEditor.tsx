@@ -3,7 +3,7 @@ import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import { screenplayNodes, ScreenplayKeymap, ScreenplayUppercase } from '@openscript/editor';
 import { TitlePageMetadata } from './TitlePageModal';
-import { Lock, Sparkles, CornerDownLeft } from 'lucide-react';
+import { Lock, Sparkles, Columns } from 'lucide-react';
 
 interface ScreenplayEditorProps {
   initialContent?: string;
@@ -13,6 +13,8 @@ interface ScreenplayEditorProps {
   isTrackingRevisions?: boolean;
   activeRevisionColor?: string;
   isScriptLocked?: boolean;
+  isTypewriterMode?: boolean;
+  isolatedCharacter?: string | null;
 }
 
 const DEFAULT_SCRIPT_HTML = `
@@ -36,12 +38,16 @@ export const ScreenplayEditor: React.FC<ScreenplayEditorProps> = ({
   isTrackingRevisions = false,
   activeRevisionColor = 'blue',
   isScriptLocked = false,
+  isTypewriterMode = false,
+  isolatedCharacter = null,
 }) => {
   const knownCharactersRef = useRef<string[]>(['MAYA']);
   const isTrackingRef = useRef(isTrackingRevisions);
   isTrackingRef.current = isTrackingRevisions;
   const activeColorRef = useRef(activeRevisionColor);
   activeColorRef.current = activeRevisionColor;
+  const isTypewriterRef = useRef(isTypewriterMode);
+  isTypewriterRef.current = isTypewriterMode;
 
   const [activeSuggestion, setActiveSuggestion] = useState<string | null>(null);
 
@@ -126,6 +132,19 @@ export const ScreenplayEditor: React.FC<ScreenplayEditorProps> = ({
         }
       }
 
+      // Typewriter scrolling (Section 7)
+      if (isTypewriterRef.current && transaction.docChanged) {
+        setTimeout(() => {
+          const domSelection = window.getSelection();
+          if (domSelection && domSelection.focusNode) {
+            const el = domSelection.focusNode.parentElement;
+            if (el) {
+              el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+          }
+        }, 30);
+      }
+
       // Check SmartType suggestions
       const { selection } = editor.state;
       const block = selection.$from.parent;
@@ -189,6 +208,23 @@ export const ScreenplayEditor: React.FC<ScreenplayEditorProps> = ({
     setActiveSuggestion(null);
   };
 
+  const handleInsertDualDialogue = () => {
+    if (!editor) return;
+    const dualHtml = `
+      <div class="script-dual-dialogue">
+        <div>
+          <div class="script-character">CHARACTER 1</div>
+          <div class="script-dialogue">Simultaneous speech.</div>
+        </div>
+        <div>
+          <div class="script-character">CHARACTER 2</div>
+          <div class="script-dialogue">Overlapping dialogue.</div>
+        </div>
+      </div>
+    `;
+    editor.chain().focus().insertContent(dualHtml).run();
+  };
+
   if (!editor) {
     return (
       <div className="flex items-center justify-center p-12 text-gray-500 font-mono text-xs">
@@ -203,6 +239,26 @@ export const ScreenplayEditor: React.FC<ScreenplayEditorProps> = ({
 
   return (
     <div className="flex flex-col items-center w-full">
+      {/* Dynamic Dialogue Isolator Styles */}
+      {isolatedCharacter && (
+        <style>{`
+          .isolating-active .script-character,
+          .isolating-active .script-dialogue,
+          .isolating-active .script-parenthetical {
+            opacity: 0.3 !important;
+            filter: grayscale(80%);
+            transition: all 0.2s ease;
+          }
+          .isolating-active [data-speaker="${isolatedCharacter}"],
+          .isolating-active .isolated-match {
+            opacity: 1.0 !important;
+            filter: none !important;
+            background-color: rgba(245, 158, 11, 0.08);
+            border-radius: 4px;
+          }
+        `}</style>
+      )}
+
       {/* 1. Professional Studio Element Ribbon */}
       <div className="no-print sticky top-0 z-10 w-full max-w-[8.5in] mb-4 bg-[#111317]/95 backdrop-blur-md border border-[#22252e] rounded-xl px-2.5 py-1.5 flex items-center justify-between shadow-lg">
         <div className="flex items-center gap-1.5 no-scrollbar">
@@ -236,6 +292,16 @@ export const ScreenplayEditor: React.FC<ScreenplayEditorProps> = ({
             );
           })}
 
+          {/* Dual Dialogue Quick Insert */}
+          <button
+            onClick={handleInsertDualDialogue}
+            className="px-2.5 py-1.5 rounded-lg text-xs font-mono transition-all flex items-center gap-1.5 text-gray-400 hover:text-gray-200 hover:bg-[#181a20]"
+            title="Insert Dual Dialogue (Simultaneous Speech Columns)"
+          >
+            <Columns className="w-3.5 h-3.5 text-amber-500/80" />
+            <span className="hidden sm:inline">Dual</span>
+          </button>
+
           <div className="h-4 w-[1px] bg-[#2a2d37] mx-1" />
 
           {/* Hollywood Revision Asterisk Toggle */}
@@ -259,6 +325,11 @@ export const ScreenplayEditor: React.FC<ScreenplayEditorProps> = ({
         </div>
 
         <div className="hidden lg:flex items-center gap-3 text-[11px] text-gray-400 font-mono pr-1">
+          {isTypewriterMode && (
+            <span className="text-[10px] text-amber-400/90 font-mono bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20">
+              Typewriter Mode
+            </span>
+          )}
           {isScriptLocked && (
             <span className="flex items-center gap-1 text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/30">
               <Lock className="w-3 h-3" />
@@ -328,7 +399,7 @@ export const ScreenplayEditor: React.FC<ScreenplayEditorProps> = ({
       )}
 
       {/* 3. Authentic Screenplay Paper Canvas */}
-      <div className="screenplay-page font-screenplay select-text relative">
+      <div className={`screenplay-page font-screenplay select-text relative ${isolatedCharacter ? 'isolating-active' : ''}`}>
         {metadata?.showWatermark && metadata?.watermarkText && (
           <div className="screenplay-watermark">{metadata.watermarkText}</div>
         )}

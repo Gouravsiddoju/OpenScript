@@ -150,6 +150,25 @@ export const TransitionNode = Node.create({
   },
 });
 
+export const DualDialogueNode = Node.create({
+  name: 'dualDialogue',
+  group: 'block',
+  content: 'block+',
+  defining: true,
+
+  addAttributes() {
+    return commonAttributes;
+  },
+
+  parseHTML() {
+    return [{ tag: 'div.script-dual-dialogue' }];
+  },
+
+  renderHTML({ HTMLAttributes }) {
+    return ['div', mergeAttributes(HTMLAttributes, { class: 'script-dual-dialogue' }), 0];
+  },
+});
+
 export const screenplayNodes = [
   SceneHeadingNode,
   ActionNode,
@@ -157,4 +176,5 @@ export const screenplayNodes = [
   ParentheticalNode,
   DialogueNode,
   TransitionNode,
+  DualDialogueNode,
 ];
