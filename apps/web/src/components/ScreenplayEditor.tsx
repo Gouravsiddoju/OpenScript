@@ -20,6 +20,7 @@ interface ScreenplayEditorProps {
   notes?: ScriptNote[];
   onSelectBlockForNotes?: (blockId: string) => void;
   onAddNoteFromSelection?: (selectedText: string, commentText: string, category: ScriptNoteCategory) => void;
+  onOpenSceneTakesForBlock?: (blockText: string) => void;
 }
 
 const DEFAULT_SCRIPT_HTML = `
@@ -49,6 +50,7 @@ export const ScreenplayEditor: React.FC<ScreenplayEditorProps> = ({
   notes = [],
   onSelectBlockForNotes,
   onAddNoteFromSelection,
+  onOpenSceneTakesForBlock,
 }) => {
   const initialKnownChars = useMemo(() => {
     const chars = new Set<string>(['MAYA', 'GOURAV']);
@@ -665,7 +667,22 @@ export const ScreenplayEditor: React.FC<ScreenplayEditorProps> = ({
       )}
 
       {/* 3. Authentic Screenplay Paper Canvas */}
-      <div ref={paperContainerRef} className={`screenplay-page font-screenplay select-text relative ${isolatedCharacter ? 'isolating-active' : ''}`}>
+      <div 
+        ref={paperContainerRef} 
+        onClick={(e) => {
+          const target = e.target as HTMLElement;
+          const markerBlock = target?.closest('.revision-marker');
+          if (markerBlock && onOpenSceneTakesForBlock) {
+            const rect = markerBlock.getBoundingClientRect();
+            // If click was near the right margin (asterisk zone)
+            if (e.clientX >= rect.right - 60) {
+              e.stopPropagation();
+              onOpenSceneTakesForBlock(markerBlock.textContent || '');
+            }
+          }
+        }}
+        className={`screenplay-page font-screenplay select-text relative ${isolatedCharacter ? 'isolating-active' : ''}`}
+      >
         {(metadata?.showWatermark && metadata?.watermarkText) ? (
           <div className="screenplay-watermark">{metadata.watermarkText}</div>
         ) : isWatermarkRequired(currentUserRole) ? (

@@ -171,6 +171,12 @@ export const BeatBoard: React.FC<BeatBoardProps> = ({
                       <span className="font-mono text-xs font-bold text-amber-500 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">
                         SCENE #{scene.id}
                       </span>
+                      {scene.hasRevisions && (
+                        <span className="font-mono text-[9px] font-bold text-red-400 bg-red-500/15 border border-red-500/30 px-1.5 py-0.5 rounded flex items-center gap-0.5" title="Scene contains revised lines (*)">
+                          <span>*</span>
+                          <span>REV</span>
+                        </span>
+                      )}
                       {onOpenTakes && (
                         <button
                           type="button"

@@ -101,6 +101,14 @@ export const SceneTakesModal: React.FC<SceneTakesModalProps> = ({
             )}
           </div>
 
+
+          {scene.hasRevisions && (
+            <div className="flex items-center gap-2.5 p-3 rounded-xl bg-red-500/10 border border-red-500/30 text-xs text-red-300 font-mono shadow-sm">
+              <span className="text-base font-bold text-red-400 leading-none">*</span>
+              <span><strong>Active Revision Draft:</strong> This scene contains lines revised with Hollywood right-margin asterisks (*). Compare with Take 1 Baseline below.</span>
+            </div>
+          )}
+
           {/* Create New Take Form */}
           {isCreating && (
             <form onSubmit={handleSaveTake} className="p-4 rounded-xl bg-[#171a24] border border-amber-500/40 space-y-3">
@@ -197,9 +205,28 @@ export const SceneTakesModal: React.FC<SceneTakesModalProps> = ({
                     )}
                   </div>
 
-                  {/* Script Preview Snippet */}
-                  <div className="p-3 rounded-lg bg-[#0d0e12] border border-[#1e2028] max-h-36 overflow-y-auto font-mono text-[11px] leading-relaxed text-gray-300 whitespace-pre-wrap">
-                    {take.fountainText}
+                  {/* Script Preview Snippet with Revision Highlights */}
+                  <div className="p-3 rounded-lg bg-[#0d0e12] border border-[#1e2028] max-h-40 overflow-y-auto font-mono text-[11px] leading-relaxed text-gray-300 space-y-1">
+                    {take.fountainText.split('\n').map((line, lineIdx) => {
+                      const isLineRevised = line.includes(' *') || line.endsWith('*');
+                      return (
+                        <div
+                          key={lineIdx}
+                          className={`flex items-center justify-between ${
+                            isLineRevised
+                              ? 'bg-red-500/15 text-red-200 font-semibold px-2 py-0.5 rounded border-l-2 border-red-500 shadow-sm'
+                              : 'text-gray-300'
+                          }`}
+                        >
+                          <span>{line}</span>
+                          {isLineRevised && (
+                            <span className="px-1.5 py-0.2 rounded bg-red-500 text-white text-[9px] font-bold font-mono tracking-wider shrink-0 ml-2">
+                              REVISED *
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
 
                   {/* Metadata and Controls */}
