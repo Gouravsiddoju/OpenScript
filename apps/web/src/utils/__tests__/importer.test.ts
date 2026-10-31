@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { importScreenplayFile, rtfToText } from '../importer';
+import { importScreenplayFile, rtfToText, parseScrivenerFolderEntries, FileEntry } from '../importer';
 import JSZip from 'jszip';
 
 // Helper to create mock File in Node environment
@@ -126,6 +126,57 @@ We are running out of time.
     expect(result.fountainText).toContain('JIN');
     expect(result.fountainText).toContain('They found us.');
     expect(result.fountainText).toContain('Jin leaps over the dumpster');
+  });
+
+  it('parses modern Scrivener 3 project folders with UUID binder items and nested folders', async () => {
+    const scriv3Xml = `<?xml version="1.0" encoding="UTF-8"?>
+<ScrivenerProject Version="2.0">
+  <ProjectTitle>SCREENPLAY FORMAT</ProjectTitle>
+  <Binder>
+    <BinderItem UUID="ROOT-FOLDER" Type="Folder">
+      <Title>Screenplay</Title>
+      <Children>
+        <BinderItem UUID="E6290074-E01E-428E-B23B-9CE1A4697F7A" Type="Text">
+          <Title>EXT. BANK - NIGHT</Title>
+        </BinderItem>
+        <BinderItem UUID="A8193402-9921-4EF1-A281-0182C3D4E5F6" Type="Text">
+          <Title>INT. VAULT - CONTINUOUS</Title>
+        </BinderItem>
+      </Children>
+    </BinderItem>
+  </Binder>
+</ScrivenerProject>`;
+
+    const scene1Rtf = `{\\rtf1\\ansi\\ansicpg1252\\deff0
+\\pard\\ql Rain hammers the armored truck parked out front.\\par
+\\pard\\qc VINCENT\\par
+\\pard\\ql We only have four minutes.\\par
+}`;
+
+    const scene2Rtf = `{\\rtf1\\ansi\\ansicpg1252\\deff0
+\\pard\\ql The heavy vault door groans open, revealing stacks of bearer bonds.\\par
+\\pard\\qc GAIUS\\par
+\\pard\\ql Grab the duffel bags.\\par
+}`;
+
+    const entries: FileEntry[] = [
+      { path: 'Screenplay Format.scriv/project.scrivx', file: createMockFile(scriv3Xml, 'project.scrivx') },
+      { path: 'Screenplay Format.scriv/Files/Data/E6290074-E01E-428E-B23B-9CE1A4697F7A/content.rtf', file: createMockFile(scene1Rtf, 'content.rtf') },
+      { path: 'Screenplay Format.scriv/Files/Data/A8193402-9921-4EF1-A281-0182C3D4E5F6/content.rtf', file: createMockFile(scene2Rtf, 'content.rtf') },
+    ];
+
+    const result = await parseScrivenerFolderEntries(entries, 'Screenplay Format.scriv');
+
+    expect(result.sourceApp).toBe('Scrivener');
+    expect(result.title).toBe('SCREENPLAY FORMAT');
+    expect(result.sceneCount).toBe(2);
+    expect(result.fountainText).toContain('EXT. BANK - NIGHT');
+    expect(result.fountainText).toContain('Rain hammers the armored truck');
+    expect(result.fountainText).toContain('VINCENT');
+    expect(result.fountainText).toContain('We only have four minutes.');
+    expect(result.fountainText).toContain('INT. VAULT - CONTINUOUS');
+    expect(result.fountainText).toContain('GAIUS');
+    expect(result.fountainText).toContain('Grab the duffel bags.');
   });
 
   it('parses HTML screenplay exports (Celtx / Web exports)', async () => {

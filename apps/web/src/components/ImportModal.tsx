@@ -11,7 +11,7 @@ import {
   Sparkles,
   Info,
 } from 'lucide-react';
-import { importScreenplayFile, ImportedScreenplayResult } from '../utils/importer';
+import { importScreenplayFile, ImportedScreenplayResult, parseScrivenerFolderEntries, FileEntry } from '../utils/importer';
 import JSZip from 'jszip';
 
 export interface ImportModalProps {
@@ -19,6 +19,7 @@ export interface ImportModalProps {
   onClose: () => void;
   onImportScreenplay: (result: ImportedScreenplayResult) => void;
   droppedFile?: File | null;
+  droppedFolderEntry?: any;
 }
 
 export const ImportModal: React.FC<ImportModalProps> = ({
@@ -26,6 +27,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({
   onClose,
   onImportScreenplay,
   droppedFile,
+  droppedFolderEntry,
 }) => {
   const [isDragging, setIsDragging] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -33,12 +35,59 @@ export const ImportModal: React.FC<ImportModalProps> = ({
   const [previewResult, setPreviewResult] = useState<ImportedScreenplayResult | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Automatically process droppedFile if supplied
+  const processFolderEntry = async (dirEntry: any) => {
+    try {
+      setIsLoading(true);
+      setError(null);
+
+      const readEntriesBatch = (reader: any): Promise<any[]> => {
+        return new Promise((res, rej) => reader.readEntries(res, rej));
+      };
+
+      const fileEntries: FileEntry[] = [];
+      const traverse = async (entry: any, currentPath: string): Promise<void> => {
+        if (entry.isFile) {
+          const f: File = await new Promise((res, rej) => entry.file(res, rej));
+          fileEntries.push({ path: currentPath + entry.name, file: f });
+        } else if (entry.isDirectory) {
+          const reader = entry.createReader();
+          let batch: any[];
+          do {
+            batch = await readEntriesBatch(reader);
+            for (const child of batch) {
+              await traverse(child, `${currentPath}${entry.name}/`);
+            }
+          } while (batch.length > 0);
+        }
+      };
+
+      const topReader = dirEntry.createReader();
+      let topBatch: any[];
+      do {
+        topBatch = await readEntriesBatch(topReader);
+        for (const entry of topBatch) {
+          await traverse(entry, '');
+        }
+      } while (topBatch.length > 0);
+
+      const result = await parseScrivenerFolderEntries(fileEntries, dirEntry.name);
+      setPreviewResult(result);
+    } catch (err: any) {
+      setError(err?.message || 'Failed to process dropped Scrivener folder.');
+      setPreviewResult(null);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Automatically process droppedFile or droppedFolderEntry if supplied
   React.useEffect(() => {
     if (droppedFile) {
       processFile(droppedFile);
+    } else if (droppedFolderEntry) {
+      processFolderEntry(droppedFolderEntry);
     }
-  }, [droppedFile]);
+  }, [droppedFile, droppedFolderEntry]);
 
   if (!isOpen) return null;
 
@@ -82,48 +131,8 @@ export const ImportModal: React.FC<ImportModalProps> = ({
     if (items && items.length > 0) {
       const firstEntry = items[0].webkitGetAsEntry?.();
       if (firstEntry && firstEntry.isDirectory) {
-        // Folder dropped (e.g. MyProject.scriv)
-        try {
-          setIsLoading(true);
-          const files: File[] = [];
-          const readDirectory = async (dirEntry: any): Promise<void> => {
-            const reader = dirEntry.createReader();
-            const entries: any[] = await new Promise((res, rej) => reader.readEntries(res, rej));
-            for (const entry of entries) {
-              if (entry.isFile) {
-                const f: File = await new Promise((res, rej) => entry.file(res, rej));
-                files.push(f);
-              } else if (entry.isDirectory) {
-                await readDirectory(entry);
-              }
-            }
-          };
-
-          await readDirectory(firstEntry);
-
-          // Find .scrivx file
-          const scrivxFile = files.find((f) => f.name.toLowerCase().endsWith('.scrivx'));
-          if (scrivxFile) {
-            // Find all content.rtf or content.txt files
-            const contentFiles = files.filter(
-              (f) => f.name.toLowerCase() === 'content.rtf' || f.name.toLowerCase() === 'content.txt'
-            );
-
-            if (contentFiles.length > 0) {
-              // Zip the files on the fly and parse
-              const zip = new JSZip();
-              for (const f of files) {
-                const buffer = await f.arrayBuffer();
-                zip.file(f.name, buffer);
-              }
-              const blob = await zip.generateAsync({ type: 'blob' });
-              const virtualZip = new File([blob], `${firstEntry.name}.zip`, { type: 'application/zip' });
-              return await processFile(virtualZip);
-            } else {
-              return await processFile(scrivxFile);
-            }
-          }
-        } catch {}
+        await processFolderEntry(firstEntry);
+        return;
       }
     }
 
