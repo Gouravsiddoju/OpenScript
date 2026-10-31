@@ -143,6 +143,15 @@ function extractScenes(html: string): SceneItem[] {
 }
 
 export default function App() {
+  const [documentId] = useState<string>(() => {
+    let id = localStorage.getItem('openscript_doc_id');
+    if (!id) {
+      id = crypto.randomUUID();
+      localStorage.setItem('openscript_doc_id', id);
+    }
+    return id;
+  });
+  const [isSaved, setIsSaved] = useState(true);
   const [activeMode, setActiveMode] = useState<'screenplay' | 'beats' | 'fountain' | 'reports'>('screenplay');
   const [focusMode, setFocusMode] = useState(false);
   const [isTitleModalOpen, setIsTitleModalOpen] = useState(false);
@@ -234,7 +243,60 @@ export default function App() {
     ];
   });
 
+  const [livePeers, setLivePeers] = useState<LivePresence[]>([]);
+
+  // 1. Initial backend sync for Notes & Collaborators
+  useEffect(() => {
+    fetch(`/api/v1/documents/${documentId}/notes`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (data?.notes && Array.isArray(data.notes) && data.notes.length > 0) {
+          setNotes(data.notes);
+        }
+      })
+      .catch(() => {});
+
+    fetch('/api/v1/projects/00000000-0000-0000-0000-000000000000/collaborators')
+      .then((r) => r.json())
+      .then((data) => {
+        if (data?.collaborators && Array.isArray(data.collaborators) && data.collaborators.length > 0) {
+          setCollaborators(data.collaborators);
+        }
+      })
+      .catch(() => {});
+  }, [documentId]);
+
+  // 2. Realtime presence heartbeat to backend
+  useEffect(() => {
+    const sendHeartbeat = async () => {
+      try {
+        const res = await fetch('/api/v1/projects/00000000-0000-0000-0000-000000000000/presence', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            userId: currentUserRole === 'owner' ? '11111111-1111-1111-1111-111111111111' : '22222222-2222-2222-2222-222222222222',
+            displayName: currentUserRole === 'owner' ? 'Gourav (SSN)' : 'Navateja',
+            color: currentUserRole === 'owner' ? '#f59e0b' : '#3b82f6',
+            role: currentUserRole,
+            isTyping: !isSaved,
+          }),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data?.peers && Array.isArray(data.peers)) {
+            setLivePeers(data.peers);
+          }
+        }
+      } catch {}
+    };
+
+    sendHeartbeat();
+    const interval = setInterval(sendHeartbeat, 4000);
+    return () => clearInterval(interval);
+  }, [currentUserRole, isSaved]);
+
   const presencePeers: LivePresence[] = useMemo(() => {
+    if (livePeers.length > 0) return livePeers;
     return collaborators.map((c) => ({
       userId: c.userId,
       displayName: c.displayName,
@@ -259,14 +321,6 @@ export default function App() {
   // Concurrency & Autosave state
   const [revisionNumber, setRevisionNumber] = useState<number>(() => {
     return Number(localStorage.getItem('openscript_revision_number')) || 1;
-  });
-  const [documentId] = useState<string>(() => {
-    let id = localStorage.getItem('openscript_doc_id');
-    if (!id) {
-      id = crypto.randomUUID();
-      localStorage.setItem('openscript_doc_id', id);
-    }
-    return id;
   });
   const [conflictModalOpen, setConflictModalOpen] = useState(false);
   const [serverRevision, setServerRevision] = useState<number | undefined>(undefined);
@@ -313,7 +367,6 @@ Neon reflections shimmer in deep puddles. Sirens echo in the far distance.`;
 
   const [editorInstance, setEditorInstance] = useState<any>(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [isSaved, setIsSaved] = useState(true);
 
   // Sync state to localStorage & trigger resilient autosave
   useEffect(() => {
@@ -350,7 +403,7 @@ Neon reflections shimmer in deep puddles. Sirens echo in the far distance.`;
           content: blocks,
         };
 
-        const res = await fetch(`http://localhost:3000/api/v1/documents/${documentId}`, {
+        const res = await fetch(`/api/v1/documents/${documentId}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -400,13 +453,38 @@ Neon reflections shimmer in deep puddles. Sirens echo in the far distance.`;
     return { words, estimatedPages };
   }, [scriptHtml]);
 
-  const handleAddNote = (category: ScriptNoteCategory, content: string, blockId?: string) => {
+  const handleAddNote = async (category: ScriptNoteCategory, content: string, blockId?: string) => {
+    const authorName = currentUserRole === 'owner' ? 'Gourav (SSN)' : 'Navateja';
+    const authorColor = currentUserRole === 'owner' ? '#f59e0b' : '#3b82f6';
+    const blockTargetId = blockId || '00000000-0000-0000-0000-000000000001';
+
+    try {
+      const res = await fetch(`/api/v1/documents/${documentId}/notes`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          blockId: blockTargetId,
+          authorName,
+          authorColor,
+          category,
+          content,
+        }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data?.note) {
+          setNotes((prev) => [data.note, ...prev]);
+          return;
+        }
+      }
+    } catch {}
+
     const newNote: ScriptNote = {
       id: crypto.randomUUID(),
-      blockId: blockId || '00000000-0000-0000-0000-000000000001',
+      blockId: blockTargetId,
       documentId,
-      authorName: currentUserRole === 'owner' ? 'Gourav (SSN)' : 'Navateja',
-      authorColor: currentUserRole === 'owner' ? '#f59e0b' : '#3b82f6',
+      authorName,
+      authorColor,
       category,
       content,
       createdAt: new Date().toISOString(),
@@ -416,11 +494,31 @@ Neon reflections shimmer in deep puddles. Sirens echo in the far distance.`;
     setNotes((prev) => [newNote, ...prev]);
   };
 
-  const handleAddReply = (noteId: string, replyContent: string) => {
+  const handleAddReply = async (noteId: string, replyContent: string) => {
+    const authorName = currentUserRole === 'owner' ? 'Gourav (SSN)' : 'Navateja';
+    const authorColor = currentUserRole === 'owner' ? '#f59e0b' : '#3b82f6';
+
+    try {
+      const res = await fetch(`/api/v1/notes/${noteId}/replies`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ authorName, authorColor, content: replyContent }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data?.reply) {
+          setNotes((prev) =>
+            prev.map((n) => (n.id === noteId ? { ...n, replies: [...(n.replies || []), data.reply] } : n))
+          );
+          return;
+        }
+      }
+    } catch {}
+
     const replyItem = {
       id: crypto.randomUUID(),
-      authorName: currentUserRole === 'owner' ? 'Gourav (SSN)' : 'Navateja',
-      authorColor: currentUserRole === 'owner' ? '#f59e0b' : '#3b82f6',
+      authorName,
+      authorColor,
       content: replyContent,
       createdAt: new Date().toISOString(),
     };
@@ -429,21 +527,48 @@ Neon reflections shimmer in deep puddles. Sirens echo in the far distance.`;
     );
   };
 
-  const handleToggleResolve = (noteId: string, currentStatus: boolean) => {
+  const handleToggleResolve = async (noteId: string, currentStatus: boolean) => {
+    const nextStatus = !currentStatus;
+    try {
+      await fetch(`/api/v1/notes/${noteId}/resolve`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isResolved: nextStatus }),
+      });
+    } catch {}
+
     setNotes((prev) =>
       prev.map((n) =>
         n.id === noteId
-          ? { ...n, resolved: !currentStatus, resolvedAt: !currentStatus ? new Date().toISOString() : undefined }
+          ? { ...n, resolved: nextStatus, resolvedAt: nextStatus ? new Date().toISOString() : undefined }
           : n
       )
     );
   };
 
-  const handleDeleteNote = (noteId: string) => {
+  const handleDeleteNote = async (noteId: string) => {
+    try {
+      await fetch(`/api/v1/notes/${noteId}`, { method: 'DELETE' });
+    } catch {}
     setNotes((prev) => prev.filter((n) => n.id !== noteId));
   };
 
-  const handleInviteCollaborator = (email: string, role: CollaboratorRole) => {
+  const handleInviteCollaborator = async (email: string, role: CollaboratorRole) => {
+    try {
+      const res = await fetch('/api/v1/projects/00000000-0000-0000-0000-000000000000/collaborators', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, role }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data?.collaborator) {
+          setCollaborators((prev) => [...prev, data.collaborator]);
+          return;
+        }
+      }
+    } catch {}
+
     const newCollab: CollaboratorProfile = {
       userId: crypto.randomUUID(),
       email,
@@ -455,13 +580,26 @@ Neon reflections shimmer in deep puddles. Sirens echo in the far distance.`;
     setCollaborators((prev) => [...prev, newCollab]);
   };
 
-  const handleUpdateCollaboratorRole = (userId: string, role: CollaboratorRole) => {
+  const handleUpdateCollaboratorRole = async (userId: string, role: CollaboratorRole) => {
+    try {
+      await fetch(`/api/v1/projects/00000000-0000-0000-0000-000000000000/collaborators/${userId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ role }),
+      });
+    } catch {}
+
     setCollaborators((prev) =>
       prev.map((c) => (c.userId === userId ? { ...c, role } : c))
     );
   };
 
-  const handleRemoveCollaborator = (userId: string) => {
+  const handleRemoveCollaborator = async (userId: string) => {
+    try {
+      await fetch(`/api/v1/projects/00000000-0000-0000-0000-000000000000/collaborators/${userId}`, {
+        method: 'DELETE',
+      });
+    } catch {}
     setCollaborators((prev) => prev.filter((c) => c.userId !== userId));
   };
 
