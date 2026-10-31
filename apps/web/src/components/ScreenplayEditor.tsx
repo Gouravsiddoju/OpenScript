@@ -3,7 +3,7 @@ import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import { screenplayNodes, ScreenplayKeymap, ScreenplayUppercase } from '@openscript/editor';
 import { TitlePageMetadata } from './TitlePageModal';
-import { Lock, Sparkles, Columns, Eye } from 'lucide-react';
+import { Lock, Sparkles, Columns, Eye, Keyboard, HelpCircle } from 'lucide-react';
 import { CollaboratorRole, ScriptNote } from '@openscript/screenplay-schema';
 
 interface ScreenplayEditorProps {
@@ -19,6 +19,7 @@ interface ScreenplayEditorProps {
   currentUserRole?: CollaboratorRole;
   notes?: ScriptNote[];
   onSelectBlockForNotes?: (blockId: string) => void;
+  onOpenShortcutsModal?: () => void;
 }
 
 const DEFAULT_SCRIPT_HTML = `
@@ -47,6 +48,7 @@ export const ScreenplayEditor: React.FC<ScreenplayEditorProps> = ({
   currentUserRole = 'owner',
   notes = [],
   onSelectBlockForNotes,
+  onOpenShortcutsModal,
 }) => {
   const knownCharactersRef = useRef<string[]>(['MAYA']);
   const isTrackingRef = useRef(isTrackingRevisions);
@@ -358,6 +360,20 @@ export const ScreenplayEditor: React.FC<ScreenplayEditorProps> = ({
             <kbd className="px-1.5 py-0.5 bg-[#1a1c22] rounded border border-[#2b2e38] text-gray-300 text-[10px]">Enter</kbd>
             <span className="text-gray-500">advance</span>
           </span>
+          {onOpenShortcutsModal && (
+            <>
+              <span className="text-gray-600">·</span>
+              <button
+                onClick={onOpenShortcutsModal}
+                className="flex items-center gap-1 text-amber-400 hover:text-amber-300 bg-amber-500/10 hover:bg-amber-500/20 px-2 py-0.5 rounded border border-amber-500/30 transition-colors"
+                title="View All Keyboard Shortcuts (? or Alt+/)"
+              >
+                <Keyboard className="w-3 h-3" />
+                <span>Shortcuts</span>
+                <kbd className="text-[9px] bg-[#1a1c22] px-1 py-0.2 rounded border border-amber-500/30 text-amber-300">?</kbd>
+              </button>
+            </>
+          )}
         </div>
       </div>
 
@@ -436,6 +452,42 @@ export const ScreenplayEditor: React.FC<ScreenplayEditorProps> = ({
 
         {/* Tiptap Screenplay Content */}
         <EditorContent editor={editor} />
+      </div>
+
+      {/* 4. Bottom Floating Quick Element Switcher & Ergonomics Bar */}
+      <div className="no-print fixed bottom-4 z-30 flex items-center gap-2 px-3.5 py-1.5 bg-[#12141a]/95 backdrop-blur-md border border-[#2b2f3a] rounded-full shadow-2xl text-xs font-mono text-gray-300">
+        <span className="text-[11px] text-gray-500 uppercase tracking-wider font-semibold hidden sm:inline">Active:</span>
+        <span className="font-bold text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/30">
+          {activeNodeType.replace(/([A-Z])/g, ' $1').toUpperCase()}
+        </span>
+        <div className="h-3 w-[1px] bg-[#282b36] mx-1" />
+        <span className="text-[11px] text-gray-400 hidden sm:inline">Cycle:</span>
+        <button
+          onClick={() => editor.chain().focus().run()}
+          className="flex items-center gap-1 hover:text-amber-300 transition-colors"
+          title="Press Tab to cycle to next screenplay element"
+        >
+          <kbd className="px-1.5 py-0.5 bg-[#1b1e28] rounded border border-[#303546] text-amber-300 text-[10px] shadow-sm">Tab ⇥</kbd>
+        </button>
+        <button
+          onClick={() => editor.chain().focus().run()}
+          className="hidden md:flex items-center gap-1 hover:text-amber-300 transition-colors"
+          title="Press Shift+Tab to cycle backward"
+        >
+          <kbd className="px-1.5 py-0.5 bg-[#1b1e28] rounded border border-[#303546] text-amber-300 text-[10px] shadow-sm">Shift+Tab ⇤</kbd>
+        </button>
+        <div className="h-3 w-[1px] bg-[#282b36] mx-1 hidden sm:block" />
+        {onOpenShortcutsModal && (
+          <button
+            onClick={onOpenShortcutsModal}
+            className="flex items-center gap-1 text-[11px] text-gray-400 hover:text-amber-300 transition-colors ml-0.5"
+            title="Open Complete Keyboard Shortcuts Guide (?)"
+          >
+            <HelpCircle className="w-3.5 h-3.5 text-amber-400" />
+            <span className="hidden sm:inline">Shortcuts</span>
+            <kbd className="px-1 py-0.2 bg-[#1b1e28] text-[9px] text-gray-400 rounded border border-[#303546]">?</kbd>
+          </button>
+        )}
       </div>
     </div>
   );

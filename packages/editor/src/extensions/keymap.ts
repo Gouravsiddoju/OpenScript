@@ -1,6 +1,6 @@
 import { Extension } from '@tiptap/core';
 
-const ELEMENT_CYCLE_ORDER = [
+export const ELEMENT_CYCLE_ORDER = [
   'sceneHeading',
   'action',
   'character',
@@ -44,8 +44,11 @@ export const ScreenplayKeymap = Extension.create({
           return editor.chain().insertContentAt(selection.$from.end(), { type: 'dialogue' }).focus().run();
         }
 
-        // 5. Dialogue + Enter -> Create Action
+        // 5. Dialogue + Enter -> Create Action (or convert empty dialogue to Action)
         if (blockType === 'dialogue') {
+          if (text === '') {
+            return editor.chain().setNode('action').run();
+          }
           return editor.chain().insertContentAt(selection.$from.end(), { type: 'action' }).focus().run();
         }
 
@@ -57,35 +60,25 @@ export const ScreenplayKeymap = Extension.create({
         return false;
       },
 
-      // Full cyclic Tab forward through all screenplay elements
+      // Full cyclic Tab forward through all screenplay elements in sequence:
+      // sceneHeading -> action -> character -> parenthetical -> dialogue -> transition -> sceneHeading
       'Tab': ({ editor }) => {
         const { state } = editor;
         const { selection } = state;
         const currentBlock = selection.$from.parent;
         const blockType = currentBlock.type.name;
 
-        // Contextual quick switches:
-        // Dialogue + Tab -> Parenthetical
-        if (blockType === 'dialogue') {
-          return editor.chain().setNode('parenthetical').run();
-        }
-
-        // Parenthetical + Tab -> Dialogue
-        if (blockType === 'parenthetical') {
-          return editor.chain().setNode('dialogue').run();
-        }
-
-        // Full Cycle: Action -> Character -> Transition -> SceneHeading -> Action
         const currentIndex = ELEMENT_CYCLE_ORDER.indexOf(blockType as any);
         if (currentIndex !== -1) {
           const nextIndex = (currentIndex + 1) % ELEMENT_CYCLE_ORDER.length;
           return editor.chain().setNode(ELEMENT_CYCLE_ORDER[nextIndex]).run();
         }
 
-        return true; // Prevent loss of focus
+        return editor.chain().setNode('action').run();
       },
 
-      // Shift+Tab backward cycle
+      // Shift+Tab backward cycle in reverse sequence:
+      // sceneHeading <- action <- character <- parenthetical <- dialogue <- transition
       'Shift-Tab': ({ editor }) => {
         const { state } = editor;
         const { selection } = state;
@@ -98,16 +91,24 @@ export const ScreenplayKeymap = Extension.create({
           return editor.chain().setNode(ELEMENT_CYCLE_ORDER[prevIndex]).run();
         }
 
-        return true;
+        return editor.chain().setNode('sceneHeading').run();
       },
 
-      // Direct element hotkeys: Ctrl+1 through Ctrl+6
+      // Direct element shortcuts: Mod+1 through Mod+6 (Ctrl+1 or Cmd+1)
       'Mod-1': ({ editor }) => editor.chain().setNode('sceneHeading').run(),
       'Mod-2': ({ editor }) => editor.chain().setNode('action').run(),
       'Mod-3': ({ editor }) => editor.chain().setNode('character').run(),
       'Mod-4': ({ editor }) => editor.chain().setNode('parenthetical').run(),
       'Mod-5': ({ editor }) => editor.chain().setNode('dialogue').run(),
       'Mod-6': ({ editor }) => editor.chain().setNode('transition').run(),
+
+      // Alt+1 through Alt+6 shortcuts
+      'Alt-1': ({ editor }) => editor.chain().setNode('sceneHeading').run(),
+      'Alt-2': ({ editor }) => editor.chain().setNode('action').run(),
+      'Alt-3': ({ editor }) => editor.chain().setNode('character').run(),
+      'Alt-4': ({ editor }) => editor.chain().setNode('parenthetical').run(),
+      'Alt-5': ({ editor }) => editor.chain().setNode('dialogue').run(),
+      'Alt-6': ({ editor }) => editor.chain().setNode('transition').run(),
     };
   },
 });

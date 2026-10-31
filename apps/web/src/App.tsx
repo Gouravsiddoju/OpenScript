@@ -23,7 +23,8 @@ import {
   ChevronDown,
   AlertCircle,
   Zap,
-  Radio
+  Radio,
+  Keyboard
 } from 'lucide-react';
 import { ScreenplayEditor } from './components/ScreenplayEditor';
 import { FountainView } from './components/FountainView';
@@ -36,6 +37,7 @@ import { SprintWidget } from './components/SprintWidget';
 import { ScriptNotesPanel } from './components/ScriptNotesPanel';
 import { ShareModal } from './components/ShareModal';
 import { CollaborationBar } from './components/CollaborationBar';
+import { KeyboardShortcutsModal } from './components/KeyboardShortcutsModal';
 import { fountainToHtml, parseFountain, blocksToHtml } from '@openscript/fountain';
 import { parseFdx, serializeFdx } from '@openscript/fdx';
 import { 
@@ -165,6 +167,7 @@ export default function App() {
   // Phase 3 Realtime Collaboration & ScriptNotes state
   const [isNotesPanelOpen, setIsNotesPanelOpen] = useState(false);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+  const [isShortcutsModalOpen, setIsShortcutsModalOpen] = useState(false);
   const [currentUserRole, setCurrentUserRole] = useState<CollaboratorRole>(() => {
     return (localStorage.getItem('openscript_user_role') as CollaboratorRole) || 'owner';
   });
@@ -813,6 +816,151 @@ Neon reflections shimmer in deep puddles. Sirens echo in the far distance.`;
     window.print();
   };
 
+  const handleSaveCheckpoint = async () => {
+    try {
+      const blocks = parseFountain(fountainText);
+      const docPayload = {
+        schemaVersion: 2,
+        id: documentId,
+        projectId: '00000000-0000-0000-0000-000000000000',
+        revisionNumber,
+        metadata: {
+          title: titleMetadata.title,
+          credit: titleMetadata.credit,
+          authors: [titleMetadata.author],
+          draftLabel: titleMetadata.draftLabel,
+          draftColor: activeRevisionColor,
+          isLocked: isScriptLocked,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        },
+        content: blocks,
+      };
+
+      const res = await fetch(`/api/v1/documents/${documentId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          revisionNumber,
+          content: docPayload,
+          title: titleMetadata.title,
+        }),
+      });
+
+      if (res.status === 409) {
+        const data = await res.json();
+        setServerRevision(data.serverRevisionNumber);
+        setConflictModalOpen(true);
+      } else if (res.ok) {
+        const data = await res.json();
+        if (data.newRevisionNumber) {
+          setRevisionNumber(data.newRevisionNumber);
+        }
+      }
+      setIsSaved(true);
+    } catch {
+      setIsSaved(true);
+    }
+  };
+
+  // Global Studio Ergonomics & Shortcuts Engine (Lock, Track, Notes, Save, PDF, Views)
+  useEffect(() => {
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      const key = e.key.toLowerCase();
+      const isAlt = e.altKey;
+      const isCtrlOrCmd = e.ctrlKey || e.metaKey;
+      const isShift = e.shiftKey;
+
+      // 1. Save Checkpoint: Ctrl+S or Alt+S
+      if ((isCtrlOrCmd && key === 's') || (isAlt && key === 's')) {
+        e.preventDefault();
+        handleSaveCheckpoint();
+        return;
+      }
+
+      // 2. Lock Script: Alt+L or Ctrl+Shift+L
+      if ((isAlt && key === 'l') || (isCtrlOrCmd && isShift && key === 'l')) {
+        e.preventDefault();
+        setIsScriptLocked((prev) => !prev);
+        return;
+      }
+
+      // 3. Track Revisions: Alt+T or Ctrl+Shift+T
+      if ((isAlt && key === 't') || (isCtrlOrCmd && isShift && key === 't')) {
+        e.preventDefault();
+        setIsTrackingRevisions((prev) => !prev);
+        return;
+      }
+
+      // 4. ScriptNotes Panel: Alt+N or Ctrl+Shift+N
+      if ((isAlt && key === 'n') || (isCtrlOrCmd && isShift && key === 'n')) {
+        e.preventDefault();
+        setIsNotesPanelOpen((prev) => !prev);
+        return;
+      }
+
+      // 5. Focus Mode: Alt+F
+      if (isAlt && key === 'f') {
+        e.preventDefault();
+        setFocusMode((prev) => !prev);
+        return;
+      }
+
+      // 6. Sprint Stopwatch Widget: Alt+W
+      if (isAlt && key === 'w') {
+        e.preventDefault();
+        setIsSprintWidgetOpen((prev) => !prev);
+        return;
+      }
+
+      // 7. Print / PDF Export: Alt+P
+      if (isAlt && key === 'p') {
+        e.preventDefault();
+        handlePrintPdf();
+        return;
+      }
+
+      // 8. View Navigation: Alt+E, Alt+B, Alt+R, Alt+U
+      if (isAlt && key === 'e') {
+        e.preventDefault();
+        switchMode('screenplay');
+        return;
+      }
+      if (isAlt && key === 'b') {
+        e.preventDefault();
+        switchMode('beats');
+        return;
+      }
+      if (isAlt && key === 'r') {
+        e.preventDefault();
+        switchMode('reports');
+        return;
+      }
+      if (isAlt && key === 'u') {
+        e.preventDefault();
+        switchMode('fountain');
+        return;
+      }
+
+      // 9. Shortcuts Guide: Alt+/ or Ctrl+/ or ? (when not inside typing elements)
+      if ((isAlt && key === '/') || (isCtrlOrCmd && key === '/')) {
+        e.preventDefault();
+        setIsShortcutsModalOpen((prev) => !prev);
+        return;
+      }
+      const targetTag = (e.target as HTMLElement)?.tagName;
+      const isEditable = (e.target as HTMLElement)?.isContentEditable;
+      if (e.key === '?' && !['INPUT', 'TEXTAREA'].includes(targetTag) && !isEditable) {
+        e.preventDefault();
+        setIsShortcutsModalOpen((prev) => !prev);
+        return;
+      }
+    };
+
+    window.addEventListener('keydown', handleGlobalKeyDown);
+    return () => window.removeEventListener('keydown', handleGlobalKeyDown);
+  }, [documentId, fountainText, revisionNumber, titleMetadata, activeRevisionColor, isScriptLocked]);
+
   const scrollToScene = (index: number) => {
     if (activeMode !== 'screenplay') {
       setActiveMode('screenplay');
@@ -1073,7 +1221,7 @@ Neon reflections shimmer in deep puddles. Sirens echo in the far distance.`;
                   ? 'bg-amber-500/20 text-amber-300 border-amber-500/50'
                   : 'bg-[#181a1f] hover:bg-[#22252c] text-gray-400 hover:text-white border-[#2b2e36]'
               }`}
-              title={isScriptLocked ? 'Script is locked: Numbers will freeze' : 'Script is unlocked'}
+              title={isScriptLocked ? 'Script is locked: Scene numbers are frozen (Alt+L)' : 'Lock Script: Freeze scene numbers (Alt+L)'}
             >
               {isScriptLocked ? <Lock className="w-3.5 h-3.5 text-amber-400" /> : <Unlock className="w-3.5 h-3.5" />}
               <span className="hidden md:inline">{isScriptLocked ? 'Locked' : 'Lock'}</span>
@@ -1087,7 +1235,7 @@ Neon reflections shimmer in deep puddles. Sirens echo in the far distance.`;
                   ? 'bg-red-500/20 text-red-300 border-red-500/50'
                   : 'bg-[#181a1f] hover:bg-[#22252c] text-gray-400 hover:text-white border-[#2b2e36]'
               }`}
-              title={isTrackingRevisions ? 'Auto-marking edits with right-margin revision asterisks (*)' : 'Revision tracking inactive'}
+              title={isTrackingRevisions ? 'Auto-marking edits with right-margin revision asterisks (*) (Alt+T)' : 'Track Revisions: Auto-mark asterisks (Alt+T)'}
             >
               <span className="text-red-400 font-bold leading-none text-base">*</span>
               <span className="hidden md:inline">{isTrackingRevisions ? 'Tracking' : 'Track'}</span>
@@ -1127,10 +1275,21 @@ Neon reflections shimmer in deep puddles. Sirens echo in the far distance.`;
             <button
               onClick={handlePrintPdf}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-xs font-bold text-black shadow-md shadow-amber-500/20 transition-all"
-              title="Print formatted script or save as PDF"
+              title="Print formatted script or save as PDF (Alt+P / Ctrl+P)"
             >
               <Printer className="w-3.5 h-3.5 text-black" />
               <span className="hidden sm:inline">PDF</span>
+            </button>
+
+            {/* Keyboard Shortcuts Cheatsheet Button */}
+            <button
+              onClick={() => setIsShortcutsModalOpen(true)}
+              className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-[#181a1f] hover:bg-[#22252c] text-xs font-mono text-gray-300 border border-[#2b2e36] transition-colors"
+              title="View Complete Keyboard Shortcuts Guide (? or Alt+/)"
+            >
+              <Keyboard className="w-3.5 h-3.5 text-amber-400" />
+              <span className="hidden xl:inline">Shortcuts</span>
+              <kbd className="hidden xl:inline text-[9px] bg-[#101216] px-1 py-0.2 rounded border border-[#2b2e36] text-amber-300">?</kbd>
             </button>
 
             {/* Phase 3 Collaboration & ScriptNotes Roster */}
@@ -1162,6 +1321,7 @@ Neon reflections shimmer in deep puddles. Sirens echo in the far distance.`;
               isolatedCharacter={isolatedCharacter}
               currentUserRole={currentUserRole}
               notes={notes}
+              onOpenShortcutsModal={() => setIsShortcutsModalOpen(true)}
             />
           )}
 
@@ -1299,6 +1459,12 @@ Neon reflections shimmer in deep puddles. Sirens echo in the far distance.`;
         currentUserRole={currentUserRole}
         onChangeUserRolePreview={setCurrentUserRole}
         documentTitle={titleMetadata.title}
+      />
+
+      {/* Keyboard Shortcuts Cheatsheet Modal */}
+      <KeyboardShortcutsModal
+        isOpen={isShortcutsModalOpen}
+        onClose={() => setIsShortcutsModalOpen(false)}
       />
     </div>
   );
