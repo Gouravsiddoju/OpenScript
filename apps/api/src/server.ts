@@ -1,4 +1,4 @@
-﻿import Fastify from 'fastify';
+import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import helmet from '@fastify/helmet';
 
@@ -6,6 +6,9 @@ import { authRoutes } from './routes/auth.routes';
 import { projectRoutes } from './routes/projects.routes';
 import { documentRoutes } from './routes/documents.routes';
 import { reportRoutes } from './routes/reports.routes';
+import { collaboratorRoutes } from './routes/collaborators.routes';
+import { noteRoutes } from './routes/notes.routes';
+import { collaborationRoutes } from './routes/collaboration.routes';
 
 export function buildServer() {
   const server = Fastify({
@@ -35,6 +38,9 @@ export function buildServer() {
   server.register(projectRoutes);
   server.register(documentRoutes);
   server.register(reportRoutes);
+  server.register(collaboratorRoutes);
+  server.register(noteRoutes);
+  server.register(collaborationRoutes);
 
   return server;
 }

@@ -3,7 +3,8 @@ import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import { screenplayNodes, ScreenplayKeymap, ScreenplayUppercase } from '@openscript/editor';
 import { TitlePageMetadata } from './TitlePageModal';
-import { Lock, Sparkles, Columns } from 'lucide-react';
+import { Lock, Sparkles, Columns, Eye } from 'lucide-react';
+import { CollaboratorRole, ScriptNote } from '@openscript/screenplay-schema';
 
 interface ScreenplayEditorProps {
   initialContent?: string;
@@ -15,6 +16,9 @@ interface ScreenplayEditorProps {
   isScriptLocked?: boolean;
   isTypewriterMode?: boolean;
   isolatedCharacter?: string | null;
+  currentUserRole?: CollaboratorRole;
+  notes?: ScriptNote[];
+  onSelectBlockForNotes?: (blockId: string) => void;
 }
 
 const DEFAULT_SCRIPT_HTML = `
@@ -40,6 +44,9 @@ export const ScreenplayEditor: React.FC<ScreenplayEditorProps> = ({
   isScriptLocked = false,
   isTypewriterMode = false,
   isolatedCharacter = null,
+  currentUserRole = 'owner',
+  notes = [],
+  onSelectBlockForNotes,
 }) => {
   const knownCharactersRef = useRef<string[]>(['MAYA']);
   const isTrackingRef = useRef(isTrackingRevisions);
@@ -181,6 +188,12 @@ export const ScreenplayEditor: React.FC<ScreenplayEditorProps> = ({
       onEditorReady(editor);
     }
   }, [editor, onEditorReady]);
+
+  useEffect(() => {
+    if (editor) {
+      editor.setEditable(currentUserRole !== 'reader');
+    }
+  }, [editor, currentUserRole]);
 
   // Extract known characters in the script for autocomplete
   const knownCharacters = useMemo(() => {
@@ -394,6 +407,15 @@ export const ScreenplayEditor: React.FC<ScreenplayEditorProps> = ({
               <div className="font-semibold text-gray-900">{metadata.draftLabel || 'First Draft'}</div>
               <div>{metadata.draftDate || new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {currentUserRole === 'reader' && (
+        <div className="w-full max-w-[8.5in] mb-3 px-4 py-2 bg-red-500/10 border border-red-500/30 rounded-xl flex items-center justify-between text-xs text-red-300 font-mono no-print">
+          <div className="flex items-center gap-2">
+            <Eye className="w-4 h-4 text-red-400" />
+            <span>Viewing in Read-Only Mode (Reader Role) — Editing and formatting controls are disabled.</span>
           </div>
         </div>
       )}

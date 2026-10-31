@@ -49,3 +49,39 @@ export const documentRevisions = pgTable('document_revisions', {
 }, (table) => ({
   docRevUnique: uniqueIndex('doc_rev_unique_idx').on(table.documentId, table.revisionNumber),
 }));
+
+export const projectMembers = pgTable('project_members', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  projectId: uuid('project_id').references(() => projects.id, { onDelete: 'cascade' }).notNull(),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  role: text('role').default('co-writer').notNull(), // 'owner' | 'co-writer' | 'commenter' | 'reader'
+  invitedBy: uuid('invited_by').references(() => users.id),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (table) => ({
+  projectUserUnique: uniqueIndex('project_member_unique_idx').on(table.projectId, table.userId),
+}));
+
+export const scriptNotes = pgTable('script_notes', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  documentId: uuid('document_id').references(() => documents.id, { onDelete: 'cascade' }).notNull(),
+  blockId: uuid('block_id').notNull(),
+  authorId: uuid('author_id').references(() => users.id),
+  authorName: text('author_name').notNull(),
+  authorColor: text('author_color').default('#eab308').notNull(),
+  category: text('category').default('general').notNull(),
+  content: text('content').notNull(),
+  isResolved: boolean('is_resolved').default(false).notNull(),
+  resolvedAt: timestamp('resolved_at'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+export const scriptNoteReplies = pgTable('script_note_replies', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  noteId: uuid('note_id').references(() => scriptNotes.id, { onDelete: 'cascade' }).notNull(),
+  authorId: uuid('author_id').references(() => users.id),
+  authorName: text('author_name').notNull(),
+  authorColor: text('author_color').default('#3b82f6').notNull(),
+  content: text('content').notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
