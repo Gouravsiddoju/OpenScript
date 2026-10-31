@@ -70,6 +70,9 @@ export const ScreenplayEditor: React.FC<ScreenplayEditorProps> = ({
   const activeColorRef = useRef(activeRevisionColor);
   activeColorRef.current = activeRevisionColor;
   const isTypewriterRef = useRef(isTypewriterMode);
+  const currentBlockFocusTextRef = useRef<string>('');
+  const currentBlockPosRef = useRef<number>(-1);
+
   isTypewriterRef.current = isTypewriterMode;
 
   const [activeSuggestion, setActiveSuggestion] = useState<string | null>(null);
@@ -326,13 +329,39 @@ export const ScreenplayEditor: React.FC<ScreenplayEditorProps> = ({
     content: initialContent,
     onSelectionUpdate: ({ editor }) => {
       checkSmartType(editor);
+      const { selection } = editor.state;
+      try {
+        const blockPos = selection.$from.before(1);
+        if (blockPos !== currentBlockPosRef.current) {
+          currentBlockPosRef.current = blockPos;
+          currentBlockFocusTextRef.current = selection.$from.parent?.textContent?.trim() || '';
+        }
+      } catch {}
     },
     onUpdate: ({ editor, transaction }) => {
-      // Auto-tag revision asterisk if revision tracking is active
+      // Auto-tag revision asterisk ONLY if an existing line with text was modified
       if (isTrackingRef.current && transaction.docChanged) {
         const { selection } = editor.state;
         const currentBlock = selection.$from.parent;
-        if (currentBlock && !currentBlock.attrs.revisionMark && currentBlock.type.name !== 'doc') {
+        const text = currentBlock?.textContent?.trim() || '';
+
+        // Empty lines must never have an asterisk
+        if (!text) {
+          if (currentBlock?.attrs?.revisionMark) {
+            setTimeout(() => {
+              editor.commands.updateAttributes(currentBlock.type.name, {
+                revisionMark: false,
+                revisionColor: null,
+              });
+            }, 0);
+          }
+        } else if (
+          // Only auto-mark if editing an EXISTING line that had text when focused
+          currentBlockFocusTextRef.current &&
+          currentBlockFocusTextRef.current !== text &&
+          !currentBlock.attrs.revisionMark &&
+          currentBlock.type.name !== 'doc'
+        ) {
           setTimeout(() => {
             editor.commands.updateAttributes(currentBlock.type.name, {
               revisionMark: true,

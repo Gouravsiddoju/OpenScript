@@ -3,6 +3,7 @@ import { Node, mergeAttributes } from '@tiptap/core';
 const commonAttributes = {
   revisionMark: {
     default: false,
+    keepOnSplit: false,
     parseHTML: (element: HTMLElement) => element.getAttribute('data-revision-mark') === 'true' || element.classList.contains('revision-marker'),
     renderHTML: (attributes: Record<string, any>) => {
       if (!attributes.revisionMark) return {};
@@ -14,6 +15,7 @@ const commonAttributes = {
   },
   revisionColor: {
     default: null,
+    keepOnSplit: false,
     parseHTML: (element: HTMLElement) => element.getAttribute('data-revision-color'),
     renderHTML: (attributes: Record<string, any>) => {
       if (!attributes.revisionColor) return {};
@@ -59,7 +61,6 @@ export const ActionNode = Node.create({
   name: 'action',
   group: 'block',
   content: 'inline*',
-  defining: true,
 
   addAttributes() {
     return commonAttributes;
@@ -93,30 +94,10 @@ export const CharacterNode = Node.create({
   },
 });
 
-export const ParentheticalNode = Node.create({
-  name: 'parenthetical',
-  group: 'block',
-  content: 'inline*',
-  defining: true,
-
-  addAttributes() {
-    return commonAttributes;
-  },
-
-  parseHTML() {
-    return [{ tag: 'div.script-parenthetical' }, { tag: 'p.script-parenthetical' }];
-  },
-
-  renderHTML({ HTMLAttributes }) {
-    return ['div', mergeAttributes(HTMLAttributes, { class: 'script-parenthetical' }), 0];
-  },
-});
-
 export const DialogueNode = Node.create({
   name: 'dialogue',
   group: 'block',
   content: 'inline*',
-  defining: true,
 
   addAttributes() {
     return commonAttributes;
@@ -131,11 +112,28 @@ export const DialogueNode = Node.create({
   },
 });
 
+export const ParentheticalNode = Node.create({
+  name: 'parenthetical',
+  group: 'block',
+  content: 'inline*',
+
+  addAttributes() {
+    return commonAttributes;
+  },
+
+  parseHTML() {
+    return [{ tag: 'div.script-parenthetical' }, { tag: 'p.script-parenthetical' }];
+  },
+
+  renderHTML({ HTMLAttributes }) {
+    return ['div', mergeAttributes(HTMLAttributes, { class: 'script-parenthetical' }), 0];
+  },
+});
+
 export const TransitionNode = Node.create({
   name: 'transition',
   group: 'block',
   content: 'inline*',
-  defining: true,
 
   addAttributes() {
     return commonAttributes;
@@ -173,8 +171,8 @@ export const screenplayNodes = [
   SceneHeadingNode,
   ActionNode,
   CharacterNode,
-  ParentheticalNode,
   DialogueNode,
+  ParentheticalNode,
   TransitionNode,
   DualDialogueNode,
 ];
