@@ -10,6 +10,9 @@ export interface ImportedScreenplayResult {
   sceneCount: number;
   wordCount: number;
   warnings?: string[];
+  fullMetadata?: Record<string, any>;
+  sceneTakes?: any[];
+  notes?: any[];
 }
 
 /**
@@ -229,6 +232,9 @@ export async function importScreenplayFile(file: File): Promise<ImportedScreenpl
           sourceApp: 'OpenScript JSON',
           sceneCount: Math.max(1, scenes),
           wordCount: parsed.content.reduce((acc: number, b: any) => acc + (b.text?.split(/\s+/).length || 0), 0),
+          fullMetadata: parsed.metadata,
+          sceneTakes: parsed.sceneTakes,
+          notes: parsed.notes,
         };
       }
     } catch {}

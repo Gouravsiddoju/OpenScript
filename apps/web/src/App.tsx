@@ -42,6 +42,8 @@ import { UserProfileModal, UserProfileData } from './components/UserProfileModal
 import { AuthModal } from './components/AuthModal';
 import { SceneTakesModal } from './components/SceneTakesModal';
 import { ImportModal } from './components/ImportModal';
+import { ExportModal } from './components/ExportModal';
+import { htmlToBlocks } from './utils/exporter';
 import { ImportedScreenplayResult } from './utils/importer';
 import { fountainToHtml, parseFountain, blocksToHtml } from '@openscript/fountain';
 import { parseFdx, serializeFdx } from '@openscript/fdx';
@@ -415,6 +417,7 @@ export default function App() {
 
   // Screenplay Project Importer State (Final Draft, Scrivener, Highland, Text)
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const [droppedImportFile, setDroppedImportFile] = useState<File | null>(null);
 
   const handleApplyImportedScreenplay = (result: ImportedScreenplayResult) => {
@@ -423,12 +426,21 @@ export default function App() {
     if (editorInstance) {
       editorInstance.commands.setContent(result.scriptHtml);
     }
-    if (result.title || result.author) {
+    if (result.title || result.author || result.fullMetadata) {
       setTitleMetadata((prev) => ({
         ...prev,
         title: result.title || prev.title,
         author: result.author || prev.author,
+        ...(result.fullMetadata || {}),
       }));
+    }
+    if (result.sceneTakes && Array.isArray(result.sceneTakes)) {
+      setSceneTakes(result.sceneTakes);
+      localStorage.setItem('openscript_scene_takes', JSON.stringify(result.sceneTakes));
+    }
+    if (result.notes && Array.isArray(result.notes)) {
+      setNotes(result.notes);
+      localStorage.setItem('openscript_script_notes', JSON.stringify(result.notes));
     }
     setIsSaved(false);
   };
@@ -1228,6 +1240,13 @@ Neon reflections shimmer in deep puddles. Sirens echo in the far distance.`;
   };
 
   const handlePrintPdf = () => {
+    if (activeMode !== 'screenplay') {
+      setActiveMode('screenplay');
+      setTimeout(() => {
+        window.print();
+      }, 300);
+      return;
+    }
     window.print();
   };
 
@@ -1669,21 +1688,12 @@ Neon reflections shimmer in deep puddles. Sirens echo in the far distance.`;
               </button>
 
               <button
-                onClick={handleExportFdx}
-                className="hidden xl:flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg hover:bg-[#1f222b] text-xs font-mono text-gray-300 transition-colors"
-                title="Export Final Draft (.fdx) file"
-              >
-                <FileCode className="w-3.5 h-3.5 text-amber-500" />
-                <span>Export</span>
-              </button>
-
-              <button
-                onClick={handleExportFountain}
-                className="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg hover:bg-[#1f222b] text-xs font-mono text-gray-300 transition-colors"
-                title="Download standard Fountain plain-text script"
+                onClick={() => setIsExportModalOpen(true)}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg hover:bg-[#1f222b] text-xs font-mono text-gray-300 hover:text-white transition-colors"
+                title="Export screenplay (PDF, OpenScript, Final Draft .fdx, Fountain .fountain)"
               >
                 <Download className="w-3.5 h-3.5 text-amber-500" />
-                <span>Fountain</span>
+                <span>Export</span>
               </button>
 
               {/* Primary PDF Print Button */}
@@ -1916,6 +1926,19 @@ Neon reflections shimmer in deep puddles. Sirens echo in the far distance.`;
         }}
         onImportScreenplay={handleApplyImportedScreenplay}
         droppedFile={droppedImportFile}
+      />
+
+      {/* Universal Screenplay Export Modal */}
+      <ExportModal
+        isOpen={isExportModalOpen}
+        onClose={() => setIsExportModalOpen(false)}
+        blocks={htmlToBlocks(scriptHtml)}
+        metadata={titleMetadata}
+        sceneTakes={sceneTakes}
+        notes={notes}
+        revisionNumber={revisionNumber}
+        activeRevisionColor={activeRevisionColor}
+        onTriggerPdfPrint={handlePrintPdf}
       />
 
       {/* Scene Takes & Alternate Drafts Modal */}
