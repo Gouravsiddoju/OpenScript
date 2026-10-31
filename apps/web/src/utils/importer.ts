@@ -16,6 +16,11 @@ export interface ImportedScreenplayResult {
   notes?: any[];
 }
 
+export interface FileEntry {
+  path: string;
+  file: File;
+}
+
 /**
  * Extracts Fountain Title Page metadata if present
  */
@@ -96,15 +101,176 @@ export function rtfToText(rtf: string): string {
 }
 
 /**
- * Parse Scrivener (.scrivx) Project XML
- * Handles standalone .scrivx file and warns if binder documents are missing
+ * Extracts Binder items from Scrivener project.scrivx XML.
+ * Works seamlessly across Scrivener 1, 2, and 3 (supporting both ID and UUID).
+ */
+export function extractScrivenerBinderItems(xmlContent: string): { id: string; title: string; synopsis?: string }[] {
+  const items: { id: string; title: string; synopsis?: string }[] = [];
+
+  // Match all <BinderItem ...> tags
+  // Scrivener 3: <BinderItem UUID="99C0D304-4B29-4786-9A15-081B1556C47C" Type="Text" ...>
+  // Scrivener 1/2: <BinderItem ID="10" Type="Text" ...>
+  const itemTagRegex = /<BinderItem\s+([^>]*?)>([\s\S]*?)(?=<BinderItem|<\/Binder>|$)/gi;
+  let match;
+
+  while ((match = itemTagRegex.exec(xmlContent)) !== null) {
+    const attrs = match[1];
+    const inner = match[2];
+
+    const typeMatch = attrs.match(/Type="(Text|Folder)"/i);
+    const idMatch = attrs.match(/(?:UUID|ID|Id)="([^"]*)"/i);
+    if (!idMatch) continue;
+
+    const id = idMatch[1].trim();
+    const type = typeMatch ? typeMatch[1].toLowerCase() : 'text';
+
+    const titleMatch = inner.match(/<Title[^>]*>(.*?)<\/Title>/i);
+    const synopsisMatch = inner.match(/<Synopsis[^>]*>(.*?)<\/Synopsis>/i);
+
+    const title = titleMatch ? titleMatch[1].trim() : '';
+    const synopsis = synopsisMatch ? synopsisMatch[1].trim() : undefined;
+
+    // Only process text items or folders explicitly named as scene headings
+    const isHeading = /^(INT|EXT|INT\/EXT|I\/E)[.\s]/i.test(title);
+    if (id && (type === 'text' || isHeading)) {
+      items.push({ id, title, synopsis });
+    }
+  }
+
+  return items;
+}
+
+/**
+ * Parses full Scrivener project entries (from dropped .scriv folder or unzipped .scriv.zip)
+ */
+export async function parseScrivenerFolderEntries(entries: FileEntry[], projectName?: string): Promise<ImportedScreenplayResult> {
+  // 1. Locate .scrivx binder file
+  const scrivxEntry = entries.find((e) => e.path.toLowerCase().endsWith('.scrivx'));
+
+  let projectTitle = projectName?.replace(/\.scriv$/i, '').replace(/\.zip$/i, '') || 'Scrivener Project';
+  let binderItems: { id: string; title: string; synopsis?: string }[] = [];
+
+  if (scrivxEntry) {
+    const xmlContent = await scrivxEntry.file.text();
+    const titleMatch = xmlContent.match(/<ProjectTitle[^>]*>(.*?)<\/ProjectTitle>/i) ||
+                       xmlContent.match(/<Title[^>]*>(.*?)<\/Title>/i);
+    if (titleMatch) {
+      projectTitle = titleMatch[1].trim();
+    }
+    binderItems = extractScrivenerBinderItems(xmlContent);
+  }
+
+  // 2. Index all content.rtf / content.txt files in entries
+  const contentEntries = entries.filter((e) => {
+    const p = e.path.toLowerCase();
+    return p.endsWith('content.rtf') || p.endsWith('content.txt') || (p.includes('/docs/') && p.endsWith('.rtf'));
+  });
+
+  const fullFountainParts: string[] = [];
+  if (projectTitle) {
+    fullFountainParts.push(`Title: ${projectTitle.toUpperCase()}`);
+    fullFountainParts.push(`Author: Scrivener Project\n\n`);
+  }
+
+  let sceneNum = 1;
+  const processedItemIds = new Set<string>();
+
+  // Helper to find file entry matching an ID or UUID
+  const findEntryForId = (id: string): FileEntry | undefined => {
+    const idLower = id.toLowerCase();
+    return contentEntries.find((e) => {
+      const pathLower = e.path.toLowerCase();
+      // Matches Files/Data/<UUID>/content.rtf or Files/Data/<ID>/content.rtf or Files/Docs/<ID>.rtf
+      return (
+        pathLower.includes(`/${idLower}/`) ||
+        pathLower.includes(`\\${idLower}\\`) ||
+        pathLower.endsWith(`/${idLower}.rtf`) ||
+        pathLower.endsWith(`\\${idLower}.rtf`) ||
+        pathLower.endsWith(`/${idLower}.txt`)
+      );
+    });
+  };
+
+  // 3. Process binder items in order
+  for (const item of binderItems) {
+    const entry = findEntryForId(item.id);
+    let sceneBody = '';
+
+    if (entry) {
+      processedItemIds.add(item.id);
+      const rawText = await entry.file.text();
+      sceneBody = entry.path.toLowerCase().endsWith('.rtf') ? rtfToText(rawText) : rawText.trim();
+    }
+
+    if (!item.title && !sceneBody) continue;
+
+    const titleUpper = item.title.toUpperCase().trim();
+    const isHeading = /^(INT|EXT|INT\/EXT|I\/E)[.\s]/i.test(titleUpper);
+
+    // If sceneBody already starts with a scene heading, don't double-add
+    const bodyStartsWithHeading = /^(INT|EXT|INT\/EXT|I\/E)[.\s]/i.test(sceneBody.trim());
+
+    if (isHeading) {
+      fullFountainParts.push(`\n${titleUpper}\n`);
+      sceneNum++;
+    } else if (!bodyStartsWithHeading && item.title) {
+      fullFountainParts.push(`\nINT. SCENE ${sceneNum} - ${titleUpper} - DAY\n`);
+      sceneNum++;
+    }
+
+    if (sceneBody) {
+      fullFountainParts.push(`${sceneBody}\n`);
+    } else if (item.synopsis) {
+      fullFountainParts.push(`${item.synopsis}\n`);
+    }
+  }
+
+  // 4. Fallback: If no binder items matched, or if there are unprocessed content.rtf files
+  if (fullFountainParts.length <= 2 && contentEntries.length > 0) {
+    // Sort content entries by directory path
+    contentEntries.sort((a, b) => a.path.localeCompare(b.path, undefined, { numeric: true, sensitivity: 'base' }));
+
+    for (const entry of contentEntries) {
+      const rawText = await entry.file.text();
+      const text = entry.path.toLowerCase().endsWith('.rtf') ? rtfToText(rawText) : rawText.trim();
+      if (!text) continue;
+
+      const startsWithHeading = /^(INT|EXT|INT\/EXT|I\/E)[.\s]/i.test(text.trim());
+      if (!startsWithHeading) {
+        fullFountainParts.push(`\nINT. SCENE ${sceneNum} - DAY\n`);
+        sceneNum++;
+      }
+      fullFountainParts.push(`${text}\n`);
+    }
+  }
+
+  const finalFountain = fullFountainParts.join('\n').replace(/\n{3,}/g, '\n\n').trim() ||
+    `INT. SCENE 1 - DAY\n\nNo scene text found in Scrivener folder.`;
+
+  const scriptHtml = fountainToHtml(finalFountain);
+  const words = finalFountain.split(/\s+/).filter(Boolean).length;
+  const scenes = (finalFountain.match(/^(INT\.|EXT\.|INT\/EXT\.|I\/E\.)/gim) || []).length;
+
+  return {
+    title: projectTitle,
+    author: 'Scrivener Project',
+    scriptHtml,
+    fountainText: finalFountain,
+    sourceApp: 'Scrivener',
+    sceneCount: Math.max(1, scenes),
+    wordCount: words,
+  };
+}
+
+/**
+ * Parse Scrivener (.scrivx) Project XML (standalone)
  */
 function parseScrivenerXml(xmlString: string, fileName: string): ImportedScreenplayResult {
-  // Extract project title
   const titleMatch = xmlString.match(/<ProjectTitle[^>]*>(.*?)<\/ProjectTitle>/i) ||
                      xmlString.match(/<Title[^>]*>(.*?)<\/Title>/i);
   const projectTitle = titleMatch ? titleMatch[1].trim() : fileName.replace(/\.scrivx$/i, '').replace(/\.scriv$/i, '');
 
+  const binderItems = extractScrivenerBinderItems(xmlContentOrXml(xmlString));
   const fountainLines: string[] = [];
 
   if (projectTitle) {
@@ -112,31 +278,20 @@ function parseScrivenerXml(xmlString: string, fileName: string): ImportedScreenp
     fountainLines.push(`Author: Scrivener Import\n\n`);
   }
 
-  // Find all BinderItems
-  const binderRegex = /<BinderItem[^>]*ID="([^"]*)"[^>]*Type="(?:Text|Folder)"[^>]*>([\s\S]*?)<\/BinderItem>/gi;
-  let match;
   let sceneNum = 1;
+  for (const item of binderItems) {
+    if (!item.title && !item.synopsis) continue;
 
-  while ((match = binderRegex.exec(xmlString)) !== null) {
-    const inner = match[2];
-    const itemTitleMatch = inner.match(/<Title[^>]*>(.*?)<\/Title>/i);
-    const itemSynopsisMatch = inner.match(/<Synopsis[^>]*>(.*?)<\/Synopsis>/i);
-
-    const title = itemTitleMatch ? itemTitleMatch[1].trim() : '';
-    const synopsis = itemSynopsisMatch ? itemSynopsisMatch[1].trim() : '';
-
-    if (!title && !synopsis) continue;
-
-    const isHeading = /^(INT|EXT|INT\/EXT|I\/E)[.\s]/i.test(title);
+    const isHeading = /^(INT|EXT|INT\/EXT|I\/E)[.\s]/i.test(item.title);
     if (isHeading) {
-      fountainLines.push(`\n${title.toUpperCase()}\n`);
-    } else if (title) {
-      fountainLines.push(`\nINT. SCENE ${sceneNum} - ${title.toUpperCase()} - DAY\n`);
+      fountainLines.push(`\n${item.title.toUpperCase()}\n`);
+    } else if (item.title) {
+      fountainLines.push(`\nINT. SCENE ${sceneNum} - ${item.title.toUpperCase()} - DAY\n`);
       sceneNum++;
     }
 
-    if (synopsis) {
-      fountainLines.push(`${synopsis}\n`);
+    if (item.synopsis) {
+      fountainLines.push(`${item.synopsis}\n`);
     }
   }
 
@@ -160,146 +315,64 @@ function parseScrivenerXml(xmlString: string, fileName: string): ImportedScreenp
   };
 }
 
+function xmlContentOrXml(xml: string): string {
+  return xml;
+}
+
 /**
  * Parses full Scrivener Project Zip Archive (.scriv.zip or .zip)
- * Reads project.scrivx and merges all scene files from Files/Data/
  */
 async function parseScrivenerZip(zipFile: File): Promise<ImportedScreenplayResult> {
   const zip = await JSZip.loadAsync(zipFile);
 
-  // 1. Locate .scrivx binder file
-  let scrivxPath: string | null = null;
-  for (const relativePath in zip.files) {
-    if (relativePath.toLowerCase().endsWith('.scrivx')) {
-      scrivxPath = relativePath;
-      break;
-    }
-  }
-
-  // Fallback: If no .scrivx found, look for .fountain, .fdx, or .rtf files
-  if (!scrivxPath) {
-    for (const relativePath in zip.files) {
-      const lower = relativePath.toLowerCase();
-      if (lower.endsWith('.fountain') || lower.endsWith('.spmd')) {
-        const text = await zip.files[relativePath].async('text');
-        const { title, author, body } = extractFountainMetadata(text);
-        return {
-          title: title || zipFile.name.replace(/\.[^/.]+$/, ''),
-          author: author || 'Unknown Author',
-          scriptHtml: fountainToHtml(body),
-          fountainText: body,
-          sourceApp: 'Fountain / Highland',
-          sceneCount: Math.max(1, (body.match(/^(INT\.|EXT\.|INT\/EXT\.|I\/E\.)/gim) || []).length),
-          wordCount: body.trim().split(/\s+/).filter(Boolean).length,
-        };
-      }
-      if (lower.endsWith('.fdx')) {
-        const text = await zip.files[relativePath].async('text');
-        const { blocks, metadata } = parseFdx(text);
-        return {
-          title: metadata.title || zipFile.name.replace(/\.[^/.]+$/, ''),
-          author: metadata.authors?.[0] || 'Unknown Author',
-          scriptHtml: blocksToHtml(blocks),
-          fountainText: blocks.map((b) => b.text).join('\n\n'),
-          sourceApp: 'Final Draft',
-          sceneCount: Math.max(1, blocks.filter((b) => b.type === 'sceneHeading').length),
-          wordCount: blocks.reduce((acc, b) => acc + (b.text?.split(/\s+/).filter(Boolean).length || 0), 0),
-        };
-      }
-    }
-    throw new Error('No supported screenplay files (.scrivx, .fountain, .fdx) found inside the zip archive.');
-  }
-
-  // 2. Read Scrivener XML binder
-  const xmlContent = await zip.files[scrivxPath].async('text');
-  const titleMatch = xmlContent.match(/<ProjectTitle[^>]*>(.*?)<\/ProjectTitle>/i) ||
-                     xmlContent.match(/<Title[^>]*>(.*?)<\/Title>/i);
-  const projectTitle = titleMatch ? titleMatch[1].trim() : zipFile.name.replace(/\.[^/.]+$/, '');
-
-  const binderRegex = /<BinderItem[^>]*ID="([^"]*)"[^>]*Type="(?:Text|Folder)"[^>]*>([\s\S]*?)<\/BinderItem>/gi;
-  let match;
-
-  const fullFountainParts: string[] = [];
-  if (projectTitle) {
-    fullFountainParts.push(`Title: ${projectTitle.toUpperCase()}`);
-    fullFountainParts.push(`Author: Scrivener Project Archive\n\n`);
-  }
-
-  let sceneNum = 1;
-  let extractedScenesCount = 0;
-
-  // Map all zip entries case-insensitively for fast lookup
-  const zipFileMap = new Map<string, string>();
+  const fileEntries: FileEntry[] = [];
   for (const path in zip.files) {
-    zipFileMap.set(path.toLowerCase(), path);
-  }
-
-  while ((match = binderRegex.exec(xmlContent)) !== null) {
-    const itemId = match[1];
-    const inner = match[2];
-    const itemTitleMatch = inner.match(/<Title[^>]*>(.*?)<\/Title>/i);
-    const title = itemTitleMatch ? itemTitleMatch[1].trim() : '';
-
-    // Search for content file matching this item ID in Files/Data/<id>/content.rtf or Files/Docs/<id>.rtf
-    const candidatePaths = [
-      `files/data/${itemId}/content.rtf`,
-      `files/data/${itemId}/content.txt`,
-      `files/docs/${itemId}.rtf`,
-      `files/docs/${itemId}.txt`,
-    ];
-
-    let foundPath: string | null = null;
-    for (const [lowerPath, actualPath] of zipFileMap.entries()) {
-      if (candidatePaths.some((c) => lowerPath.endsWith(c))) {
-        foundPath = actualPath;
-        break;
-      }
-    }
-
-    let sceneBody = '';
-    if (foundPath) {
-      const rawContent = await zip.files[foundPath].async('text');
-      if (foundPath.toLowerCase().endsWith('.rtf')) {
-        sceneBody = rtfToText(rawContent);
-      } else {
-        sceneBody = rawContent.trim();
-      }
-    }
-
-    if (!title && !sceneBody) continue;
-
-    // Check if title is already a scene heading
-    const isHeading = /^(INT|EXT|INT\/EXT|I\/E)[.\s]/i.test(title);
-    if (isHeading) {
-      fullFountainParts.push(`\n${title.toUpperCase()}\n`);
-      sceneNum++;
-      extractedScenesCount++;
-    } else if (title) {
-      // If title is "Scene 1", "Act 1", or a descriptive name
-      fullFountainParts.push(`\nINT. SCENE ${sceneNum} - ${title.toUpperCase()} - DAY\n`);
-      sceneNum++;
-      extractedScenesCount++;
-    }
-
-    if (sceneBody) {
-      fullFountainParts.push(`${sceneBody}\n`);
+    if (!zip.files[path].dir) {
+      const blob = await zip.files[path].async('blob');
+      const filename = path.split('/').pop() || path;
+      const file = new File([blob], filename);
+      fileEntries.push({ path, file });
     }
   }
 
-  const finalFountain = fullFountainParts.join('\n').replace(/\n{3,}/g, '\n\n').trim();
-  const scriptHtml = fountainToHtml(finalFountain);
-  const words = finalFountain.split(/\s+/).filter(Boolean).length;
-  const detectedScenes = (finalFountain.match(/^(INT\.|EXT\.|INT\/EXT\.|I\/E\.)/gim) || []).length;
+  // Check if .scrivx is present
+  const hasScrivx = fileEntries.some((e) => e.path.toLowerCase().endsWith('.scrivx'));
+  if (hasScrivx || fileEntries.some((e) => e.path.toLowerCase().endsWith('content.rtf'))) {
+    return parseScrivenerFolderEntries(fileEntries, zipFile.name);
+  }
 
-  return {
-    title: projectTitle,
-    author: 'Scrivener Project Archive',
-    scriptHtml,
-    fountainText: finalFountain,
-    sourceApp: 'Scrivener',
-    sceneCount: Math.max(1, detectedScenes || extractedScenesCount),
-    wordCount: words,
-  };
+  // Fallback: check for .fountain or .fdx
+  for (const entry of fileEntries) {
+    const lower = entry.path.toLowerCase();
+    if (lower.endsWith('.fountain') || lower.endsWith('.spmd')) {
+      const text = await entry.file.text();
+      const { title, author, body } = extractFountainMetadata(text);
+      return {
+        title: title || zipFile.name.replace(/\.[^/.]+$/, ''),
+        author: author || 'Unknown Author',
+        scriptHtml: fountainToHtml(body),
+        fountainText: body,
+        sourceApp: 'Fountain / Highland',
+        sceneCount: Math.max(1, (body.match(/^(INT\.|EXT\.|INT\/EXT\.|I\/E\.)/gim) || []).length),
+        wordCount: body.trim().split(/\s+/).filter(Boolean).length,
+      };
+    }
+    if (lower.endsWith('.fdx')) {
+      const text = await entry.file.text();
+      const { blocks, metadata } = parseFdx(text);
+      return {
+        title: metadata.title || zipFile.name.replace(/\.[^/.]+$/, ''),
+        author: metadata.authors?.[0] || 'Unknown Author',
+        scriptHtml: blocksToHtml(blocks),
+        fountainText: blocks.map((b) => b.text).join('\n\n'),
+        sourceApp: 'Final Draft',
+        sceneCount: Math.max(1, blocks.filter((b) => b.type === 'sceneHeading').length),
+        wordCount: blocks.reduce((acc, b) => acc + (b.text?.split(/\s+/).filter(Boolean).length || 0), 0),
+      };
+    }
+  }
+
+  throw new Error('No supported screenplay files found inside zip archive.');
 }
 
 /**
@@ -307,7 +380,6 @@ async function parseScrivenerZip(zipFile: File): Promise<ImportedScreenplayResul
  */
 function parseScreenplayHtml(html: string, fileName: string): ImportedScreenplayResult {
   const fountainLines: string[] = [];
-
   const tagRegex = /<([a-z0-9]+)\s+class="([^"]*)"[^>]*>([\s\S]*?)<\/\1>/gi;
   let match;
 

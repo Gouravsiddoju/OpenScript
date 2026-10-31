@@ -179,3 +179,52 @@
   background-color: rgba(245, 158, 11, 0.08);
   border-radius: 4px;
 }
+
+
+/* Visual Screenplay Page Breaks (Hollywood Industry Standard 54-line pagination) */
+[data-page-break] {
+  position: relative;
+  margin-top: 3.5rem !important;
+}
+
+[data-page-break]::before {
+  content: "PAGE " attr(data-page-break);
+  position: absolute;
+  top: -1.75rem;
+  right: 0;
+  font-family: 'Courier Prime', Courier, monospace;
+  font-size: 10pt;
+  font-weight: bold;
+  color: #64748b;
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
+  padding: 1px 8px;
+  border-radius: 4px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  user-select: none;
+  pointer-events: none;
+  z-index: 10;
+}
+
+[data-page-break]::after {
+  content: "";
+  position: absolute;
+  top: -0.95rem;
+  left: -1.5in;
+  right: -1.0in;
+  height: 1px;
+  border-top: 1px dashed #cbd5e1;
+  pointer-events: none;
+}
+
+@media print {
+  [data-page-break] {
+    page-break-before: always !important;
+    margin-top: 0 !important;
+    padding-top: 0 !important;
+  }
+  [data-page-break]::before,
+  [data-page-break]::after {
+    display: none !important;
+  }
+}

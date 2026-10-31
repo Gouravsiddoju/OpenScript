@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
-import { screenplayNodes, ScreenplayKeymap, ScreenplayUppercase } from '@openscript/editor';
+import { screenplayNodes, ScreenplayKeymap, ScreenplayUppercase, paginateScreenplay } from '@openscript/editor';
+import { htmlToBlocks } from '../utils/exporter';
 import { TitlePageMetadata } from './TitlePageModal';
 import { Lock, Sparkles, Columns, Eye, Keyboard, MessageSquare } from 'lucide-react';
 import { CollaboratorRole, ScriptNote, ScriptNoteCategory, canEditScreenplay, canAddNotes, isWatermarkRequired } from '@openscript/screenplay-schema';
@@ -21,6 +22,7 @@ interface ScreenplayEditorProps {
   onSelectBlockForNotes?: (blockId: string) => void;
   onAddNoteFromSelection?: (selectedText: string, commentText: string, category: ScriptNoteCategory) => void;
   onOpenSceneTakesForBlock?: (blockText: string) => void;
+  onPageChange?: (currentPage: number, totalPages: number) => void;
 }
 
 const DEFAULT_SCRIPT_HTML = `
@@ -51,6 +53,7 @@ export const ScreenplayEditor: React.FC<ScreenplayEditorProps> = ({
   onSelectBlockForNotes,
   onAddNoteFromSelection,
   onOpenSceneTakesForBlock,
+  onPageChange,
 }) => {
   const initialKnownChars = useMemo(() => {
     const chars = new Set<string>(['MAYA', 'GOURAV']);
