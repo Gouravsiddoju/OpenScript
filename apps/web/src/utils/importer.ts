@@ -63,32 +63,56 @@ function extractFountainMetadata(fountainText: string): { title?: string; author
 export function rtfToText(rtf: string): string {
   if (!rtf) return '';
 
-  // 1. Remove font table, color table, stylesheet, generator info, etc.
-  let text = rtf.replace(/\{\\(?:fonttbl|colortbl|stylesheet|info|generator)[\s\S]*?\}/g, '');
+  // 1. Strip nested groups with brace counting (fonttbl, colortbl, stylesheet, info, generator, *)
+  function stripGroup(str: string, prefix: string): string {
+    let idx = str.indexOf('{\\' + prefix);
+    while (idx !== -1) {
+      let depth = 1;
+      let i = idx + prefix.length + 2;
+      while (i < str.length && depth > 0) {
+        if (str[i] === '{' && str[i - 1] !== '\\') depth++;
+        else if (str[i] === '}' && str[i - 1] !== '\\') depth--;
+        i++;
+      }
+      str = str.slice(0, idx) + str.slice(i);
+      idx = str.indexOf('{\\' + prefix);
+    }
+    return str;
+  }
 
-  // 2. Remove any other destination groups like {\*\expandedcolortbl...}
-  text = text.replace(/\{\\\*[\s\S]*?\}/g, '');
+  let text = rtf;
+  ['fonttbl', 'colortbl', 'stylesheet', 'info', 'generator', '*'].forEach((g) => {
+    text = stripGroup(text, g);
+  });
 
-  // 3. Convert \par and \line to line breaks
-  text = text.replace(/\\par(?:\r\n|\n|\s)?/gi, '\n');
-  text = text.replace(/\\line(?:\r\n|\n|\s)?/gi, '\n');
+  // 2. Convert paragraph breaks and line breaks (ensure \par doesn't eat \pard)
+  text = text.replace(/\\par(?![a-zA-Z])(?:\r\n|\n|\s)?/gi, '\n');
+  text = text.replace(/\\line(?![a-zA-Z])(?:\r\n|\n|\s)?/gi, '\n');
+  text = text.replace(/\\tab(?![a-zA-Z])(?:\r\n|\n|\s)?/gi, '    ');
 
-  // 4. Convert \tab to spaces
-  text = text.replace(/\\tab(?:\r\n|\n|\s)?/gi, '    ');
-
-  // 5. Convert hex character escapes \'hh
+  // 3. Convert hex character escapes \'hh
   text = text.replace(/\\'([0-9a-fA-F]{2})/g, (_, hex) => {
     return String.fromCharCode(parseInt(hex, 16));
   });
 
-  // 6. Convert unicode escapes \uN
+  // 4. Convert unicode escapes \uN
   text = text.replace(/\\u(-?\d+)\??/g, (_, code) => {
     const num = parseInt(code, 10);
     return String.fromCharCode(num < 0 ? num + 65536 : num);
   });
 
-  // 7. Remove remaining control words like \b, \i, \fs24, \cf0, \qc, \scriptelement etc.
+  // 5. Remove control words like \pard, \sb240, \b, \i, \fs24, etc.
   text = text.replace(/\\[a-zA-Z]+-?\d*(?:\s)?/g, '');
+
+  // 6. Remove leftover font definitions ending in semicolon (e.g. CourierPrime;)
+  text = text.replace(/^[a-zA-Z0-9\s_-]+;\s*/gm, '');
+
+  // 7. Remove Scrivener tags like <c450>00pt</c450> or <$Scr_...> or 00pt
+  text = text.replace(/<\/?c\d*[^>]*>/gi, '');
+  text = text.replace(/<\/?\$Scr_[^>]*>/gi, '');
+  text = text.replace(/<\/?pt>/gi, '');
+  text = text.replace(/\b\d+pt\b/gi, '');
+  text = text.replace(/\d+pt/gi, '');
 
   // 8. Unescape escaped characters \{, \}, \\
   text = text.replace(/\\([{}\\])/g, '$1');

@@ -12,7 +12,7 @@
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
   margin: 20px auto;
   position: relative;
-  overflow: hidden;
+  overflow: visible;
 }
 
 /* Screenplay Title Page (Symmetric 1.0in margins so title and metadata are geometrically centered on the 8.5in sheet) */
@@ -181,40 +181,43 @@
 }
 
 
-/* Visual Screenplay Page Breaks (Hollywood Industry Standard 54-line pagination) */
+/* Authentic Physical Screenplay Page Separation */
 [data-page-break] {
   position: relative;
-  margin-top: 3.5rem !important;
+  /* Visual gap between page bottom and page top */
+  margin-top: 56px !important;
+  padding-top: 36px !important;
 }
 
+/* 1. Dark Workspace Cut between sheets: visually slices the white container into separate sheets! */
 [data-page-break]::before {
-  content: "PAGE " attr(data-page-break);
+  content: "";
   position: absolute;
-  top: -1.75rem;
+  top: -56px;
+  left: -1.5in;
+  right: -1.0in;
+  height: 56px;
+  background-color: #0d0e11 !important;
+  box-shadow: 
+    0 -8px 20px -2px rgba(0, 0, 0, 0.7), 
+    0 8px 20px -2px rgba(0, 0, 0, 0.7);
+  z-index: 20;
+  pointer-events: none;
+}
+
+/* 2. Top Running Header for the new page: "Page X." on right margin */
+[data-page-break]::after {
+  content: attr(data-page-break) ".";
+  position: absolute;
+  top: 4px;
   right: 0;
   font-family: 'Courier Prime', Courier, monospace;
   font-size: 10pt;
-  font-weight: bold;
-  color: #64748b;
-  background: #f8fafc;
-  border: 1px solid #cbd5e1;
-  padding: 1px 8px;
-  border-radius: 4px;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  font-weight: normal;
+  color: #6b7280;
   user-select: none;
   pointer-events: none;
-  z-index: 10;
-}
-
-[data-page-break]::after {
-  content: "";
-  position: absolute;
-  top: -0.95rem;
-  left: -1.5in;
-  right: -1.0in;
-  height: 1px;
-  border-top: 1px dashed #cbd5e1;
-  pointer-events: none;
+  z-index: 25;
 }
 
 @media print {

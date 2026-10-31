@@ -404,6 +404,103 @@ export const ScreenplayEditor: React.FC<ScreenplayEditorProps> = ({
     }
   }, [editor, onEditorReady]);
 
+  // Dynamic Pagination & Physical Page Break Slicing
+  const [totalPages, setTotalPages] = useState<number>(1);
+  const [currentPage, setCurrentPage] = useState<number>(1);
+
+  const updatePagination = () => {
+    if (!paperContainerRef.current) return;
+    const tiptapRoot = paperContainerRef.current.querySelector('.tiptap');
+    if (!tiptapRoot) return;
+
+    const domChildren = Array.from(tiptapRoot.children) as HTMLElement[];
+    if (domChildren.length === 0) {
+      setTotalPages(1);
+      return;
+    }
+
+    // Standard screenplay page content height: 864px (9 inches of text at 96 DPI = 54 lines of 16px)
+    const PAGE_HEIGHT = 864;
+    let accumulatedHeight = 0;
+    let pageNum = 2;
+
+    for (let i = 0; i < domChildren.length; i++) {
+      const child = domChildren[i];
+      const h = child.offsetHeight > 0 ? child.offsetHeight : 24;
+
+      // Widow/orphan protection for scene headings: push if less than 60px remaining
+      const isSceneHeading = child.classList.contains('script-scene-heading');
+      const budget = isSceneHeading && accumulatedHeight > PAGE_HEIGHT - 60 ? 0 : PAGE_HEIGHT;
+
+      if (accumulatedHeight + h > budget && accumulatedHeight > 0) {
+        child.setAttribute('data-page-break', String(pageNum));
+        accumulatedHeight = h;
+        pageNum++;
+      } else {
+        child.removeAttribute('data-page-break');
+        accumulatedHeight += h;
+      }
+    }
+
+    const calculatedTotal = Math.max(1, pageNum - 1);
+    setTotalPages(calculatedTotal);
+  };
+
+  useEffect(() => {
+    if (!editor) return;
+
+    const runPagination = () => {
+      setTimeout(updatePagination, 50);
+    };
+
+    runPagination();
+    editor.on('update', runPagination);
+    editor.on('create', runPagination);
+
+    return () => {
+      editor.off('update', runPagination);
+      editor.off('create', runPagination);
+    };
+  }, [editor]);
+
+  useEffect(() => {
+    const timer = setTimeout(updatePagination, 150);
+    return () => clearTimeout(timer);
+  }, [initialContent]);
+
+  // Scroll Listener for Active Page Tracking
+  useEffect(() => {
+    const handleScroll = () => {
+      if (!paperContainerRef.current) return;
+      const pageBreaks = Array.from(
+        paperContainerRef.current.querySelectorAll('[data-page-break]')
+      ) as HTMLElement[];
+
+      let activePage = 1;
+      const scrollThreshold = window.innerHeight * 0.35;
+
+      for (const el of pageBreaks) {
+        const rect = el.getBoundingClientRect();
+        if (rect.top <= scrollThreshold) {
+          const num = parseInt(el.getAttribute('data-page-break') || '1', 10);
+          if (num > activePage) {
+            activePage = num;
+          }
+        }
+      }
+
+      setCurrentPage(activePage);
+      if (onPageChange) {
+        onPageChange(activePage, totalPages);
+      }
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, [totalPages, onPageChange]);
+
+
+
   useEffect(() => {
     if (editor) {
       editor.setEditable(canEditScreenplay(currentUserRole));
@@ -693,11 +790,13 @@ export const ScreenplayEditor: React.FC<ScreenplayEditorProps> = ({
         ) : null}
 
         {/* Page Top Running Header */}
-        <div className="text-right text-[10pt] text-gray-400 mb-6 border-b border-gray-100 pb-2 select-none no-print flex justify-between">
+        <div className="text-right text-[10pt] text-gray-400 mb-6 border-b border-gray-100 pb-2 select-none no-print flex justify-between items-center">
           <span className="italic uppercase">
             {metadata?.title ? `${metadata.title} — ${metadata.draftLabel || 'DRAFT'}` : 'OPENSCRIPT — FIRST DRAFT'}
           </span>
-          <span>1.</span>
+          <span className="font-mono text-xs font-semibold text-gray-600 bg-gray-100 px-2.5 py-0.5 rounded border border-gray-200">
+            Page {currentPage} of {totalPages}
+          </span>
         </div>
 
         {/* Tiptap Screenplay Content */}

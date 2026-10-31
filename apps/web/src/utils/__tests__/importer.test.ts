@@ -224,4 +224,13 @@ We are running out of time.
     expect(result.scriptHtml).toContain('SARAH');
     expect(result.scriptHtml).toContain('Don&#039;t turn on the radio.');
   });
+  it('cleans complex Scrivener RTF markup, nested font tables, and style tags', () => {
+    const rawRtf = '{\\rtf1\\ansi{\\fonttbl{\\f0\\fnil\\fcharset0 CourierPrime;}{\\f1 Arial;}}\\pard\\sb240 <c450>00pt</c450>INT. DETECTIVE OFFICE - MORNING\\par The assistant is typing on the laptop.\\par}';
+    const cleaned = rtfToText(rawRtf);
+    expect(cleaned).not.toContain('CourierPrime');
+    expect(cleaned).not.toContain('c450');
+    expect(cleaned).not.toContain('00pt');
+    expect(cleaned).toContain('INT. DETECTIVE OFFICE - MORNING');
+    expect(cleaned).toContain('The assistant is typing on the laptop.');
+  });
 });
