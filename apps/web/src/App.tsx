@@ -165,6 +165,8 @@ export default function App() {
       draftLabel: 'White Production Draft',
       draftDate: 'October 2026',
       showTitlePage: true,
+      watermarkText: 'CONFIDENTIAL',
+      showWatermark: false,
     };
   });
 
@@ -296,7 +298,7 @@ Neon reflections shimmer in deep puddles. Sirens echo in the far distance.`;
   };
 
   const switchMode = (newMode: 'screenplay' | 'beats' | 'fountain' | 'reports') => {
-    if (activeMode === 'fountain' && newMode === 'screenplay') {
+    if (activeMode === 'fountain' && newMode !== 'fountain') {
       const generatedHtml = fountainToHtml(fountainText);
       setScriptHtml(generatedHtml);
       if (editorInstance) {
@@ -351,6 +353,44 @@ Neon reflections shimmer in deep puddles. Sirens echo in the far distance.`;
     setTimeout(() => {
       scrollToScene(scenes.length);
     }, 150);
+  };
+
+  // Reorder scenes directly from the Beat Board (Stories #11 & #16)
+  const handleReorderScenes = (fromIndex: number, toIndex: number) => {
+    if (fromIndex < 0 || fromIndex >= scenes.length || toIndex < 0 || toIndex >= scenes.length) return;
+    const reordered = [...scenes];
+    const [moved] = reordered.splice(fromIndex, 1);
+    reordered.splice(toIndex, 0, moved);
+
+    const reorderedFountain = reordered.map((s) => s.fountainText).join('\n\n');
+    const newHtml = fountainToHtml(reorderedFountain);
+    setScriptHtml(newHtml);
+    setFountainText(reorderedFountain);
+    if (editorInstance) {
+      editorInstance.commands.setContent(newHtml);
+    }
+    setIsSaved(false);
+  };
+
+  // Drag and Drop File Import (Story #29)
+  const handleDropFile = async (e: React.DragEvent) => {
+    e.preventDefault();
+    const file = e.dataTransfer.files?.[0];
+    if (!file) return;
+
+    const fileName = file.name.toLowerCase();
+    if (fileName.endsWith('.fdx')) {
+      await handleFdxFileChange({ target: { files: [file] } } as any);
+    } else if (fileName.endsWith('.fountain') || fileName.endsWith('.txt')) {
+      const text = await file.text();
+      const generatedHtml = fountainToHtml(text);
+      setFountainText(text);
+      setScriptHtml(generatedHtml);
+      if (editorInstance) {
+        editorInstance.commands.setContent(generatedHtml);
+      }
+      setIsSaved(false);
+    }
   };
 
   // Final Draft FDX Import
@@ -564,7 +604,11 @@ Neon reflections shimmer in deep puddles. Sirens echo in the far distance.`;
       </aside>
 
       {/* 2. Main Studio Viewport */}
-      <main className="flex-1 flex flex-col bg-[#111215] overflow-hidden">
+      <main 
+        onDragOver={(e) => e.preventDefault()}
+        onDrop={handleDropFile}
+        className="flex-1 flex flex-col bg-[#111215] overflow-hidden"
+      >
         {/* Top Header Bar */}
         <header className="no-print h-14 border-b border-[#1c1e24] bg-[#0c0d0f] px-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -738,6 +782,7 @@ Neon reflections shimmer in deep puddles. Sirens echo in the far distance.`;
               scenes={scenes}
               onOpenScene={scrollToScene}
               onAddScene={handleAddScene}
+              onReorderScenes={handleReorderScenes}
             />
           )}
 

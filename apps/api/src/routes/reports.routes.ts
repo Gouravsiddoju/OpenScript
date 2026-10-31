@@ -77,17 +77,19 @@ export const reportRoutes: FastifyPluginAsync = async (server) => {
     let sceneCounter = 1;
     for (const block of doc.content) {
       if (block.type === 'sceneHeading') {
-        const text = block.text.trim().toUpperCase();
-        const isInt = text.startsWith('INT');
-        const settingType = isInt ? 'INT' : text.startsWith('EXT') ? 'EXT' : 'OTHER';
+        const upper = block.text.trim().toUpperCase();
+        const isIntExt = /^(INT\/EXT|INT\.\/EXT\.|I\/E)(\.|\s|$)/i.test(upper);
+        const isInt = !isIntExt && /^INT(\.|\s|$)/i.test(upper);
+        const isExt = !isIntExt && /^EXT(\.|\s|$)/i.test(upper);
+        const settingType = isIntExt ? 'INT/EXT' : isInt ? 'INT' : isExt ? 'EXT' : 'OTHER';
 
-        if (!locationMap.has(text)) {
-          locationMap.set(text, { type: settingType, scenes: [] });
+        if (!locationMap.has(upper)) {
+          locationMap.set(upper, { type: settingType, scenes: [] });
         }
 
-        locationMap.get(text)!.scenes.push({
+        locationMap.get(upper)!.scenes.push({
           sceneNumber: block.sceneNumber || String(sceneCounter),
-          text,
+          text: upper,
         });
         sceneCounter++;
       }

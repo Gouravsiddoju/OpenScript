@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, FileText, Check } from 'lucide-react';
+import { X, FileText, Check, ShieldAlert } from 'lucide-react';
 
 export interface TitlePageMetadata {
   title: string;
@@ -10,6 +10,8 @@ export interface TitlePageMetadata {
   draftLabel: string;
   draftDate: string;
   showTitlePage: boolean;
+  watermarkText?: string;
+  showWatermark?: boolean;
 }
 
 interface TitlePageModalProps {
@@ -37,8 +39,8 @@ export const TitlePageModal: React.FC<TitlePageModalProps> = ({
               <FileText className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="text-base font-bold text-white">Title Page Configuration</h3>
-              <p className="text-xs text-gray-400">Industry-standard Hollywood screenplay cover metadata</p>
+              <h3 className="text-base font-bold text-white">Title Page & PDF Watermarking</h3>
+              <p className="text-xs text-gray-400">Industry-standard Hollywood cover page & security watermark</p>
             </div>
           </div>
           <button
@@ -50,7 +52,7 @@ export const TitlePageModal: React.FC<TitlePageModalProps> = ({
         </div>
 
         {/* Form Fields */}
-        <div className="space-y-4 py-4 text-xs font-mono">
+        <div className="space-y-4 py-4 text-xs font-mono max-h-[70vh] overflow-y-auto pr-1">
           <div>
             <label className="block text-gray-400 uppercase text-[10px] tracking-wider mb-1">
               Screenplay Title
@@ -141,16 +143,54 @@ export const TitlePageModal: React.FC<TitlePageModalProps> = ({
               Contact / Representation Info
             </label>
             <textarea
-              rows={3}
+              rows={2}
               value={metadata.contact}
               onChange={(e) => onChange({ ...metadata, contact: e.target.value })}
-              placeholder="Contact: contact@ssnpictures.in&#10;Phone: +1 (555) 019-2831&#10;SSN Pictures"
+              placeholder="Contact: contact@ssnpictures.in&#10;SSN Pictures"
               className="w-full px-3 py-2 bg-[#0c0d0f] border border-[#262933] rounded-lg text-gray-200 font-screenplay focus:outline-none focus:border-amber-500/50 resize-none"
             />
           </div>
 
-          {/* Toggle */}
-          <div className="pt-2 flex items-center justify-between">
+          {/* Watermark Section (Story #30) */}
+          <div className="pt-2 border-t border-[#23262e] space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-gray-300 flex items-center gap-1.5">
+                <ShieldAlert className="w-3.5 h-3.5 text-amber-500" />
+                <span>PDF Security Watermarking</span>
+              </span>
+              <button
+                type="button"
+                onClick={() => onChange({ ...metadata, showWatermark: !metadata.showWatermark })}
+                className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                  metadata.showWatermark ? 'bg-amber-500' : 'bg-gray-700'
+                }`}
+              >
+                <span
+                  className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-black shadow-lg ring-0 transition duration-200 ease-in-out ${
+                    metadata.showWatermark ? 'translate-x-4' : 'translate-x-0'
+                  }`}
+                />
+              </button>
+            </div>
+
+            {metadata.showWatermark && (
+              <div>
+                <input
+                  type="text"
+                  value={metadata.watermarkText || 'CONFIDENTIAL'}
+                  onChange={(e) => onChange({ ...metadata, watermarkText: e.target.value.toUpperCase() })}
+                  placeholder="CONFIDENTIAL / DRAFT / TALENT REVIEW"
+                  className="w-full px-3 py-2 bg-[#0c0d0f] border border-amber-500/30 rounded-lg text-amber-300 font-mono uppercase tracking-wider focus:outline-none focus:border-amber-500"
+                />
+                <span className="text-[10px] text-gray-500 mt-1 block">
+                  Angled translucent watermark stamped across printed and exported PDF pages.
+                </span>
+              </div>
+            )}
+          </div>
+
+          {/* Title Page Toggle */}
+          <div className="pt-2 flex items-center justify-between border-t border-[#23262e]">
             <span className="text-gray-300">Show Title Page in Script & PDF</span>
             <button
               type="button"
@@ -175,7 +215,7 @@ export const TitlePageModal: React.FC<TitlePageModalProps> = ({
             className="flex items-center gap-1.5 px-4 py-2 bg-amber-500 hover:bg-amber-400 text-black font-semibold text-xs rounded-xl transition-all shadow-md shadow-amber-500/20"
           >
             <Check className="w-3.5 h-3.5 stroke-[3]" />
-            <span>Done</span>
+            <span>Apply</span>
           </button>
         </div>
       </div>

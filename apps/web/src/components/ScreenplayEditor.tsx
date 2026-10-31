@@ -1,9 +1,9 @@
-import React, { useEffect, useMemo, useRef } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import { screenplayNodes, ScreenplayKeymap, ScreenplayUppercase } from '@openscript/editor';
 import { TitlePageMetadata } from './TitlePageModal';
-import { Lock, Unlock } from 'lucide-react';
+import { Lock, Sparkles, CornerDownLeft } from 'lucide-react';
 
 interface ScreenplayEditorProps {
   initialContent?: string;
@@ -43,6 +43,8 @@ export const ScreenplayEditor: React.FC<ScreenplayEditorProps> = ({
   const activeColorRef = useRef(activeRevisionColor);
   activeColorRef.current = activeRevisionColor;
 
+  const [activeSuggestion, setActiveSuggestion] = useState<string | null>(null);
+
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
@@ -72,6 +74,7 @@ export const ScreenplayEditor: React.FC<ScreenplayEditorProps> = ({
               const from = selection.$from.start();
               const to = selection.$from.end();
               view.dispatch(state.tr.insertText(match, from, to));
+              setActiveSuggestion(null);
               return true;
             }
           }
@@ -85,6 +88,7 @@ export const ScreenplayEditor: React.FC<ScreenplayEditorProps> = ({
               const from = selection.$from.start();
               const to = selection.$from.end();
               view.dispatch(state.tr.insertText(match, from, to));
+              setActiveSuggestion(null);
               return true;
             }
           }
@@ -98,6 +102,7 @@ export const ScreenplayEditor: React.FC<ScreenplayEditorProps> = ({
               const from = selection.$from.start();
               const to = selection.$from.end();
               view.dispatch(state.tr.insertText(prefixMatch, from, to));
+              setActiveSuggestion(null);
               return true;
             }
           }
@@ -119,6 +124,31 @@ export const ScreenplayEditor: React.FC<ScreenplayEditorProps> = ({
             });
           }, 0);
         }
+      }
+
+      // Check SmartType suggestions
+      const { selection } = editor.state;
+      const block = selection.$from.parent;
+      const blockType = block.type.name;
+      const text = block.textContent.trim();
+
+      if (blockType === 'character' && text.length > 0) {
+        const match = knownCharactersRef.current.find((c) =>
+          c.toLowerCase().startsWith(text.toLowerCase()) && c.toLowerCase() !== text.toLowerCase()
+        );
+        setActiveSuggestion(match || null);
+      } else if (blockType === 'transition' && text.length > 0) {
+        const match = STANDARD_TRANSITIONS.find((t) =>
+          t.toLowerCase().startsWith(text.toLowerCase()) && t.toLowerCase() !== text.toLowerCase()
+        );
+        setActiveSuggestion(match || null);
+      } else if (blockType === 'sceneHeading' && text.length > 0 && !text.includes(' - ')) {
+        const match = SLUGLINE_PREFIXES.find((p) =>
+          p.toLowerCase().startsWith(text.toLowerCase()) && p.trim().toLowerCase() !== text.toLowerCase()
+        );
+        setActiveSuggestion(match || null);
+      } else {
+        setActiveSuggestion(null);
       }
 
       if (onUpdate) {
@@ -147,6 +177,17 @@ export const ScreenplayEditor: React.FC<ScreenplayEditorProps> = ({
     knownCharactersRef.current = list;
     return list;
   }, [editor?.state.doc]);
+
+  const handleApplySuggestion = (suggestion: string) => {
+    if (!editor) return;
+    const { state } = editor;
+    const { selection } = state;
+    const from = selection.$from.start();
+    const to = selection.$from.end();
+    editor.view.dispatch(state.tr.insertText(suggestion, from, to));
+    editor.commands.focus();
+    setActiveSuggestion(null);
+  };
 
   if (!editor) {
     return (
@@ -236,9 +277,27 @@ export const ScreenplayEditor: React.FC<ScreenplayEditorProps> = ({
         </div>
       </div>
 
+      {/* SmartType Suggestion Floating Pill (Stories #9, #24, #27) */}
+      {activeSuggestion && (
+        <div className="no-print w-full max-w-[8.5in] mb-3 flex items-center justify-start animate-fadeIn">
+          <button
+            onClick={() => handleApplySuggestion(activeSuggestion)}
+            className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#181b22] hover:bg-[#20242e] border border-amber-500/40 text-amber-300 text-xs font-mono shadow-xl transition-all"
+            title="Click or press Tab to complete"
+          >
+            <Sparkles className="w-3.5 h-3.5 text-amber-400 animate-pulse" />
+            <span>Suggestion: <strong>{activeSuggestion}</strong></span>
+            <kbd className="ml-1.5 px-1.5 py-0.5 bg-[#111215] text-[10px] text-gray-400 rounded border border-[#2f3542]">Tab ⇥</kbd>
+          </button>
+        </div>
+      )}
+
       {/* 2. Industry Standard Title Page (if enabled) */}
       {metadata?.showTitlePage && (
         <div className="screenplay-page font-screenplay select-text mb-8 relative flex flex-col justify-between print:break-after-page shadow-2xl">
+          {metadata.showWatermark && metadata.watermarkText && (
+            <div className="screenplay-watermark">{metadata.watermarkText}</div>
+          )}
           <div className="mt-[3.0in] flex flex-col items-center gap-6 text-center">
             <h1 className="text-xl font-bold uppercase underline tracking-wider font-screenplay text-black">
               {metadata.title || 'UNTITLED SCREENPLAY'}
@@ -269,7 +328,11 @@ export const ScreenplayEditor: React.FC<ScreenplayEditorProps> = ({
       )}
 
       {/* 3. Authentic Screenplay Paper Canvas */}
-      <div className="screenplay-page font-screenplay select-text">
+      <div className="screenplay-page font-screenplay select-text relative">
+        {metadata?.showWatermark && metadata?.watermarkText && (
+          <div className="screenplay-watermark">{metadata.watermarkText}</div>
+        )}
+
         {/* Page Top Running Header */}
         <div className="text-right text-[10pt] text-gray-400 mb-6 border-b border-gray-100 pb-2 select-none no-print flex justify-between">
           <span className="italic uppercase">

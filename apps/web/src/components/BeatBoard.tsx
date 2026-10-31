@@ -7,7 +7,8 @@ import {
   Search, 
   Sparkles,
   Layers,
-  ArrowRight
+  ArrowRight,
+  GripVertical
 } from 'lucide-react';
 import { SceneItem } from './SceneNavigator';
 
@@ -15,15 +16,18 @@ interface BeatBoardProps {
   scenes: SceneItem[];
   onOpenScene: (sceneIndex: number) => void;
   onAddScene: () => void;
+  onReorderScenes?: (fromIndex: number, toIndex: number) => void;
 }
 
 export const BeatBoard: React.FC<BeatBoardProps> = ({
   scenes,
   onOpenScene,
   onAddScene,
+  onReorderScenes,
 }) => {
   const [search, setSearch] = useState('');
   const [filterSetting, setFilterSetting] = useState<'ALL' | 'INT' | 'EXT' | 'INT/EXT'>('ALL');
+  const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
 
   const filtered = scenes.filter((s) => {
     const matchesSearch =
@@ -33,6 +37,21 @@ export const BeatBoard: React.FC<BeatBoardProps> = ({
     const matchesSetting = filterSetting === 'ALL' || s.setting === filterSetting;
     return matchesSearch && matchesSetting;
   });
+
+  const handleDragStart = (e: React.DragEvent, index: number) => {
+    e.dataTransfer.setData('text/plain', String(index));
+    e.dataTransfer.effectAllowed = 'move';
+    setDraggedIndex(index);
+  };
+
+  const handleDrop = (e: React.DragEvent, targetIndex: number) => {
+    e.preventDefault();
+    const sourceIndex = Number(e.dataTransfer.getData('text/plain'));
+    if (!isNaN(sourceIndex) && sourceIndex !== targetIndex && onReorderScenes) {
+      onReorderScenes(sourceIndex, targetIndex);
+    }
+    setDraggedIndex(null);
+  };
 
   return (
     <section className="w-full max-w-7xl mx-auto p-4 sm:p-8 animate-fadeIn">
@@ -46,7 +65,7 @@ export const BeatBoard: React.FC<BeatBoardProps> = ({
             </span>
           </h2>
           <p className="text-xs text-gray-400 mt-1">
-            Story outline index cards synchronized directly with your screenplay document.
+            Story outline index cards. Drag and drop cards to reorder scenes directly across the screenplay.
           </p>
         </div>
 
@@ -110,6 +129,7 @@ export const BeatBoard: React.FC<BeatBoardProps> = ({
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {filtered.map((scene, idx) => {
+            const originalIndex = scenes.findIndex((s) => s.id === scene.id);
             const settingBadge =
               scene.setting === 'INT'
                 ? 'bg-blue-500/10 text-blue-400 border-blue-500/30'
@@ -117,25 +137,38 @@ export const BeatBoard: React.FC<BeatBoardProps> = ({
                 ? 'bg-amber-500/10 text-amber-400 border-amber-500/30'
                 : 'bg-purple-500/10 text-purple-400 border-purple-500/30';
 
+            const isDragging = draggedIndex === originalIndex;
+
             return (
               <div
                 key={scene.id}
-                onClick={() => onOpenScene(scene.id - 1)}
-                className="group relative flex flex-col justify-between h-52 p-4 rounded-xl bg-[#131519] hover:bg-[#181b22] border border-[#23262f] hover:border-amber-500/40 transition-all cursor-pointer shadow-sm hover:shadow-lg hover:-translate-y-0.5"
+                draggable
+                onDragStart={(e) => handleDragStart(e, originalIndex)}
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={(e) => handleDrop(e, originalIndex)}
+                className={`group relative flex flex-col justify-between h-56 p-4 rounded-xl bg-[#131519] hover:bg-[#181b22] border transition-all cursor-grab active:cursor-grabbing shadow-sm hover:shadow-xl ${
+                  isDragging ? 'opacity-40 border-amber-500 border-dashed' : 'border-[#23262f] hover:border-amber-500/50'
+                }`}
               >
-                {/* Card Top: Scene Number & Setting */}
+                {/* Card Top: Scene Number, Drag Grip & Setting */}
                 <div>
                   <div className="flex items-center justify-between gap-2 mb-2">
-                    <span className="font-mono text-xs font-bold text-amber-500 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">
-                      SCENE #{scene.id}
-                    </span>
+                    <div className="flex items-center gap-1.5">
+                      <GripVertical className="w-3.5 h-3.5 text-gray-600 group-hover:text-amber-500 transition-colors" />
+                      <span className="font-mono text-xs font-bold text-amber-500 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">
+                        SCENE #{scene.id}
+                      </span>
+                    </div>
                     <span className={`text-[10px] font-mono uppercase px-1.5 py-0.5 rounded border ${settingBadge}`}>
                       {scene.setting}
                     </span>
                   </div>
 
                   {/* Slugline */}
-                  <h3 className="font-screenplay font-bold text-sm text-gray-100 group-hover:text-amber-300 transition-colors line-clamp-2 uppercase">
+                  <h3 
+                    onClick={() => onOpenScene(originalIndex)}
+                    className="font-screenplay font-bold text-sm text-gray-100 group-hover:text-amber-300 transition-colors line-clamp-2 uppercase cursor-pointer"
+                  >
                     {scene.slugline}
                   </h3>
 
@@ -160,10 +193,13 @@ export const BeatBoard: React.FC<BeatBoardProps> = ({
                     )}
                   </div>
 
-                  <span className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 text-amber-400 font-mono text-[10px] font-semibold flex-shrink-0">
-                    <span>Open</span>
+                  <button
+                    onClick={() => onOpenScene(originalIndex)}
+                    className="flex items-center gap-1 text-amber-400 font-mono text-[10px] font-semibold hover:underline"
+                  >
+                    <span>Jump</span>
                     <ArrowRight className="w-3 h-3" />
-                  </span>
+                  </button>
                 </div>
               </div>
             );
