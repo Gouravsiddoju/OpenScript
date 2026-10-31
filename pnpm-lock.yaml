@@ -70,6 +70,9 @@ importers:
       '@openscript/editor':
         specifier: workspace:*
         version: link:../../packages/editor
+      '@openscript/fdx':
+        specifier: workspace:*
+        version: link:../../packages/fdx
       '@openscript/fountain':
         specifier: workspace:*
         version: link:../../packages/fountain

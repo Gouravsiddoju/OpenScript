@@ -3,12 +3,16 @@ import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import { screenplayNodes, ScreenplayKeymap, ScreenplayUppercase } from '@openscript/editor';
 import { TitlePageMetadata } from './TitlePageModal';
+import { Lock, Unlock } from 'lucide-react';
 
 interface ScreenplayEditorProps {
   initialContent?: string;
   onUpdate?: (html: string, json: any) => void;
   onEditorReady?: (editor: any) => void;
   metadata?: TitlePageMetadata;
+  isTrackingRevisions?: boolean;
+  activeRevisionColor?: string;
+  isScriptLocked?: boolean;
 }
 
 const DEFAULT_SCRIPT_HTML = `
@@ -29,8 +33,15 @@ export const ScreenplayEditor: React.FC<ScreenplayEditorProps> = ({
   onUpdate,
   onEditorReady,
   metadata,
+  isTrackingRevisions = false,
+  activeRevisionColor = 'blue',
+  isScriptLocked = false,
 }) => {
   const knownCharactersRef = useRef<string[]>(['MAYA']);
+  const isTrackingRef = useRef(isTrackingRevisions);
+  isTrackingRef.current = isTrackingRevisions;
+  const activeColorRef = useRef(activeRevisionColor);
+  activeColorRef.current = activeRevisionColor;
 
   const editor = useEditor({
     extensions: [
@@ -95,7 +106,21 @@ export const ScreenplayEditor: React.FC<ScreenplayEditorProps> = ({
       },
     },
     content: initialContent,
-    onUpdate: ({ editor }) => {
+    onUpdate: ({ editor, transaction }) => {
+      // Auto-tag revision asterisk if revision tracking is active
+      if (isTrackingRef.current && transaction.docChanged) {
+        const { selection } = editor.state;
+        const currentBlock = selection.$from.parent;
+        if (currentBlock && !currentBlock.attrs.revisionMark && currentBlock.type.name !== 'doc') {
+          setTimeout(() => {
+            editor.commands.updateAttributes(currentBlock.type.name, {
+              revisionMark: true,
+              revisionColor: activeColorRef.current,
+            });
+          }, 0);
+        }
+      }
+
       if (onUpdate) {
         onUpdate(editor.getHTML(), editor.getJSON());
       }
@@ -131,7 +156,9 @@ export const ScreenplayEditor: React.FC<ScreenplayEditorProps> = ({
     );
   }
 
-  const activeNodeType = editor.state.selection.$from.parent.type.name;
+  const currentSelectionParent = editor.state.selection.$from.parent;
+  const activeNodeType = currentSelectionParent.type.name;
+  const isCurrentBlockMarked = Boolean(currentSelectionParent.attrs.revisionMark);
 
   return (
     <div className="flex flex-col items-center w-full">
@@ -167,9 +194,36 @@ export const ScreenplayEditor: React.FC<ScreenplayEditorProps> = ({
               </button>
             );
           })}
+
+          <div className="h-4 w-[1px] bg-[#2a2d37] mx-1" />
+
+          {/* Hollywood Revision Asterisk Toggle */}
+          <button
+            onClick={() => {
+              editor.chain().focus().updateAttributes(activeNodeType, {
+                revisionMark: !isCurrentBlockMarked,
+                revisionColor: activeRevisionColor,
+              }).run();
+            }}
+            className={`px-2.5 py-1.5 rounded-lg text-xs font-mono transition-all flex items-center gap-1.5 ${
+              isCurrentBlockMarked
+                ? 'bg-red-500/20 text-red-300 border border-red-500/40 shadow-sm'
+                : 'text-gray-400 hover:text-gray-200 hover:bg-[#181a20]'
+            }`}
+            title="Toggle Hollywood revision asterisk (*) on current block"
+          >
+            <span className="text-red-400 font-bold text-sm leading-none">*</span>
+            <span>Revision</span>
+          </button>
         </div>
 
         <div className="hidden lg:flex items-center gap-3 text-[11px] text-gray-400 font-mono pr-1">
+          {isScriptLocked && (
+            <span className="flex items-center gap-1 text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/30">
+              <Lock className="w-3 h-3" />
+              <span>Locked Script</span>
+            </span>
+          )}
           <span className="flex items-center gap-1.5">
             <kbd className="px-1.5 py-0.5 bg-[#1a1c22] rounded border border-[#2b2e38] text-gray-300 text-[10px]">Tab</kbd>
             <span className="text-gray-500">cycle</span>

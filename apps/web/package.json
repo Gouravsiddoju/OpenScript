@@ -12,6 +12,7 @@
     "@openscript/editor": "workspace:*",
     "@openscript/screenplay-schema": "workspace:*",
     "@openscript/fountain": "workspace:*",
+    "@openscript/fdx": "workspace:*",
     "lucide-react": "^0.468.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",

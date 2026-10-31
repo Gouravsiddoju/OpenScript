@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { 
   FileText, 
   Code, 
@@ -7,14 +7,21 @@ import {
   Printer, 
   CheckCircle2, 
   Clock, 
-  ChevronRight,
-  Menu,
-  X,
-  Plus,
-  LayoutGrid,
-  Maximize2,
-  Minimize2,
-  Edit3
+  ChevronRight, 
+  Menu, 
+  X, 
+  Plus, 
+  LayoutGrid, 
+  Maximize2, 
+  Minimize2, 
+  Edit3,
+  Upload,
+  FileCode,
+  Lock,
+  Unlock,
+  Layers,
+  ChevronDown,
+  AlertCircle
 } from 'lucide-react';
 import { ScreenplayEditor } from './components/ScreenplayEditor';
 import { FountainView } from './components/FountainView';
@@ -22,7 +29,16 @@ import { ProductionReports } from './components/ProductionReports';
 import { SceneNavigator, SceneItem } from './components/SceneNavigator';
 import { BeatBoard } from './components/BeatBoard';
 import { TitlePageModal, TitlePageMetadata } from './components/TitlePageModal';
-import { fountainToHtml } from '@openscript/fountain';
+import { ConflictModal } from './components/ConflictModal';
+import { fountainToHtml, parseFountain, blocksToHtml } from '@openscript/fountain';
+import { parseFdx, serializeFdx } from '@openscript/fdx';
+import { 
+  HOLLYWOOD_REVISION_SEQUENCE, 
+  RevisionDraftInfo, 
+  RevisionColor, 
+  calculateLockedSceneNumber,
+  createScreenplayBlock 
+} from '@openscript/screenplay-schema';
 
 const INITIAL_SCRIPT_HTML = `
   <div class="script-scene-heading">INT. COFFEE SHOP - DAY</div>
@@ -108,7 +124,36 @@ export default function App() {
   const [activeMode, setActiveMode] = useState<'screenplay' | 'beats' | 'fountain' | 'reports'>('screenplay');
   const [focusMode, setFocusMode] = useState(false);
   const [isTitleModalOpen, setIsTitleModalOpen] = useState(false);
+  const [isRevisionMenuOpen, setIsRevisionMenuOpen] = useState(false);
   
+  // Production revision state
+  const [isScriptLocked, setIsScriptLocked] = useState<boolean>(() => {
+    return localStorage.getItem('openscript_is_locked') === 'true';
+  });
+  const [isTrackingRevisions, setIsTrackingRevisions] = useState<boolean>(() => {
+    return localStorage.getItem('openscript_tracking_revisions') === 'true';
+  });
+  const [activeRevisionColor, setActiveRevisionColor] = useState<RevisionColor>(() => {
+    return (localStorage.getItem('openscript_active_rev_color') as RevisionColor) || 'white';
+  });
+
+  // Concurrency & Autosave state
+  const [revisionNumber, setRevisionNumber] = useState<number>(() => {
+    return Number(localStorage.getItem('openscript_revision_number')) || 1;
+  });
+  const [documentId] = useState<string>(() => {
+    let id = localStorage.getItem('openscript_doc_id');
+    if (!id) {
+      id = crypto.randomUUID();
+      localStorage.setItem('openscript_doc_id', id);
+    }
+    return id;
+  });
+  const [conflictModalOpen, setConflictModalOpen] = useState(false);
+  const [serverRevision, setServerRevision] = useState<number | undefined>(undefined);
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   const [titleMetadata, setTitleMetadata] = useState<TitlePageMetadata>(() => {
     const saved = localStorage.getItem('openscript_title_metadata');
     return saved ? JSON.parse(saved) : {
@@ -149,13 +194,68 @@ Neon reflections shimmer in deep puddles. Sirens echo in the far distance.`;
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [isSaved, setIsSaved] = useState(true);
 
-  // Auto-save to localStorage
+  // Sync state to localStorage & trigger resilient autosave
   useEffect(() => {
     localStorage.setItem('openscript_draft_html', scriptHtml);
     localStorage.setItem('openscript_draft_fountain', fountainText);
     localStorage.setItem('openscript_title_metadata', JSON.stringify(titleMetadata));
+    localStorage.setItem('openscript_is_locked', String(isScriptLocked));
+    localStorage.setItem('openscript_tracking_revisions', String(isTrackingRevisions));
+    localStorage.setItem('openscript_active_rev_color', activeRevisionColor);
+    localStorage.setItem('openscript_revision_number', String(revisionNumber));
     setIsSaved(true);
-  }, [scriptHtml, fountainText, titleMetadata]);
+  }, [scriptHtml, fountainText, titleMetadata, isScriptLocked, isTrackingRevisions, activeRevisionColor, revisionNumber]);
+
+  // Debounced API concurrency autosave
+  useEffect(() => {
+    const timer = setTimeout(async () => {
+      try {
+        const blocks = parseFountain(fountainText);
+        const docPayload = {
+          schemaVersion: 2,
+          id: documentId,
+          projectId: '00000000-0000-0000-0000-000000000000',
+          revisionNumber,
+          metadata: {
+            title: titleMetadata.title,
+            credit: titleMetadata.credit,
+            authors: [titleMetadata.author],
+            draftLabel: titleMetadata.draftLabel,
+            draftColor: activeRevisionColor,
+            isLocked: isScriptLocked,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          },
+          content: blocks,
+        };
+
+        const res = await fetch(`http://localhost:3000/api/v1/documents/${documentId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            revisionNumber,
+            content: docPayload,
+            title: titleMetadata.title,
+          }),
+        });
+
+        if (res.status === 409) {
+          const data = await res.json();
+          setServerRevision(data.serverRevisionNumber);
+          setConflictModalOpen(true);
+        } else if (res.ok) {
+          const data = await res.json();
+          if (data.newRevisionNumber) {
+            setRevisionNumber(data.newRevisionNumber);
+          }
+        }
+      } catch (err) {
+        // Backend not running / offline: graceful local preservation
+      }
+    }, 1500);
+
+    return () => clearTimeout(timer);
+  }, [scriptHtml, fountainText, revisionNumber, documentId, titleMetadata, activeRevisionColor, isScriptLocked]);
 
   // Extract Scene Items for Final Draft Navigator & Beat Board
   const scenes = useMemo(() => {
@@ -168,7 +268,6 @@ Neon reflections shimmer in deep puddles. Sirens echo in the far distance.`;
     const doc = parser.parseFromString(scriptHtml, 'text/html');
     const text = doc.body.textContent || '';
     const words = text.split(/\s+/).filter(Boolean).length;
-    // Hollywood rule of thumb: ~200-250 words per page
     const estimatedPages = Math.max(1, Math.ceil(words / 220));
     return { words, estimatedPages };
   }, [scriptHtml]);
@@ -198,7 +297,6 @@ Neon reflections shimmer in deep puddles. Sirens echo in the far distance.`;
 
   const switchMode = (newMode: 'screenplay' | 'beats' | 'fountain' | 'reports') => {
     if (activeMode === 'fountain' && newMode === 'screenplay') {
-      // Sync edits made in Fountain source back into Screenplay Paper HTML
       const generatedHtml = fountainToHtml(fountainText);
       setScriptHtml(generatedHtml);
       if (editorInstance) {
@@ -212,16 +310,41 @@ Neon reflections shimmer in deep puddles. Sirens echo in the far distance.`;
     if (activeMode !== 'screenplay') {
       setActiveMode('screenplay');
     }
-    const newSceneNumber = scenes.length + 1;
-    const defaultSlugline = `INT. SCENE ${newSceneNumber} - DAY`;
+
+    let defaultSlugline: string;
+    let sceneNumberAttr: string;
+
+    if (isScriptLocked) {
+      const existingSceneNumbers = scenes.map((s) => String(s.id));
+      sceneNumberAttr = calculateLockedSceneNumber(existingSceneNumbers, scenes.length);
+      defaultSlugline = `INT. SCENE ${sceneNumberAttr} - DAY`;
+    } else {
+      sceneNumberAttr = String(scenes.length + 1);
+      defaultSlugline = `INT. SCENE ${sceneNumberAttr} - DAY`;
+    }
     
     if (editorInstance) {
       editorInstance.chain().focus('end').insertContent([
-        { type: 'sceneHeading', content: [{ type: 'text', text: defaultSlugline }] },
-        { type: 'action', content: [{ type: 'text', text: '' }] }
+        { 
+          type: 'sceneHeading', 
+          attrs: { 
+            sceneNumber: sceneNumberAttr,
+            revisionMark: isTrackingRevisions,
+            revisionColor: activeRevisionColor 
+          },
+          content: [{ type: 'text', text: defaultSlugline }] 
+        },
+        { 
+          type: 'action', 
+          attrs: { 
+            revisionMark: isTrackingRevisions,
+            revisionColor: activeRevisionColor 
+          },
+          content: [{ type: 'text', text: '' }] 
+        }
       ]).run();
     } else {
-      const addedHtml = `<div class="script-scene-heading">${defaultSlugline}</div><div class="script-action"></div>`;
+      const addedHtml = `<div class="script-scene-heading" data-scene-number="${sceneNumberAttr}">${defaultSlugline}</div><div class="script-action"></div>`;
       setScriptHtml((prev) => prev + addedHtml);
     }
     
@@ -230,6 +353,71 @@ Neon reflections shimmer in deep puddles. Sirens echo in the far distance.`;
     }, 150);
   };
 
+  // Final Draft FDX Import
+  const handleFdxFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      const xmlString = await file.text();
+      const { blocks, metadata } = parseFdx(xmlString);
+      const generatedHtml = blocksToHtml(blocks);
+
+      setScriptHtml(generatedHtml);
+      if (editorInstance) {
+        editorInstance.commands.setContent(generatedHtml);
+      }
+
+      if (metadata.title || metadata.authors) {
+        setTitleMetadata((prev) => ({
+          ...prev,
+          title: metadata.title || prev.title,
+          credit: metadata.credit || prev.credit,
+          author: metadata.authors?.[0] || prev.author,
+        }));
+      }
+
+      // Convert blocks to Fountain string
+      const lines: string[] = [];
+      for (const block of blocks) {
+        if (block.type === 'sceneHeading') lines.push(`\n${block.text}\n`);
+        else if (block.type === 'character') lines.push(`\n${block.text}`);
+        else if (block.type === 'parenthetical') lines.push(block.text);
+        else if (block.type === 'dialogue') lines.push(`${block.text}\n`);
+        else if (block.type === 'transition') lines.push(`\n> ${block.text}\n`);
+        else lines.push(`\n${block.text}\n`);
+      }
+      setFountainText(lines.join('\n').trim());
+      setIsSaved(false);
+    } catch (err) {
+      alert('Failed to parse Final Draft (.fdx) file: ' + String(err));
+    } finally {
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
+  // Final Draft FDX Export
+  const handleExportFdx = () => {
+    const blocks = parseFountain(fountainText);
+    const xml = serializeFdx({
+      content: blocks,
+      metadata: {
+        title: titleMetadata.title,
+        credit: titleMetadata.credit,
+        authors: [titleMetadata.author],
+      },
+    });
+
+    const blob = new Blob([xml], { type: 'application/xml;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${titleMetadata.title.replace(/[^\w-]+/g, '_') || 'Screenplay'}.fdx`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
+  // Standard Fountain Export
   const handleExportFountain = () => {
     const blob = new Blob([fountainText], { type: 'text/plain;charset=utf-8' });
     const url = URL.createObjectURL(blob);
@@ -267,10 +455,29 @@ Neon reflections shimmer in deep puddles. Sirens echo in the far distance.`;
     }, 100);
   };
 
+  const currentRevDraft = HOLLYWOOD_REVISION_SEQUENCE.find((r) => r.color === activeRevisionColor) || HOLLYWOOD_REVISION_SEQUENCE[0];
+
+  const handleSelectRevision = (rev: RevisionDraftInfo) => {
+    setActiveRevisionColor(rev.color);
+    setTitleMetadata((prev) => ({
+      ...prev,
+      draftLabel: `${rev.name.split(' (')[0]} Production Draft`,
+    }));
+    setIsRevisionMenuOpen(false);
+  };
+
   const effectiveSidebarOpen = sidebarOpen && !focusMode;
 
   return (
     <div className="flex h-screen bg-[#0c0d0e] text-[#e5e5e5] overflow-hidden font-sans">
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept=".fdx,application/xml,text/xml"
+        onChange={handleFdxFileChange}
+        className="hidden"
+      />
+
       {/* 1. Left Sidebar / Final Draft Outliner & Scene Navigator */}
       <aside
         className={`no-print border-r border-[#1e2025] bg-[#090a0c] flex flex-col justify-between transition-all duration-300 z-20 ${
@@ -293,7 +500,7 @@ Neon reflections shimmer in deep puddles. Sirens echo in the far distance.`;
             </div>
           </div>
 
-          {/* Document Title & Production Tag Card (Clickable to edit title page) */}
+          {/* Document Title & Production Tag Card */}
           <div 
             onClick={() => setIsTitleModalOpen(true)}
             className="p-3 mx-3 my-3 bg-[#131418] hover:bg-[#181a20] rounded-xl border border-[#23262e] hover:border-amber-500/30 transition-all cursor-pointer group"
@@ -374,7 +581,7 @@ Neon reflections shimmer in deep puddles. Sirens echo in the far distance.`;
             <div className="flex items-center gap-2 text-xs font-mono text-gray-400">
               <button
                 onClick={() => setIsTitleModalOpen(true)}
-                className="text-gray-200 font-semibold hover:text-amber-400 transition-colors uppercase"
+                className="text-gray-200 font-semibold hover:text-amber-400 transition-colors uppercase truncate max-w-[150px]"
                 title="Click to edit Title Page"
               >
                 {titleMetadata.title}
@@ -391,7 +598,7 @@ Neon reflections shimmer in deep puddles. Sirens echo in the far distance.`;
             {/* Quick Header + Add Scene Button */}
             <button
               onClick={handleAddScene}
-              className="hidden md:flex items-center gap-1.5 px-2.5 py-1 rounded bg-[#1c1f26] hover:bg-[#252832] text-amber-400 hover:text-amber-300 border border-amber-500/30 text-xs font-mono font-medium transition-all ml-2"
+              className="hidden lg:flex items-center gap-1.5 px-2.5 py-1 rounded bg-[#1c1f26] hover:bg-[#252832] text-amber-400 hover:text-amber-300 border border-amber-500/30 text-xs font-mono font-medium transition-all ml-1"
               title="Add a new Scene to your screenplay"
             >
               <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
@@ -400,47 +607,114 @@ Neon reflections shimmer in deep puddles. Sirens echo in the far distance.`;
           </div>
 
           {/* Export & Action Buttons */}
-          <div className="flex items-center gap-2.5">
-            {/* Title Page Config Button */}
-            <button
-              onClick={() => setIsTitleModalOpen(true)}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#181a1f] hover:bg-[#22252c] text-xs font-mono text-gray-300 border border-[#2b2e36] transition-colors"
-              title="Configure Screenplay Title Page"
-            >
-              <FileText className="w-3.5 h-3.5 text-amber-500" />
-              <span className="hidden sm:inline">Title Page</span>
-            </button>
+          <div className="flex items-center gap-2">
+            {/* Hollywood Revision Draft Dropdown */}
+            <div className="relative">
+              <button
+                onClick={() => setIsRevisionMenuOpen(!isRevisionMenuOpen)}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#181a1f] hover:bg-[#22252c] text-xs font-mono border border-[#2b2e36] transition-colors"
+                title="Select Hollywood Production Revision Draft Color"
+              >
+                <span
+                  className="w-2.5 h-2.5 rounded-full border border-black/40"
+                  style={{ backgroundColor: currentRevDraft.hex }}
+                />
+                <span className="hidden sm:inline text-gray-300">{currentRevDraft.name.split(' (')[0]}</span>
+                <ChevronDown className="w-3 h-3 text-gray-400" />
+              </button>
 
-            {/* Focus Mode Toggle */}
+              {isRevisionMenuOpen && (
+                <div className="absolute right-0 mt-1 w-56 bg-[#16181f] border border-[#2b2f3a] rounded-xl shadow-2xl p-1.5 z-50">
+                  <div className="px-2 py-1 text-[10px] font-mono text-gray-400 uppercase tracking-wider">
+                    Hollywood Revision Sequence
+                  </div>
+                  {HOLLYWOOD_REVISION_SEQUENCE.map((rev) => (
+                    <button
+                      key={rev.color}
+                      onClick={() => handleSelectRevision(rev)}
+                      className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs font-mono text-left transition-colors ${
+                        activeRevisionColor === rev.color
+                          ? 'bg-amber-500/20 text-amber-300 font-semibold'
+                          : 'text-gray-300 hover:bg-[#21242d]'
+                      }`}
+                    >
+                      <span
+                        className="w-2.5 h-2.5 rounded-full border border-black/40 shrink-0"
+                        style={{ backgroundColor: rev.hex }}
+                      />
+                      <span className="truncate">{rev.name}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Lock Script Mode Toggle */}
             <button
-              onClick={() => setFocusMode(!focusMode)}
-              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-mono border transition-all ${
-                focusMode
-                  ? 'bg-amber-500/20 text-amber-300 border-amber-500/50 shadow-sm'
+              onClick={() => setIsScriptLocked(!isScriptLocked)}
+              className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-mono border transition-all ${
+                isScriptLocked
+                  ? 'bg-amber-500/20 text-amber-300 border-amber-500/50'
                   : 'bg-[#181a1f] hover:bg-[#22252c] text-gray-400 hover:text-white border-[#2b2e36]'
               }`}
-              title={focusMode ? 'Exit full focus writing mode' : 'Enter full focus writing mode'}
+              title={isScriptLocked ? 'Script is locked: Numbers will freeze' : 'Script is unlocked'}
             >
-              {focusMode ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
-              <span className="hidden sm:inline">{focusMode ? 'Exit Focus' : 'Focus'}</span>
+              {isScriptLocked ? <Lock className="w-3.5 h-3.5 text-amber-400" /> : <Unlock className="w-3.5 h-3.5" />}
+              <span className="hidden md:inline">{isScriptLocked ? 'Locked' : 'Lock'}</span>
             </button>
 
+            {/* Track Revisions Toggle */}
+            <button
+              onClick={() => setIsTrackingRevisions(!isTrackingRevisions)}
+              className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-mono border transition-all ${
+                isTrackingRevisions
+                  ? 'bg-red-500/20 text-red-300 border-red-500/50'
+                  : 'bg-[#181a1f] hover:bg-[#22252c] text-gray-400 hover:text-white border-[#2b2e36]'
+              }`}
+              title={isTrackingRevisions ? 'Auto-marking edits with right-margin revision asterisks (*)' : 'Revision tracking inactive'}
+            >
+              <span className="text-red-400 font-bold leading-none text-base">*</span>
+              <span className="hidden md:inline">{isTrackingRevisions ? 'Tracking' : 'Track'}</span>
+            </button>
+
+            {/* Final Draft FDX Import Button */}
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#181a1f] hover:bg-[#22252c] text-xs font-mono text-gray-300 border border-[#2b2e36] transition-colors"
+              title="Import Final Draft (.fdx) file"
+            >
+              <Upload className="w-3.5 h-3.5 text-amber-500" />
+              <span className="hidden xl:inline">Import FDX</span>
+            </button>
+
+            {/* Final Draft FDX Export Button */}
+            <button
+              onClick={handleExportFdx}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#181a1f] hover:bg-[#22252c] text-xs font-mono text-gray-300 border border-[#2b2e36] transition-colors"
+              title="Export Final Draft (.fdx) file"
+            >
+              <FileCode className="w-3.5 h-3.5 text-amber-500" />
+              <span className="hidden xl:inline">Export FDX</span>
+            </button>
+
+            {/* Fountain Export */}
             <button
               onClick={handleExportFountain}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#181a1f] hover:bg-[#22252c] text-xs font-mono text-gray-200 border border-[#2b2e36] transition-colors"
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#181a1f] hover:bg-[#22252c] text-xs font-mono text-gray-200 border border-[#2b2e36] transition-colors"
               title="Download standard Fountain plain-text script"
             >
               <Download className="w-3.5 h-3.5 text-amber-500" />
-              <span>Export Fountain</span>
+              <span className="hidden sm:inline">Fountain</span>
             </button>
 
+            {/* Print/PDF Export */}
             <button
               onClick={handlePrintPdf}
-              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-xs font-bold text-black shadow-md shadow-amber-500/20 transition-all"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-xs font-bold text-black shadow-md shadow-amber-500/20 transition-all"
               title="Print formatted script or save as PDF"
             >
               <Printer className="w-3.5 h-3.5 text-black" />
-              <span>Export PDF</span>
+              <span className="hidden sm:inline">PDF</span>
             </button>
           </div>
         </header>
@@ -453,6 +727,9 @@ Neon reflections shimmer in deep puddles. Sirens echo in the far distance.`;
               onUpdate={handleEditorUpdate}
               onEditorReady={(editor) => setEditorInstance(editor)}
               metadata={titleMetadata}
+              isTrackingRevisions={isTrackingRevisions}
+              activeRevisionColor={activeRevisionColor}
+              isScriptLocked={isScriptLocked}
             />
           )}
 
@@ -492,6 +769,15 @@ Neon reflections shimmer in deep puddles. Sirens echo in the far distance.`;
               <Clock className="w-3 h-3" />
               <span>≈ {metrics.estimatedPages} min screen time</span>
             </span>
+            {isScriptLocked && (
+              <>
+                <span className="text-gray-600">·</span>
+                <span className="text-amber-400 flex items-center gap-1">
+                  <Lock className="w-2.5 h-2.5" />
+                  <span>Locked</span>
+                </span>
+              </>
+            )}
           </div>
 
           <div className="flex items-center gap-3">
@@ -519,6 +805,23 @@ Neon reflections shimmer in deep puddles. Sirens echo in the far distance.`;
         onClose={() => setIsTitleModalOpen(false)}
         metadata={titleMetadata}
         onChange={setTitleMetadata}
+      />
+
+      {/* Concurrency Conflict Resolution Modal */}
+      <ConflictModal
+        isOpen={conflictModalOpen}
+        localRevisionNumber={revisionNumber}
+        serverRevisionNumber={serverRevision}
+        localContentPreview={fountainText}
+        onClose={() => setConflictModalOpen(false)}
+        onReloadServer={() => {
+          setConflictModalOpen(false);
+          if (serverRevision) setRevisionNumber(serverRevision);
+        }}
+        onOverwrite={() => {
+          setConflictModalOpen(false);
+          if (serverRevision) setRevisionNumber(serverRevision);
+        }}
       />
     </div>
   );

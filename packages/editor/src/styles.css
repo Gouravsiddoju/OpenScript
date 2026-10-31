@@ -21,6 +21,25 @@
   margin-left: 0;
   text-transform: uppercase;
   font-weight: bold;
+  position: relative;
+}
+
+.script-scene-heading[data-scene-number]::before {
+  content: attr(data-scene-number) "\00a0\00a0";
+  position: absolute;
+  left: -0.6in;
+  color: #4b5563;
+  font-weight: normal;
+  user-select: none;
+}
+
+.script-scene-heading[data-scene-number]::after {
+  content: "\00a0\00a0" attr(data-scene-number);
+  position: absolute;
+  right: -0.6in;
+  color: #4b5563;
+  font-weight: normal;
+  user-select: none;
 }
 
 .script-action {
@@ -28,6 +47,7 @@
   margin-bottom: 12pt;
   margin-left: 0;
   width: 6.0in;
+  position: relative;
 }
 
 .script-character {
@@ -36,6 +56,7 @@
   margin-left: 2.2in;
   width: 3.8in;
   text-transform: uppercase;
+  position: relative;
 }
 
 .script-parenthetical {
@@ -43,6 +64,7 @@
   margin-bottom: 0;
   margin-left: 1.6in;
   width: 2.4in;
+  position: relative;
 }
 
 .script-dialogue {
@@ -50,6 +72,7 @@
   margin-bottom: 12pt;
   margin-left: 1.0in;
   width: 3.5in;
+  position: relative;
 }
 
 .script-transition {
@@ -58,13 +81,18 @@
   margin-left: 4.5in;
   text-align: right;
   text-transform: uppercase;
+  position: relative;
 }
 
-/* Revision Asterisk in Right Margin */
+/* Hollywood Revision Asterisk in Right Margin */
 .revision-marker::after {
-  content: "*";
+  content: " *";
   position: absolute;
-  right: -0.5in;
-  color: #c00000;
+  right: -0.45in;
+  top: 0;
+  color: #dc2626;
   font-weight: bold;
+  font-size: 14pt;
+  line-height: 1;
+  pointer-events: none;
 }

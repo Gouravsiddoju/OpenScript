@@ -1,10 +1,50 @@
 import { Node, mergeAttributes } from '@tiptap/core';
 
+const commonAttributes = {
+  revisionMark: {
+    default: false,
+    parseHTML: (element: HTMLElement) => element.getAttribute('data-revision-mark') === 'true' || element.classList.contains('revision-marker'),
+    renderHTML: (attributes: Record<string, any>) => {
+      if (!attributes.revisionMark) return {};
+      return {
+        'data-revision-mark': 'true',
+        class: 'revision-marker',
+      };
+    },
+  },
+  revisionColor: {
+    default: null,
+    parseHTML: (element: HTMLElement) => element.getAttribute('data-revision-color'),
+    renderHTML: (attributes: Record<string, any>) => {
+      if (!attributes.revisionColor) return {};
+      return {
+        'data-revision-color': attributes.revisionColor,
+      };
+    },
+  },
+};
+
 export const SceneHeadingNode = Node.create({
   name: 'sceneHeading',
   group: 'block',
   content: 'inline*',
   defining: true,
+
+  addAttributes() {
+    return {
+      ...commonAttributes,
+      sceneNumber: {
+        default: null,
+        parseHTML: (element: HTMLElement) => element.getAttribute('data-scene-number'),
+        renderHTML: (attributes: Record<string, any>) => {
+          if (!attributes.sceneNumber) return {};
+          return {
+            'data-scene-number': attributes.sceneNumber,
+          };
+        },
+      },
+    };
+  },
 
   parseHTML() {
     return [{ tag: 'div.script-scene-heading' }, { tag: 'p.script-scene-heading' }];
@@ -21,6 +61,10 @@ export const ActionNode = Node.create({
   content: 'inline*',
   defining: true,
 
+  addAttributes() {
+    return commonAttributes;
+  },
+
   parseHTML() {
     return [{ tag: 'div.script-action' }, { tag: 'p.script-action' }];
   },
@@ -35,6 +79,10 @@ export const CharacterNode = Node.create({
   group: 'block',
   content: 'inline*',
   defining: true,
+
+  addAttributes() {
+    return commonAttributes;
+  },
 
   parseHTML() {
     return [{ tag: 'div.script-character' }, { tag: 'p.script-character' }];
@@ -51,6 +99,10 @@ export const ParentheticalNode = Node.create({
   content: 'inline*',
   defining: true,
 
+  addAttributes() {
+    return commonAttributes;
+  },
+
   parseHTML() {
     return [{ tag: 'div.script-parenthetical' }, { tag: 'p.script-parenthetical' }];
   },
@@ -66,6 +118,10 @@ export const DialogueNode = Node.create({
   content: 'inline*',
   defining: true,
 
+  addAttributes() {
+    return commonAttributes;
+  },
+
   parseHTML() {
     return [{ tag: 'div.script-dialogue' }, { tag: 'p.script-dialogue' }];
   },
@@ -80,6 +136,10 @@ export const TransitionNode = Node.create({
   group: 'block',
   content: 'inline*',
   defining: true,
+
+  addAttributes() {
+    return commonAttributes;
+  },
 
   parseHTML() {
     return [{ tag: 'div.script-transition' }, { tag: 'p.script-transition' }];
