@@ -18,7 +18,7 @@ openscript.ssnpictures.in {
 # ==============================================================================
 # OpenScript Dev / Staging Preview (Deployed from 'dev' branch)
 # ==============================================================================
-dev.openscript.ssnpictures.in {
+dev-openscript.ssnpictures.in, dev.openscript.ssnpictures.in {
     encode gzip zstd
 
     # Dev API reverse proxy

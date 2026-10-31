@@ -54,7 +54,7 @@ jobs:
         run: pnpm build
 
   deploy-dev:
-    name: Deploy to Dev Preview (dev.openscript.ssnpictures.in)
+    name: Deploy to Dev Preview (dev-openscript.ssnpictures.in)
     needs: validate
     if: github.ref == 'refs/heads/dev' && github.event_name == 'push'
     runs-on: ubuntu-latest
@@ -67,7 +67,7 @@ jobs:
 
       - name: Build Dev Containers
         run: |
-          echo "Building dev preview containers for dev.openscript.ssnpictures.in..."
+          echo "Building dev preview containers for dev-openscript.ssnpictures.in..."
           docker compose -f compose.dev.yaml config
 
   deploy-production:
