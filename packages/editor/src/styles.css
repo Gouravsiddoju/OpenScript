@@ -15,6 +15,11 @@
   overflow: hidden;
 }
 
+/* Screenplay Title Page (Symmetric 1.0in margins so title and metadata are geometrically centered on the 8.5in sheet) */
+.screenplay-title-page {
+  padding: 1.0in 1.0in 1.0in 1.0in !important;
+}
+
 /* Screenplay Element Indents (calculated from 1.5in left margin) */
 .script-scene-heading {
   margin-top: 24pt;

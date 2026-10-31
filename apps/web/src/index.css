@@ -70,4 +70,9 @@
     width: 100% !important;
     padding: 0.5in 0.5in 0.5in 1.0in !important;
   }
+  .screenplay-title-page {
+    padding: 1.0in 1.0in 1.0in 1.0in !important;
+    page-break-after: always !important;
+    break-after: page !important;
+  }
 }

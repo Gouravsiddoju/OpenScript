@@ -512,11 +512,11 @@ export const ScreenplayEditor: React.FC<ScreenplayEditorProps> = ({
 
       {/* 2. Industry Standard Title Page (if enabled) */}
       {metadata?.showTitlePage && (
-        <div className="screenplay-page font-screenplay select-text mb-8 relative flex flex-col justify-between print:break-after-page shadow-2xl">
+        <div className="screenplay-page screenplay-title-page font-screenplay select-text mb-8 relative flex flex-col justify-between print:break-after-page shadow-2xl">
           {metadata.showWatermark && metadata.watermarkText && (
             <div className="screenplay-watermark">{metadata.watermarkText}</div>
           )}
-          <div className="mt-[3.0in] flex flex-col items-center gap-6 text-center">
+          <div className="mt-[3.0in] flex flex-col items-center gap-6 text-center w-full">
             <h1 className="text-xl font-bold uppercase underline tracking-wider font-screenplay text-black">
               {metadata.title || 'UNTITLED SCREENPLAY'}
             </h1>
