@@ -1,7 +1,7 @@
 import './pdfPolyfill';
 import { parseFdx } from '@openscript/fdx';
-import { isNonCharacterCue, isSceneHeadingCandidate, isDateOrDraftStamp } from '@openscript/screenplay-schema';
-import { fountainToHtml, blocksToHtml } from '@openscript/fountain';
+import { createScreenplayBlock, isNonCharacterCue, isSceneHeadingCandidate, isDateOrDraftStamp } from '@openscript/screenplay-schema';
+import { fountainToHtml, blocksToHtml, parseFountain } from '@openscript/fountain';
 import JSZip from 'jszip';
 import * as pdfjsLib from 'pdfjs-dist';
 
@@ -201,7 +201,11 @@ export function rtfToText(rtf: string): string {
   text = text.replace(/[{}]/g, '');
   text = text.replace(/\\/g, '');
 
-  // 12. Normalize newlines
+  // 12. Ensure Character Cues and Parentheticals are directly followed by Dialogue (no empty line separation)
+  text = text.replace(/^([A-Z0-9\s_\-']+(\s*\(.*\))?)\n\n+(?=[a-zA-Z(])/gm, '$1\n');
+  text = text.replace(/\(([^)]+)\)\n\n+(?=[a-zA-Z])/gm, '($1)\n');
+
+  // 13. Normalize newlines
   return text.replace(/\r\n/g, '\n').replace(/[ \t]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim();
 }
 
@@ -398,10 +402,15 @@ export async function parseScrivenerFolderEntries(entries: FileEntry[], projectN
     }
   }
 
-  const finalFountain = fullFountainParts.join('\n').replace(/\n{3,}/g, '\n\n').trim() ||
+  let finalFountain = fullFountainParts.join('\n').replace(/\n{3,}/g, '\n\n').trim() ||
     `INT. SCENE 1 - DAY\n\nNo scene text found in Scrivener folder.`;
 
-  const scriptHtml = fountainToHtml(finalFountain);
+  // Normalize any double-spaced character-to-dialogue gaps
+  finalFountain = finalFountain.replace(/^([A-Z0-9\s_\-']+(\s*\(.*\))?)\n\n+(?=[a-zA-Z(])/gm, '$1\n');
+  finalFountain = finalFountain.replace(/\(([^)]+)\)\n\n+(?=[a-zA-Z])/gm, '($1)\n');
+
+  const blocks = parseFountain(finalFountain);
+  const scriptHtml = blocksToHtml(blocks);
   const words = finalFountain.split(/\s+/).filter(Boolean).length;
   const scenes = (finalFountain.match(/^(INT\.|EXT\.|INT\/EXT\.|I\/E\.)/gim) || []).length;
 
@@ -931,14 +940,21 @@ export async function parseScreenplayPdf(file: File): Promise<ImportedScreenplay
       }
 
       // 2e. Dialogue
-      const isDialogueAfterSpeaker =
+      // Case A: Directly under Character Cue or Parenthetical -> Spoken dialogue
+      const isImmediateDialogue =
         prevBlock &&
-        (prevBlock.type === 'character' || prevBlock.type === 'parenthetical' || prevBlock.type === 'dialogue') &&
-        line.x >= 130 &&
-        line.x <= 280;
+        (prevBlock.type === 'character' || prevBlock.type === 'parenthetical') &&
+        line.x >= 80 &&
+        line.x <= 380;
 
-      if (isDialogueAfterSpeaker) {
-        if (prevBlock.type === 'dialogue') {
+      // Case B: Continuation of spoken dialogue (indented above action margin, or tightly-spaced continuation)
+      const isContinuingDialogue =
+        prevBlock &&
+        prevBlock.type === 'dialogue' &&
+        ((line.x >= 105 && line.x <= 380) || (prevLine && Math.abs(prevLine.y - line.y) < 18 && line.x >= 85));
+
+      if (isImmediateDialogue || isContinuingDialogue) {
+        if (prevBlock.type === 'dialogue' && prevLine && Math.abs(prevLine.y - line.y) < 18) {
           prevBlock.text += ' ' + trimmed;
         } else {
           blocks.push({
@@ -968,7 +984,14 @@ export async function parseScreenplayPdf(file: File): Promise<ImportedScreenplay
 
   // 3. Format into standard Fountain & HTML
   const fountainText = blocksToFountain(blocks);
-  const scriptHtml = fountainToHtml(fountainText);
+  const canonicalBlocks = blocks.map((b) =>
+    createScreenplayBlock({
+      id: crypto.randomUUID(),
+      type: b.type,
+      text: b.text,
+    })
+  );
+  const scriptHtml = blocksToHtml(canonicalBlocks);
   const words = fountainText.split(/\s+/).filter(Boolean).length;
   const scenes = (fountainText.match(/^(INT\.|EXT\.|INT\/EXT\.|I\/E\.)/gim) || []).length;
 
