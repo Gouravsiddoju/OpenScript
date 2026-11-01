@@ -939,15 +939,17 @@ export async function parseScreenplayPdf(file: File): Promise<ImportedScreenplay
         continue;
       }
 
-      // 2d. Parenthetical
+      // 2d. Parenthetical (Actor direction; in industry scripts ALWAYS starts with '(' and is relatively concise)
       const isParenthetical =
-        line.x >= 160 &&
-        line.x <= 320 &&
-        (trimmed.startsWith('(') || trimmed.endsWith(')') ||
-         (prevBlock && (prevBlock.type === 'character' || prevBlock.type === 'parenthetical')));
+        line.x >= 120 &&
+        line.x <= 340 &&
+        trimmed.startsWith('(') &&
+        trimmed.length <= 80 &&
+        prevBlock &&
+        (prevBlock.type === 'character' || prevBlock.type === 'parenthetical' || prevBlock.type === 'dialogue');
 
-      if (isParenthetical && (trimmed.startsWith('(') || (prevBlock && prevBlock.type === 'character'))) {
-        const formatted = trimmed.startsWith('(') ? trimmed : `(${trimmed})`;
+      if (isParenthetical) {
+        const formatted = trimmed.endsWith(')') ? trimmed : `${trimmed})`;
         blocks.push({
           type: 'parenthetical',
           text: formatted,

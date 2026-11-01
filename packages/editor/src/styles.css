@@ -257,7 +257,7 @@
 
 /* Act Break Styling on Screenplay Desk */
 [data-act-break]::after {
-  content: "ACT BREAK â€¢ PAGE " attr(data-page-break) !important;
+  content: "ACT BREAK • PAGE " attr(data-page-break) !important;
   background: #1e1b4b !important;
   color: #c7d2fe !important;
   border-color: #4338ca !important;
