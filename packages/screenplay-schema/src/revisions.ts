@@ -29,7 +29,7 @@ export interface RevisionDraftInfo {
   borderClass: string;
 }
 
-export const HOLLYWOOD_REVISION_SEQUENCE: RevisionDraftInfo[] = [
+export const PRODUCTION_REVISION_SEQUENCE: RevisionDraftInfo[] = [
   { name: 'White (First Draft)', color: 'white', hex: '#ffffff', bgClass: 'bg-white', borderClass: 'border-gray-200' },
   { name: 'Blue (Revision 1)', color: 'blue', hex: '#60a5fa', bgClass: 'bg-blue-500/10', borderClass: 'border-blue-500/30' },
   { name: 'Pink (Revision 2)', color: 'pink', hex: '#f472b6', bgClass: 'bg-pink-500/10', borderClass: 'border-pink-500/30' },
@@ -40,6 +40,8 @@ export const HOLLYWOOD_REVISION_SEQUENCE: RevisionDraftInfo[] = [
   { name: 'Salmon (Revision 7)', color: 'salmon', hex: '#fb923c', bgClass: 'bg-orange-500/10', borderClass: 'border-orange-500/30' },
   { name: 'Cherry (Revision 8)', color: 'cherry', hex: '#f87171', bgClass: 'bg-red-500/10', borderClass: 'border-red-500/30' },
 ];
+
+export const HOLLYWOOD_REVISION_SEQUENCE: RevisionDraftInfo[] = PRODUCTION_REVISION_SEQUENCE;
 
 /**
  * Calculates a standard locked Hollywood scene number when inserting a new scene into a locked script.

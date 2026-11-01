@@ -60,7 +60,7 @@ export const KeyboardShortcutsModal: React.FC<KeyboardShortcutsModalProps> = ({ 
         },
         {
           keys: ['Alt', 'T'],
-          desc: 'Toggle Hollywood Revision Tracking (* asterisks on modified lines)',
+          desc: 'Toggle Revision Tracking (* asterisks on modified lines)',
         },
         {
           keys: ['Alt', 'N'],
@@ -127,7 +127,7 @@ export const KeyboardShortcutsModal: React.FC<KeyboardShortcutsModalProps> = ({ 
               <h2 className="text-base font-bold text-gray-100 flex items-center gap-2">
                 OpenScript Keyboard Shortcuts
                 <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">
-                  Hollywood Ergonomics
+                  Editor Ergonomics
                 </span>
               </h2>
               <p className="text-xs text-gray-400">

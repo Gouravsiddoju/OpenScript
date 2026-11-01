@@ -218,7 +218,7 @@ export const ProjectDashboard: React.FC<ProjectDashboardProps> = ({
                 </span>
               </div>
               <span className="text-[10px] text-gray-400 font-mono leading-tight">
-                Classic 3-Act Hollywood Syd Field / Snyder beats
+                Classic 3-Act Syd Field / Snyder beats
               </span>
             </button>
 

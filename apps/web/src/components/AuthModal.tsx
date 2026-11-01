@@ -266,7 +266,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 {[
                   { name: 'Gourav', email: 'gourav@ssnpictures.in', role: 'owner', label: 'Owner' },
                   { name: 'Navateja', email: 'navateja@ssnpictures.in', role: 'co-writer', label: 'Co-writer' },
-                  { name: 'Sarah', email: 'sarah.prod@hollywood.com', role: 'commenter', label: 'Producer' },
+                  { name: 'Sarah', email: 'sarah.prod@studio.com', role: 'commenter', label: 'Producer' },
                 ].map((demo) => (
                   <button
                     key={demo.email}

@@ -105,7 +105,7 @@ export const SceneTakesModal: React.FC<SceneTakesModalProps> = ({
           {scene.hasRevisions && (
             <div className="flex items-center gap-2.5 p-3 rounded-xl bg-red-500/10 border border-red-500/30 text-xs text-red-300 font-mono shadow-sm">
               <span className="text-base font-bold text-red-400 leading-none">*</span>
-              <span><strong>Active Revision Draft:</strong> This scene contains lines revised with Hollywood right-margin asterisks (*). Compare with Take 1 Baseline below.</span>
+              <span><strong>Active Revision Draft:</strong> This scene contains lines revised with right-margin asterisks (*). Compare with Take 1 Baseline below.</span>
             </div>
           )}
 

@@ -50,7 +50,7 @@ import { ImportedScreenplayResult } from './utils/importer';
 import { fountainToHtml, parseFountain, blocksToHtml } from '@openscript/fountain';
 import { parseFdx, serializeFdx } from '@openscript/fdx';
 import { 
-  HOLLYWOOD_REVISION_SEQUENCE, 
+  PRODUCTION_REVISION_SEQUENCE, 
   RevisionDraftInfo, 
   RevisionColor, 
   calculateLockedSceneNumber,
@@ -554,7 +554,7 @@ export default function App() {
       },
       {
         userId: '33333333-3333-3333-3333-333333333333',
-        email: 'sarah.prod@hollywood.com',
+        email: 'sarah.prod@studio.com',
         displayName: 'Sarah (Producer)',
         color: '#ec4899',
         role: 'commenter',
@@ -1500,7 +1500,7 @@ Neon reflections shimmer in deep puddles. Sirens echo in the far distance.`;
     }, 100);
   };
 
-  const currentRevDraft = HOLLYWOOD_REVISION_SEQUENCE.find((r) => r.color === activeRevisionColor) || HOLLYWOOD_REVISION_SEQUENCE[0];
+  const currentRevDraft = PRODUCTION_REVISION_SEQUENCE.find((r) => r.color === activeRevisionColor) || PRODUCTION_REVISION_SEQUENCE[0];
 
   const handleSelectRevision = (rev: RevisionDraftInfo) => {
     setActiveRevisionColor(rev.color);
@@ -1733,12 +1733,12 @@ Neon reflections shimmer in deep puddles. Sirens echo in the far distance.`;
 
             {/* 2. Production Revision & Lock Cluster */}
             <div className="flex items-center bg-[#14161d] border border-[#242835] rounded-xl p-0.5 shadow-sm">
-              {/* Hollywood Revision Draft Dropdown */}
+              {/* Revision Draft Dropdown */}
               <div className="relative">
                 <button
                   onClick={() => setIsRevisionMenuOpen(!isRevisionMenuOpen)}
                   className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg hover:bg-[#1f222b] text-xs font-mono transition-colors"
-                  title="Select Hollywood Production Revision Draft Color"
+                  title="Select Revision Draft Color"
                 >
                   <span
                     className="w-2.5 h-2.5 rounded-full border border-black/40"
@@ -1751,9 +1751,9 @@ Neon reflections shimmer in deep puddles. Sirens echo in the far distance.`;
                 {isRevisionMenuOpen && (
                   <div className="absolute right-0 mt-1 w-56 bg-[#16181f] border border-[#2b2f3a] rounded-xl shadow-2xl p-1.5 z-50">
                     <div className="px-2 py-1 text-[10px] font-mono text-gray-400 uppercase tracking-wider">
-                      Hollywood Revision Sequence
+                      Production Revision Sequence
                     </div>
-                    {HOLLYWOOD_REVISION_SEQUENCE.map((rev) => (
+                    {PRODUCTION_REVISION_SEQUENCE.map((rev) => (
                       <button
                         key={rev.color}
                         onClick={() => handleSelectRevision(rev)}
@@ -1867,7 +1867,7 @@ Neon reflections shimmer in deep puddles. Sirens echo in the far distance.`;
                 onSelectPeerProfile={(peer) => {
                   setSelectedPeerProfile({
                     id: peer.userId,
-                    email: peer.userId === '11111111-1111-1111-1111-111111111111' ? 'gourav@ssnpictures.in' : peer.userId === '22222222-2222-2222-2222-222222222222' ? 'navateja@ssnpictures.in' : 'sarah.prod@hollywood.com',
+                    email: peer.userId === '11111111-1111-1111-1111-111111111111' ? 'gourav@ssnpictures.in' : peer.userId === '22222222-2222-2222-2222-222222222222' ? 'navateja@ssnpictures.in' : 'sarah.prod@studio.com',
                     displayName: peer.displayName,
                     role: peer.role,
                     color: peer.color,
