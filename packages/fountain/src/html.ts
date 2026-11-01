@@ -24,6 +24,8 @@ export function blocksToHtml(blocks: ScreenplayBlock[]): string {
         return `<div class="script-dialogue">${text}</div>`;
       case 'transition':
         return `<div class="script-transition">${text}</div>`;
+      case 'shot':
+        return `<div class="script-shot">${text}</div>`;
       case 'action':
       default:
         return `<div class="script-action">${text}</div>`;

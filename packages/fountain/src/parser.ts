@@ -1,4 +1,10 @@
-import { ScreenplayBlock, createScreenplayBlock, isNonCharacterCue, isSceneHeadingCandidate } from '@openscript/screenplay-schema';
+import {
+  ScreenplayBlock,
+  createScreenplayBlock,
+  isNonCharacterCue,
+  isSceneHeadingCandidate,
+  isShotCandidate,
+} from '@openscript/screenplay-schema';
 
 export function parseFountain(fountainText: string): ScreenplayBlock[] {
   const blocks: ScreenplayBlock[] = [];
@@ -30,7 +36,17 @@ export function parseFountain(fountainText: string): ScreenplayBlock[] {
       continue;
     }
 
-    // 3. Character: uppercase, < 40 chars, NOT a non-character cue (time lapse, camera shot, etc.)
+    // 3. Shot cues (camera angles, directions, framing, backdrops)
+    if (isShotCandidate(line)) {
+      blocks.push(createScreenplayBlock({
+        id: crypto.randomUUID(),
+        type: 'shot',
+        text: line.toUpperCase(),
+      }));
+      continue;
+    }
+
+    // 4. Character: uppercase, < 40 chars, NOT a non-character cue (time lapse, camera shot, etc.)
     if (!isNonCharacterCue(line) && /^([A-Z0-9\s_\-']+(\s*\(.*\))?)$/.test(line) && !line.endsWith(':') && line.length < 40 && !/[a-z]/.test(line.replace(/\([^)]*\)/g, ''))) {
       blocks.push(createScreenplayBlock({
         id: crypto.randomUUID(),
@@ -65,8 +81,8 @@ export function parseFountain(fountainText: string): ScreenplayBlock[] {
           break;
         }
 
-        // Check if next line is a new scene heading or transition
-        if (isSceneHeadingCandidate(nextLine) || /( TO:$|^>[^<]*$)/i.test(nextLine)) {
+        // Check if next line is a new scene heading or transition or shot
+        if (isSceneHeadingCandidate(nextLine) || /( TO:$|^>[^<]*$)/i.test(nextLine) || isShotCandidate(nextLine)) {
           break;
         }
 
@@ -89,7 +105,7 @@ export function parseFountain(fountainText: string): ScreenplayBlock[] {
       continue;
     }
 
-    // 4. Default to Action
+    // 5. Default to Action
     blocks.push(createScreenplayBlock({
       id: crypto.randomUUID(),
       type: 'action',

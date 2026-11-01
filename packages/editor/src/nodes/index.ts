@@ -170,6 +170,25 @@ export const TransitionNode = Node.create({
   },
 });
 
+export const ShotNode = Node.create({
+  name: 'shot',
+  group: 'block',
+  content: 'inline*',
+  defining: true,
+
+  addAttributes() {
+    return commonAttributes;
+  },
+
+  parseHTML() {
+    return [{ tag: 'div.script-shot' }, { tag: 'p.script-shot' }];
+  },
+
+  renderHTML({ HTMLAttributes }) {
+    return ['div', mergeAttributes(HTMLAttributes, { class: 'script-shot' }), 0];
+  },
+});
+
 export const DualDialogueNode = Node.create({
   name: 'dualDialogue',
   group: 'block',
@@ -196,6 +215,6 @@ export const screenplayNodes = [
   DialogueNode,
   ParentheticalNode,
   TransitionNode,
+  ShotNode,
   DualDialogueNode,
 ];
-

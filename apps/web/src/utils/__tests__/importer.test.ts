@@ -1,4 +1,4 @@
-import '../pdfPolyfill';
+﻿import '../pdfPolyfill';
 import { describe, it, expect } from 'vitest';
 import {
   importScreenplayFile,
@@ -473,5 +473,20 @@ CourierPrime;
     expect(result.title).toBe('The Last Download');
     expect(result.author).toBe('Gourav Siddarth Siddoju');
     expect(result.title).not.toContain('31 DECEMBER 2025');
+  });
+  it('dissects and categorizes camera shots into script-shot blocks from vector PDF', async () => {
+    const pdfFile = createVectorScreenplayPdf([
+      { text: 'INT. POLICE LAB - NIGHT', x: 72, y: 700 },
+      { text: 'BACKDROP OF ASSISTANT AND DETECTIVE AT WALL OF PHOTOS.', x: 72, y: 660 },
+      { text: 'Then assistant proceeds to asks questions.', x: 72, y: 620 },
+      { text: 'A CLOSE UP ON DETECTIVE FACE.', x: 72, y: 580 },
+      { text: 'ANGLE ON THE BOARD', x: 72, y: 540 },
+    ]);
+
+    const result = await importScreenplayFile(pdfFile);
+    expect(result.scriptHtml).toContain('<div class="script-shot">BACKDROP OF ASSISTANT AND DETECTIVE AT WALL OF PHOTOS.</div>');
+    expect(result.scriptHtml).toContain('<div class="script-shot">A CLOSE UP ON DETECTIVE FACE.</div>');
+    expect(result.scriptHtml).toContain('<div class="script-shot">ANGLE ON THE BOARD</div>');
+    expect(result.scriptHtml).toContain('<div class="script-action">Then assistant proceeds to asks questions.</div>');
   });
 });

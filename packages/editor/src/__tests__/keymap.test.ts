@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { ELEMENT_CYCLE_ORDER } from '../extensions/keymap';
 
 describe('Screenplay Element Cycling and Keyboard State Machine', () => {
-  it('defines the standard 6-element cyclic progression', () => {
+  it('defines the standard 7-element cyclic progression including Shot', () => {
     expect(ELEMENT_CYCLE_ORDER).toEqual([
       'sceneHeading',
       'action',
@@ -10,10 +10,11 @@ describe('Screenplay Element Cycling and Keyboard State Machine', () => {
       'parenthetical',
       'dialogue',
       'transition',
+      'shot',
     ]);
   });
 
-  it('cycles forward through all 6 elements on Tab without getting trapped', () => {
+  it('cycles forward through all 7 elements on Tab without getting trapped', () => {
     const cycleForward = (current: string): string => {
       const idx = ELEMENT_CYCLE_ORDER.indexOf(current as any);
       return ELEMENT_CYCLE_ORDER[(idx + 1) % ELEMENT_CYCLE_ORDER.length];
@@ -24,16 +25,18 @@ describe('Screenplay Element Cycling and Keyboard State Machine', () => {
     expect(cycleForward('character')).toBe('parenthetical');
     expect(cycleForward('parenthetical')).toBe('dialogue');
     expect(cycleForward('dialogue')).toBe('transition');
-    expect(cycleForward('transition')).toBe('sceneHeading');
+    expect(cycleForward('transition')).toBe('shot');
+    expect(cycleForward('shot')).toBe('sceneHeading');
   });
 
-  it('cycles backward through all 6 elements on Shift-Tab without getting trapped', () => {
+  it('cycles backward through all 7 elements on Shift-Tab without getting trapped', () => {
     const cycleBackward = (current: string): string => {
       const idx = ELEMENT_CYCLE_ORDER.indexOf(current as any);
       return ELEMENT_CYCLE_ORDER[(idx - 1 + ELEMENT_CYCLE_ORDER.length) % ELEMENT_CYCLE_ORDER.length];
     };
 
-    expect(cycleBackward('sceneHeading')).toBe('transition');
+    expect(cycleBackward('sceneHeading')).toBe('shot');
+    expect(cycleBackward('shot')).toBe('transition');
     expect(cycleBackward('transition')).toBe('dialogue');
     expect(cycleBackward('dialogue')).toBe('parenthetical');
     expect(cycleBackward('parenthetical')).toBe('character');
@@ -41,7 +44,7 @@ describe('Screenplay Element Cycling and Keyboard State Machine', () => {
     expect(cycleBackward('action')).toBe('sceneHeading');
   });
 
-  it('maps direct Mod-1 through Mod-6 and Alt-1 through Alt-6 to each respective element', () => {
+  it('maps direct Mod-1 through Mod-7 and Alt-1 through Alt-7 to each respective element', () => {
     const elementMap: Record<number, string> = {
       1: 'sceneHeading',
       2: 'action',
@@ -49,9 +52,10 @@ describe('Screenplay Element Cycling and Keyboard State Machine', () => {
       4: 'parenthetical',
       5: 'dialogue',
       6: 'transition',
+      7: 'shot',
     };
 
-    for (let i = 1; i <= 6; i++) {
+    for (let i = 1; i <= 7; i++) {
       expect(ELEMENT_CYCLE_ORDER[i - 1]).toBe(elementMap[i]);
     }
   });

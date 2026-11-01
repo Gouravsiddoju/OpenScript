@@ -8,6 +8,7 @@ export function serializeFountain(doc: CanonicalScreenplayDocument): string {
       case 'parenthetical': return `${block.text}`;
       case 'dialogue': return `${block.text}\n`;
       case 'transition': return `\n> ${block.text}\n`;
+      case 'shot': return `\n${block.text.toUpperCase()}\n`;
       case 'action':
       default: return `${block.text}\n`;
     }

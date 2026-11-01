@@ -62,6 +62,16 @@
   width: 6.0in;
   position: relative;
 }
+.script-shot {
+  --element-left: 0in;
+  margin-top: 18pt;
+  margin-bottom: 6pt;
+  margin-left: 0;
+  width: 6.0in;
+  text-transform: uppercase;
+  font-weight: bold;
+  position: relative;
+}
 
 .script-character {
   --element-left: 2.2in;
@@ -247,7 +257,7 @@
 
 /* Act Break Styling on Screenplay Desk */
 [data-act-break]::after {
-  content: "ACT BREAK • PAGE " attr(data-page-break) !important;
+  content: "ACT BREAK â€¢ PAGE " attr(data-page-break) !important;
   background: #1e1b4b !important;
   color: #c7d2fe !important;
   border-color: #4338ca !important;
