@@ -344,6 +344,8 @@ export interface PdfExportOptions {
   metadata: Partial<TitlePageMetadata>;
   watermarkText?: string;
   showWatermark?: boolean;
+  selectedActId?: string | null;
+  sceneFolderMap?: Record<number, string>;
 }
 
 /**
@@ -353,7 +355,18 @@ export interface PdfExportOptions {
  * and classic title page presentation.
  */
 export function generateScreenplayPdfDoc(options: PdfExportOptions): jsPDF {
-  const { blocks, metadata, watermarkText, showWatermark } = options;
+  const { blocks, metadata, watermarkText, showWatermark, selectedActId, sceneFolderMap } = options;
+
+  // Filter blocks by active Act if selected
+  let activeBlocks = blocks;
+  if (selectedActId) {
+    let currentScene = 0;
+    activeBlocks = blocks.filter((b) => {
+      if (b.type === 'sceneHeading') currentScene++;
+      const actId = (sceneFolderMap && sceneFolderMap[currentScene]) || (currentScene === 1 ? 'act-1' : currentScene === 2 ? 'act-2' : 'unassigned');
+      return actId === selectedActId;
+    });
+  }
   const doc = new jsPDF({
     unit: 'pt',
     format: 'letter',
@@ -471,18 +484,27 @@ export function generateScreenplayPdfDoc(options: PdfExportOptions): jsPDF {
   // Script Page 1 has no page number header by industry convention
 
   // 2. Render Screenplay Blocks
-  for (let i = 0; i < blocks.length; i++) {
-    const block = blocks[i];
+  let currentSceneCounter = 0;
+  let prevSceneActId: string | null = null;
+
+  for (let i = 0; i < activeBlocks.length; i++) {
+    const block = activeBlocks[i];
     const text = block.text?.trim();
     if (!text) continue;
 
     switch (block.type) {
       case 'sceneHeading': {
-        // Widow/orphan protection: scene heading needs at least 3 lines budget
-        if (currentY + LINE_HEIGHT * 3 > BOTTOM_MARGIN) {
+        currentSceneCounter++;
+        const actId = (sceneFolderMap && sceneFolderMap[currentSceneCounter]) || (currentSceneCounter === 1 ? 'act-1' : currentSceneCounter === 2 ? 'act-2' : 'unassigned');
+        const isActBreak = !selectedActId && prevSceneActId !== null && actId !== prevSceneActId;
+        prevSceneActId = actId;
+
+        // Force Act boundaries to start on a new physical page
+        if (isActBreak && currentY > TOP_MARGIN) {
+          addNewPage();
+        } else if (currentY + LINE_HEIGHT * 3 > BOTTOM_MARGIN) {
           addNewPage();
         } else if (currentY > TOP_MARGIN) {
-          // 2 blank lines before scene heading unless starting at top of page
           currentY += LINE_HEIGHT * 2;
         }
 

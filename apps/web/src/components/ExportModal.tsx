@@ -30,6 +30,9 @@ export interface ExportModalProps {
   revisionNumber?: number;
   activeRevisionColor?: RevisionColor;
   onTriggerPdfPrint: () => void;
+  selectedActId?: string | null;
+  sceneFolderMap?: Record<number, string>;
+  folders?: { id: string; name: string }[];
 }
 
 export const ExportModal: React.FC<ExportModalProps> = ({
@@ -42,6 +45,9 @@ export const ExportModal: React.FC<ExportModalProps> = ({
   revisionNumber = 1,
   activeRevisionColor = 'white',
   onTriggerPdfPrint,
+  selectedActId = null,
+  sceneFolderMap,
+  folders = [],
 }) => {
   if (!isOpen) return null;
 
@@ -74,12 +80,14 @@ export const ExportModal: React.FC<ExportModalProps> = ({
     exportHtmlFile({ blocks, metadata });
   };
 
-  const handleDownloadPdf = () => {
+  const handleDownloadPdf = (actOverride?: string | null) => {
     exportScreenplayPdf({
       blocks,
       metadata,
       showWatermark: metadata.showWatermark,
       watermarkText: metadata.watermarkText,
+      selectedActId: actOverride !== undefined ? actOverride : selectedActId,
+      sceneFolderMap,
     });
     onClose();
   };
@@ -162,9 +170,18 @@ export const ExportModal: React.FC<ExportModalProps> = ({
                 </p>
               </div>
             </div>
-            <div className="w-full sm:w-auto shrink-0 flex items-center gap-2">
+            <div className="w-full sm:w-auto shrink-0 flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+              {selectedActId && (
+                <button
+                  onClick={() => handleDownloadPdf(null)}
+                  className="px-3 py-2 rounded-xl bg-[#1e2230] hover:bg-[#2c3245] border border-[#3b435c] text-amber-300 text-xs font-mono font-semibold transition-all"
+                  title="Export complete screenplay across all acts"
+                >
+                  Export All Acts
+                </button>
+              )}
               <button
-                onClick={handleDownloadPdf}
+                onClick={() => handleDownloadPdf()}
                 className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-black font-bold text-xs shadow-lg shadow-amber-500/20 transition-all"
                 title="Download formatted Screenplay PDF file"
               >

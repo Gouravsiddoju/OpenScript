@@ -133,7 +133,17 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           // If server returns a specific user validation error (400, 401, 409)
           const errData = await res.json().catch(() => ({}));
           if (errData?.error && (res.status === 400 || res.status === 401 || res.status === 409)) {
-            throw new Error(errData.error);
+            let errorMsg = errData.error;
+            if (errData.details?.fieldErrors) {
+              const details = Object.entries(errData.details.fieldErrors)
+                .map(([field, msgs]: any) => `${field}: ${(msgs as string[]).join(', ')}`)
+                .join('; ');
+              if (details) errorMsg = `${errorMsg} (${details})`;
+            }
+            if (res.status === 409 || errorMsg.includes('already exists')) {
+              errorMsg = 'An account with this email already exists. Please switch to "Sign In" to continue.';
+            }
+            throw new Error(errorMsg);
           }
           // Proxy timeout / backend server offline -> fallback to local studio auth
           data = handleLocalStudioAuth(mode, email, password, displayName);
@@ -177,11 +187,21 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       {/* 1. React Bits Ambient Aurora Gradients */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         {/* Amber Aurora Orb */}
-        <div className="absolute -top-32 -left-32 w-[550px] h-[550px] rounded-full bg-gradient-to-tr from-amber-500/20 via-orange-600/10 to-transparent blur-[130px] animate-aurora-1" />
+        <div className="absolute -top-32 -left-32 w-[650px] h-[650px] rounded-full bg-gradient-to-tr from-amber-500/35 via-orange-500/20 to-transparent blur-[100px] animate-aurora-1" />
         {/* Violet Aurora Orb */}
-        <div className="absolute -bottom-40 -right-40 w-[600px] h-[600px] rounded-full bg-gradient-to-bl from-purple-600/15 via-indigo-600/10 to-transparent blur-[140px] animate-aurora-2" />
+        <div className="absolute -bottom-40 -right-40 w-[700px] h-[700px] rounded-full bg-gradient-to-bl from-indigo-500/35 via-purple-600/30 to-pink-500/20 blur-[110px] animate-aurora-2" />
         {/* Cyan Ambient Glow */}
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[400px] h-[400px] rounded-full bg-cyan-500/10 blur-[120px] animate-aurora-3" />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] rounded-full bg-cyan-500/20 blur-[90px] animate-aurora-3" />
+        {/* Projected Cinema Light Beam from top-center */}
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[550px] bg-gradient-to-b from-amber-400/12 via-amber-500/5 to-transparent blur-[60px] pointer-events-none" />
+      </div>
+
+      {/* Floating Cinema Particles */}
+      <div className="absolute inset-0 pointer-events-none overflow-hidden">
+        <div className="absolute top-1/4 left-1/5 w-1.5 h-1.5 rounded-full bg-amber-400/50 blur-[0.5px] animate-float-gentle" />
+        <div className="absolute top-1/3 right-1/4 w-2 h-2 rounded-full bg-purple-400/40 blur-[0.5px] animate-float-gentle" style={{ animationDelay: '1.5s' }} />
+        <div className="absolute bottom-1/4 left-1/3 w-1.5 h-1.5 rounded-full bg-cyan-400/40 blur-[0.5px] animate-float-gentle" style={{ animationDelay: '3s' }} />
+        <div className="absolute bottom-1/3 right-1/5 w-1 h-1 rounded-full bg-amber-300/60 blur-[0.5px] animate-float-gentle" style={{ animationDelay: '4.5s' }} />
       </div>
 
       {/* 2. Studio Grid Matrix Overlay with Radial Vignette */}
@@ -297,9 +317,23 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           {/* Form Body */}
           <form onSubmit={handleSubmit} className="px-6 pb-6 pt-2 space-y-3.5">
             {error && (
-              <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-xl flex items-start gap-2.5 text-xs text-red-300 font-mono animate-fadeIn">
-                <AlertCircle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
-                <span>{error}</span>
+              <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-xl flex flex-col gap-2 text-xs text-red-300 font-mono animate-fadeIn">
+                <div className="flex items-start gap-2.5">
+                  <AlertCircle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
+                  <span>{error}</span>
+                </div>
+                {error.toLowerCase().includes('already exists') && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMode('login');
+                      setError(null);
+                    }}
+                    className="self-start text-[11px] font-bold text-amber-400 hover:text-amber-300 underline underline-offset-2 flex items-center gap-1 cursor-pointer"
+                  >
+                    <span>Switch to Sign In →</span>
+                  </button>
+                )}
               </div>
             )}
 

@@ -4,7 +4,7 @@ import StarterKit from '@tiptap/starter-kit';
 import { screenplayNodes, ScreenplayKeymap, ScreenplayUppercase, paginateScreenplay } from '@openscript/editor';
 import { htmlToBlocks } from '../utils/exporter';
 import { TitlePageMetadata } from './TitlePageModal';
-import { Lock, Sparkles, Columns, Eye, Keyboard, MessageSquare } from 'lucide-react';
+import { Lock, Sparkles, Columns, Eye, Keyboard, MessageSquare, X } from 'lucide-react';
 import { CollaboratorRole, ScriptNote, ScriptNoteCategory, canEditScreenplay, canAddNotes, isWatermarkRequired } from '@openscript/screenplay-schema';
 
 interface ScreenplayEditorProps {
@@ -23,6 +23,10 @@ interface ScreenplayEditorProps {
   onAddNoteFromSelection?: (selectedText: string, commentText: string, category: ScriptNoteCategory) => void;
   onOpenSceneTakesForBlock?: (blockText: string) => void;
   onPageChange?: (currentPage: number, totalPages: number) => void;
+  selectedActId?: string | null;
+  sceneFolderMap?: Record<number, string>;
+  folders?: { id: string; name: string; color: string }[];
+  onClearActFilter?: () => void;
 }
 
 const DEFAULT_SCRIPT_HTML = `
@@ -54,6 +58,10 @@ export const ScreenplayEditor: React.FC<ScreenplayEditorProps> = ({
   onAddNoteFromSelection,
   onOpenSceneTakesForBlock,
   onPageChange,
+  selectedActId = null,
+  sceneFolderMap = {},
+  folders = [],
+  onClearActFilter,
 }) => {
   const initialKnownChars = useMemo(() => {
     const chars = new Set<string>(['MAYA', 'GOURAV']);
@@ -409,9 +417,17 @@ export const ScreenplayEditor: React.FC<ScreenplayEditorProps> = ({
   const [currentPage, setCurrentPage] = useState<number>(1);
 
   const updatePagination = () => {
-    if (!paperContainerRef.current) return;
-    const tiptapRoot = paperContainerRef.current.querySelector('.tiptap');
-    if (!tiptapRoot) return;
+    console.log('[DEBUG PAGINATION RUNNING]');
+    const container = paperContainerRef.current || (document.querySelectorAll('.screenplay-page')[1] as HTMLElement);
+    if (!container) {
+      setTimeout(updatePagination, 100);
+      return;
+    }
+    const tiptapRoot = container.querySelector('.tiptap') || container.querySelector('.ProseMirror') || (document.querySelector('.ProseMirror') as HTMLElement);
+    if (!tiptapRoot) {
+      setTimeout(updatePagination, 100);
+      return;
+    }
 
     const domChildren = Array.from(tiptapRoot.children) as HTMLElement[];
     if (domChildren.length === 0) {
@@ -423,21 +439,67 @@ export const ScreenplayEditor: React.FC<ScreenplayEditorProps> = ({
     const PAGE_HEIGHT = 864;
     let accumulatedHeight = 0;
     let pageNum = 2;
+    let currentSceneNum = 1;
+    let previousSceneActId: string | null = null;
 
+    // Pass 1: Tag every child with its sequential scene-id and act-id
+    let sceneCounter = 0;
     for (let i = 0; i < domChildren.length; i++) {
       const child = domChildren[i];
-      const h = child.offsetHeight > 0 ? child.offsetHeight : 24;
+      if (child.classList.contains('script-scene-heading')) {
+        sceneCounter++;
+        const numAttr = child.getAttribute('data-scene-number');
+        if (numAttr) {
+          const parsed = parseInt(numAttr, 10);
+          currentSceneNum = !isNaN(parsed) && parsed > 0 ? parsed : sceneCounter;
+        } else {
+          currentSceneNum = sceneCounter;
+        }
+      }
+      child.setAttribute('data-scene-id', String(currentSceneNum));
+      const actId = (sceneFolderMap && sceneFolderMap[currentSceneNum]) || 
+        (currentSceneNum === 1 ? 'act-1' : currentSceneNum === 2 ? 'act-2' : 'unassigned');
+      child.setAttribute('data-act-id', actId);
+    }
 
-      // Widow/orphan protection for scene headings: push if less than 60px remaining
+    // Pass 2: Filter scenes if selectedActId is active, AND force a new page for different acts!
+    for (let i = 0; i < domChildren.length; i++) {
+      const child = domChildren[i];
+      const childActId = child.getAttribute('data-act-id');
+      const isVisible = !selectedActId || childActId === selectedActId;
+
+      if (!isVisible) {
+        child.style.display = 'none';
+        child.removeAttribute('data-page-break');
+        child.removeAttribute('data-act-break');
+        continue;
+      } else {
+        child.style.display = '';
+      }
+
+      const h = child.offsetHeight > 0 ? child.offsetHeight : 24;
       const isSceneHeading = child.classList.contains('script-scene-heading');
+
+      // REQUIREMENT: Different acts open on a new page, NOT on the same page!
+      const isActBreak = isSceneHeading && previousSceneActId !== null && childActId && childActId !== previousSceneActId;
+      if (isSceneHeading) {
+        previousSceneActId = childActId;
+      }
+
       const budget = isSceneHeading && accumulatedHeight > PAGE_HEIGHT - 60 ? 0 : PAGE_HEIGHT;
 
-      if (accumulatedHeight + h > budget && accumulatedHeight > 0) {
+      if ((isActBreak || accumulatedHeight + h > budget) && accumulatedHeight > 0) {
         child.setAttribute('data-page-break', String(pageNum));
+        if (isActBreak) {
+          child.setAttribute('data-act-break', 'true');
+        } else {
+          child.removeAttribute('data-act-break');
+        }
         accumulatedHeight = h;
         pageNum++;
       } else {
         child.removeAttribute('data-page-break');
+        child.removeAttribute('data-act-break');
         accumulatedHeight += h;
       }
     }
@@ -467,6 +529,10 @@ export const ScreenplayEditor: React.FC<ScreenplayEditorProps> = ({
     const timer = setTimeout(updatePagination, 150);
     return () => clearTimeout(timer);
   }, [initialContent]);
+
+  useEffect(() => {
+    updatePagination();
+  }, [selectedActId, sceneFolderMap]);
 
   // Scroll Listener for Active Page Tracking
   useEffect(() => {
@@ -574,6 +640,15 @@ export const ScreenplayEditor: React.FC<ScreenplayEditorProps> = ({
 
   return (
     <div className="flex flex-col items-center w-full min-h-full pb-24">
+      
+      {/* Dynamic Act Filter Isolation Styles */}
+      {selectedActId && (
+        <style>{`
+          .act-filter-active [data-act-id]:not([data-act-id="${selectedActId}"]) {
+            display: none !important;
+          }
+        `}</style>
+      )}
       {/* Dynamic Dialogue Isolator Styles */}
       {isolatedCharacter && (
         <style>{`
@@ -713,7 +788,7 @@ export const ScreenplayEditor: React.FC<ScreenplayEditorProps> = ({
       )}
 
       {/* 2. Industry Standard Title Page (if enabled) */}
-      {metadata?.showTitlePage && (
+      {metadata?.showTitlePage && !selectedActId && (
         <div className="screenplay-page screenplay-title-page font-screenplay select-text mb-8 relative flex flex-col justify-between print:break-after-page shadow-2xl">
           {metadata.showWatermark && metadata.watermarkText && (
             <div className="screenplay-watermark">{metadata.watermarkText}</div>
@@ -767,6 +842,30 @@ export const ScreenplayEditor: React.FC<ScreenplayEditorProps> = ({
       )}
 
       {/* 3. Authentic Screenplay Paper Canvas */}
+      
+      {/* Active Act Focus Banner */}
+      {selectedActId && (
+        <div className="no-print w-full max-w-[8.5in] mb-4 p-3 rounded-xl bg-amber-500/10 border border-amber-500/40 flex items-center justify-between text-xs font-mono shadow-xl shadow-amber-500/5 select-none animate-in fade-in slide-in-from-top-2 duration-200">
+          <div className="flex items-center gap-2.5 text-amber-300">
+            <span className="w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse shadow-md shadow-amber-400/50" />
+            <span>
+              Focused View: <strong className="text-white uppercase font-bold tracking-wide">
+                {folders.find((f: { id: string; name: string }) => f.id === selectedActId)?.name || (selectedActId === 'unassigned' ? 'Unassigned Scenes' : selectedActId)}
+              </strong>
+            </span>
+          </div>
+          {onClearActFilter && (
+            <button
+              onClick={onClearActFilter}
+              className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-[#181a22] hover:bg-[#232736] text-amber-400 hover:text-amber-300 border border-amber-500/40 text-xs font-bold transition-all shadow-sm"
+              title="Return to viewing the full screenplay across all acts"
+            >
+              <span>Show All Acts</span>
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
+      )}
       <div 
         ref={paperContainerRef} 
         onClick={(e) => {
@@ -781,7 +880,10 @@ export const ScreenplayEditor: React.FC<ScreenplayEditorProps> = ({
             }
           }
         }}
-        className={`screenplay-page font-screenplay select-text relative shrink-0 shadow-2xl ${isolatedCharacter ? 'isolating-active' : ''}`}
+        style={{
+          minHeight: `${Math.max(1, totalPages) * 11.0}in`,
+        }}
+        className={`screenplay-page font-screenplay select-text relative shrink-0 shadow-2xl ${isolatedCharacter ? 'isolating-active' : ''} ${selectedActId ? 'act-filter-active' : ''}`}
       >
         {(metadata?.showWatermark && metadata?.watermarkText) ? (
           <div className="screenplay-watermark">{metadata.watermarkText}</div>

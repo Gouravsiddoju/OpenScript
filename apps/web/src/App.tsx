@@ -29,7 +29,7 @@ import {
 import { ScreenplayEditor } from './components/ScreenplayEditor';
 import { FountainView } from './components/FountainView';
 import { ProductionReports } from './components/ProductionReports';
-import { SceneNavigator, SceneItem } from './components/SceneNavigator';
+import { SceneNavigator, SceneItem, SceneFolder } from './components/SceneNavigator';
 import { BeatBoard } from './components/BeatBoard';
 import { TitlePageModal, TitlePageMetadata } from './components/TitlePageModal';
 import { ConflictModal } from './components/ConflictModal';
@@ -426,6 +426,31 @@ export default function App() {
   const [droppedFolderEntry, setDroppedFolderEntry] = useState<any>(null);
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [documentTotalPages, setDocumentTotalPages] = useState<number>(1);
+  // Act Selection & Organization State
+  const [selectedActId, setSelectedActId] = useState<string | null>(null);
+  const [sceneFolders, setSceneFolders] = useState<SceneFolder[]>(() => {
+    const saved = localStorage.getItem('openscript_scene_folders');
+    return saved ? JSON.parse(saved) : [
+      { id: 'act-1', name: 'Act I — Setup', color: 'border-blue-500/40 text-blue-400' },
+      { id: 'act-2', name: 'Act II — Confrontation', color: 'border-amber-500/40 text-amber-400' },
+      { id: 'act-3', name: 'Act III — Resolution', color: 'border-emerald-500/40 text-emerald-400' },
+    ];
+  });
+  const [sceneFolderMap, setSceneFolderMap] = useState<Record<number, string>>(() => {
+    const saved = localStorage.getItem('openscript_scene_folder_map');
+    return saved ? JSON.parse(saved) : { 1: 'act-1', 2: 'act-2' };
+  });
+
+  const handleUpdateSceneFolders = (newFolders: SceneFolder[]) => {
+    setSceneFolders(newFolders);
+    localStorage.setItem('openscript_scene_folders', JSON.stringify(newFolders));
+  };
+
+  const handleUpdateSceneFolderMap = (newMap: Record<number, string>) => {
+    setSceneFolderMap(newMap);
+    localStorage.setItem('openscript_scene_folder_map', JSON.stringify(newMap));
+  };
+
   const saveCurrentProject = () => {
     const activeId = getActiveProjectId();
     const existing = getProject(activeId);
@@ -1342,6 +1367,8 @@ Neon reflections shimmer in deep puddles. Sirens echo in the far distance.`;
         metadata: titleMetadata,
         showWatermark: titleMetadata.showWatermark,
         watermarkText: titleMetadata.watermarkText,
+        selectedActId,
+        sceneFolderMap,
       });
     } catch (err) {
       console.error('PDF Export Error:', err);
@@ -1664,6 +1691,12 @@ Neon reflections shimmer in deep puddles. Sirens echo in the far distance.`;
               onExportSelectedScenes={handleExportSelectedScenes}
               currentUserRole={currentUserRole}
               onOpenTakes={handleOpenSceneTakes}
+              selectedActId={selectedActId}
+              onSelectAct={setSelectedActId}
+              folders={sceneFolders}
+              onFoldersChange={handleUpdateSceneFolders}
+              sceneFolderMap={sceneFolderMap}
+              onFolderMapChange={handleUpdateSceneFolderMap}
             />
           </div>
 
@@ -1941,6 +1974,10 @@ Neon reflections shimmer in deep puddles. Sirens echo in the far distance.`;
                 setCurrentPage(page);
                 if (totalPages) setDocumentTotalPages(totalPages);
               }}
+              selectedActId={selectedActId}
+              sceneFolderMap={sceneFolderMap}
+              folders={sceneFolders}
+              onClearActFilter={() => setSelectedActId(null)}
             />
           )}
 
@@ -2117,6 +2154,9 @@ Neon reflections shimmer in deep puddles. Sirens echo in the far distance.`;
         revisionNumber={revisionNumber}
         activeRevisionColor={activeRevisionColor}
         onTriggerPdfPrint={handlePrintPdf}
+        selectedActId={selectedActId}
+        sceneFolderMap={sceneFolderMap}
+        folders={sceneFolders}
       />
 
       {/* Scene Takes & Alternate Drafts Modal */}
