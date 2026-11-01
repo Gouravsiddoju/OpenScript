@@ -1,6 +1,40 @@
 @import url('https://fonts.googleapis.com/css2?family=Courier+Prime:ital,wght@0,400;0,700;1,400;1,700&family=Inter:wght@400;500;600;700&display=swap');
 @import '../../../packages/editor/src/styles.css';
 
+/* Official Screenplay Courier Prime Local Font Faces */
+@font-face {
+  font-family: 'Courier Prime';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/CourierPrime-Regular.ttf') format('truetype');
+}
+
+@font-face {
+  font-family: 'Courier Prime';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('/fonts/CourierPrime-Bold.ttf') format('truetype');
+}
+
+@font-face {
+  font-family: 'Courier Prime';
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/CourierPrime-Italic.ttf') format('truetype');
+}
+
+@font-face {
+  font-family: 'Courier Prime';
+  font-style: italic;
+  font-weight: 700;
+  font-display: swap;
+  src: url('/fonts/CourierPrime-BoldItalic.ttf') format('truetype');
+}
+
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -39,14 +73,14 @@
 }
 
 .font-screenplay {
-  font-family: 'Courier Prime', Courier, monospace;
+  font-family: 'Courier Prime', 'Courier New', monospace;
 }
 
 /* Tiptap ProseMirror Editor Reset */
 .ProseMirror {
   outline: none !important;
   min-height: 8.5in;
-  font-family: 'Courier Prime', Courier, monospace;
+  font-family: 'Courier Prime', 'Courier New', monospace;
   font-size: 12pt;
   line-height: 1.0;
 }

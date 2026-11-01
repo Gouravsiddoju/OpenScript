@@ -1,3 +1,4 @@
+import { registerCourierPrimeFonts } from './courierPrimeFont';
 import { ScreenplayBlock, createScreenplayBlock, RevisionColor, SceneTake, ScriptNote } from '@openscript/screenplay-schema';
 import { serializeFdx } from '@openscript/fdx';
 import { jsPDF } from 'jspdf';
@@ -276,7 +277,7 @@ export function exportHtmlFile(options: Pick<ExportScreenplayOptions, 'blocks' |
   <title>${title} - Screenplay</title>
   <style>
     body {
-      font-family: 'Courier Prime', Courier, monospace;
+      font-family: 'Courier Prime', 'Courier New', monospace;
       font-size: 12pt;
       line-height: 1.0;
       color: #000;
@@ -373,6 +374,8 @@ export function generateScreenplayPdfDoc(options: PdfExportOptions): jsPDF {
     orientation: 'portrait',
   });
 
+  registerCourierPrimeFonts(doc);
+
   const PAGE_WIDTH = 612; // 8.5 inches at 72 pt/in
   const PAGE_HEIGHT = 792; // 11.0 inches at 72 pt/in
   const LEFT_MARGIN = 108; // 1.5 inches left margin
@@ -390,7 +393,7 @@ export function generateScreenplayPdfDoc(options: PdfExportOptions): jsPDF {
     const wmText = watermarkText || metadata.watermarkText || (metadata.showWatermark ? 'CONFIDENTIAL' : '');
     if ((showWatermark || metadata.showWatermark) && wmText) {
       doc.saveGraphicsState();
-      doc.setFont('courier', 'bold');
+      doc.setFont('CourierPrime', 'bold');
       doc.setFontSize(38);
       doc.setTextColor(225, 225, 230);
       doc.text(wmText, PAGE_WIDTH / 2, PAGE_HEIGHT / 2, {
@@ -403,7 +406,7 @@ export function generateScreenplayPdfDoc(options: PdfExportOptions): jsPDF {
 
   const drawPageHeader = (num: number) => {
     if (num > 1) {
-      doc.setFont('courier', 'normal');
+      doc.setFont('CourierPrime', 'normal');
       doc.setFontSize(10);
       doc.setTextColor(60, 60, 60);
       doc.text(`${num}.`, CONTENT_RIGHT, 36, { align: 'right' });
@@ -427,7 +430,7 @@ export function generateScreenplayPdfDoc(options: PdfExportOptions): jsPDF {
     const author = metadata.author || 'Author';
 
     // Title centered
-    doc.setFont('courier', 'bold');
+    doc.setFont('CourierPrime', 'bold');
     doc.setFontSize(18);
     doc.setTextColor(0, 0, 0);
     doc.text(title.toUpperCase(), PAGE_WIDTH / 2, 280, { align: 'center' });
@@ -438,16 +441,16 @@ export function generateScreenplayPdfDoc(options: PdfExportOptions): jsPDF {
     doc.line((PAGE_WIDTH - titleWidth) / 2, 286, (PAGE_WIDTH + titleWidth) / 2, 286);
 
     // Credit & Author
-    doc.setFont('courier', 'normal');
+    doc.setFont('CourierPrime', 'normal');
     doc.setFontSize(12);
     doc.text(credit, PAGE_WIDTH / 2, 330, { align: 'center' });
 
-    doc.setFont('courier', 'bold');
+    doc.setFont('CourierPrime', 'bold');
     doc.setFontSize(13);
     doc.text(author, PAGE_WIDTH / 2, 360, { align: 'center' });
 
     if (metadata.basedOn) {
-      doc.setFont('courier', 'normal');
+      doc.setFont('CourierPrime', 'normal');
       doc.setFontSize(10);
       doc.text(`Based on: ${metadata.basedOn}`, PAGE_WIDTH / 2, 395, { align: 'center' });
     }
@@ -455,7 +458,7 @@ export function generateScreenplayPdfDoc(options: PdfExportOptions): jsPDF {
     // Title Page Bottom metadata
     // Left: Contact & Copyright
     const contactLines = (metadata.contact || 'SSN Pictures\ncontact@ssnpictures.in').split('\n');
-    doc.setFont('courier', 'normal');
+    doc.setFont('CourierPrime', 'normal');
     doc.setFontSize(10);
     doc.setTextColor(50, 50, 50);
     let contactY = 660;
@@ -470,9 +473,9 @@ export function generateScreenplayPdfDoc(options: PdfExportOptions): jsPDF {
     // Right: Draft Color / Draft Date
     const draftDate = metadata.draftDate || new Date().toISOString().split('T')[0];
     const draftLabel = metadata.draftLabel || 'White Production Draft';
-    doc.setFont('courier', 'bold');
+    doc.setFont('CourierPrime', 'bold');
     doc.text(draftLabel, CONTENT_RIGHT, 660, { align: 'right' });
-    doc.setFont('courier', 'normal');
+    doc.setFont('CourierPrime', 'normal');
     doc.text(draftDate, CONTENT_RIGHT, 674, { align: 'right' });
 
     // Advance to Page 1 of Screenplay text
@@ -508,18 +511,18 @@ export function generateScreenplayPdfDoc(options: PdfExportOptions): jsPDF {
           currentY += LINE_HEIGHT * 2;
         }
 
-        doc.setFont('courier', 'bold');
+        doc.setFont('CourierPrime', 'bold');
         doc.setFontSize(12);
         doc.setTextColor(0, 0, 0);
 
         const headingText = text.toUpperCase();
         // Scene numbers in margin gutters
         if (block.sceneNumber) {
-          doc.setFont('courier', 'normal');
+          doc.setFont('CourierPrime', 'normal');
           doc.setFontSize(11);
           doc.text(block.sceneNumber, 72, currentY, { align: 'right' });
           doc.text(block.sceneNumber, CONTENT_RIGHT + 16, currentY, { align: 'left' });
-          doc.setFont('courier', 'bold');
+          doc.setFont('CourierPrime', 'bold');
           doc.setFontSize(12);
         }
 
@@ -537,7 +540,7 @@ export function generateScreenplayPdfDoc(options: PdfExportOptions): jsPDF {
         if (currentY > TOP_MARGIN) {
           currentY += LINE_HEIGHT;
         }
-        doc.setFont('courier', 'normal');
+        doc.setFont('CourierPrime', 'normal');
         doc.setFontSize(12);
         doc.setTextColor(0, 0, 0);
 
@@ -558,7 +561,7 @@ export function generateScreenplayPdfDoc(options: PdfExportOptions): jsPDF {
           currentY += LINE_HEIGHT;
         }
 
-        doc.setFont('courier', 'bold');
+        doc.setFont('CourierPrime', 'bold');
         doc.setFontSize(12);
         doc.setTextColor(0, 0, 0);
 
@@ -569,7 +572,7 @@ export function generateScreenplayPdfDoc(options: PdfExportOptions): jsPDF {
       }
 
       case 'parenthetical': {
-        doc.setFont('courier', 'normal');
+        doc.setFont('CourierPrime', 'normal');
         doc.setFontSize(12);
         doc.setTextColor(0, 0, 0);
 
@@ -586,7 +589,7 @@ export function generateScreenplayPdfDoc(options: PdfExportOptions): jsPDF {
       }
 
       case 'dialogue': {
-        doc.setFont('courier', 'normal');
+        doc.setFont('CourierPrime', 'normal');
         doc.setFontSize(12);
         doc.setTextColor(0, 0, 0);
 
@@ -605,7 +608,7 @@ export function generateScreenplayPdfDoc(options: PdfExportOptions): jsPDF {
         if (currentY > TOP_MARGIN) {
           currentY += LINE_HEIGHT;
         }
-        doc.setFont('courier', 'bold');
+        doc.setFont('CourierPrime', 'bold');
         doc.setFontSize(12);
         doc.setTextColor(0, 0, 0);
 

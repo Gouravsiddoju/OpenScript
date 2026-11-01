@@ -7,7 +7,7 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        screenplay: ['Courier Prime', 'Courier', 'monospace'],
+        screenplay: ['Courier Prime', 'Courier New', 'monospace'],
       },
     },
   },
