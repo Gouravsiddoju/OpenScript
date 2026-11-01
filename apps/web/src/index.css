@@ -171,3 +171,83 @@
     print-color-adjust: exact !important;
   }
 }
+
+
+/* React Bits Cinematic Aurora & Mesh Animations */
+@keyframes aurora-1 {
+  0%, 100% {
+    transform: translate(0px, 0px) scale(1) rotate(0deg);
+  }
+  33% {
+    transform: translate(40px, -50px) scale(1.15) rotate(12deg);
+  }
+  66% {
+    transform: translate(-30px, 35px) scale(0.9) rotate(-10deg);
+  }
+}
+
+@keyframes aurora-2 {
+  0%, 100% {
+    transform: translate(0px, 0px) scale(1) rotate(0deg);
+  }
+  33% {
+    transform: translate(-45px, 40px) scale(1.12) rotate(-15deg);
+  }
+  66% {
+    transform: translate(35px, -35px) scale(0.92) rotate(12deg);
+  }
+}
+
+@keyframes aurora-3 {
+  0%, 100% {
+    transform: translate(0px, 0px) scale(1);
+    opacity: 0.15;
+  }
+  50% {
+    transform: translate(25px, 20px) scale(1.25);
+    opacity: 0.3;
+  }
+}
+
+@keyframes shimmer-sweep {
+  0% {
+    transform: translateX(-150%);
+  }
+  100% {
+    transform: translateX(250%);
+  }
+}
+
+@keyframes float-gentle {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+}
+
+.animate-aurora-1 {
+  animation: aurora-1 18s ease-in-out infinite;
+}
+
+.animate-aurora-2 {
+  animation: aurora-2 22s ease-in-out infinite;
+}
+
+.animate-aurora-3 {
+  animation: aurora-3 14s ease-in-out infinite;
+}
+
+.animate-shimmer-sweep {
+  animation: shimmer-sweep 3.5s ease-in-out infinite;
+}
+
+.animate-float-gentle {
+  animation: float-gentle 7s ease-in-out infinite;
+}
+
+.bg-studio-grid {
+  background-image: radial-gradient(rgba(245, 158, 11, 0.14) 1px, transparent 1px);
+  background-size: 28px 28px;
+}
