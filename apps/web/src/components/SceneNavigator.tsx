@@ -48,6 +48,12 @@ interface SceneNavigatorProps {
   onExportSelectedScenes: (selectedScenes: SceneItem[]) => void;
   currentUserRole?: CollaboratorRole;
   onOpenTakes?: (scene: SceneItem) => void;
+  selectedActId?: string | null;
+  onSelectAct?: (actId: string | null) => void;
+  folders?: SceneFolder[];
+  onFoldersChange?: (folders: SceneFolder[]) => void;
+  sceneFolderMap?: Record<number, string>;
+  onFolderMapChange?: (map: Record<number, string>) => void;
 }
 
 const DEFAULT_FOLDERS: SceneFolder[] = [
@@ -64,6 +70,12 @@ export const SceneNavigator: React.FC<SceneNavigatorProps> = ({
   onExportSelectedScenes,
   currentUserRole = 'owner',
   onOpenTakes,
+  selectedActId = null,
+  onSelectAct,
+  folders: propFolders,
+  onFoldersChange,
+  sceneFolderMap: propSceneFolderMap,
+  onFolderMapChange,
 }) => {
   const canManageScenes = canReorderScenes(currentUserRole);
   // Navigation display mode preference: 'flat' (scenes only) or 'acts' (folders & acts)
@@ -77,15 +89,29 @@ export const SceneNavigator: React.FC<SceneNavigatorProps> = ({
     localStorage.setItem('openscript_outliner_view_mode', mode);
   };
 
-  const [folders, setFolders] = useState<SceneFolder[]>(() => {
+  const [internalFolders, setInternalFolders] = useState<SceneFolder[]>(() => {
     const saved = localStorage.getItem('openscript_scene_folders');
     return saved ? JSON.parse(saved) : DEFAULT_FOLDERS;
   });
 
-  const [sceneFolderMap, setSceneFolderMap] = useState<Record<number, string>>(() => {
+  const [internalSceneFolderMap, setInternalSceneFolderMap] = useState<Record<number, string>>(() => {
     const saved = localStorage.getItem('openscript_scene_folder_map');
     return saved ? JSON.parse(saved) : {};
   });
+
+  const folders = propFolders ?? internalFolders;
+  const setFolders = (f: SceneFolder[] | ((prev: SceneFolder[]) => SceneFolder[])) => {
+    const resolved = typeof f === 'function' ? f(folders) : f;
+    setInternalFolders(resolved);
+    if (onFoldersChange) onFoldersChange(resolved);
+  };
+
+  const sceneFolderMap = propSceneFolderMap ?? internalSceneFolderMap;
+  const setSceneFolderMap = (m: Record<number, string> | ((prev: Record<number, string>) => Record<number, string>)) => {
+    const resolved = typeof m === 'function' ? m(sceneFolderMap) : m;
+    setInternalSceneFolderMap(resolved);
+    if (onFolderMapChange) onFolderMapChange(resolved);
+  };
 
   const [collapsedFolders, setCollapsedFolders] = useState<Record<string, boolean>>({});
   const [selectedSceneIds, setSelectedSceneIds] = useState<number[]>([]);
@@ -298,6 +324,42 @@ export const SceneNavigator: React.FC<SceneNavigatorProps> = ({
           </button>
         ))}
       </div>
+      {/* Act Filter Pills Bar: Instantly focus on Act 1, Act 2, Act 3 or All */}
+      {viewMode === 'acts' && (
+        <div className="px-2.5 pt-2 pb-1 border-b border-[#1c1e24] bg-[#0c0d10] flex items-center gap-1.5 overflow-x-auto no-scrollbar">
+          <button
+            onClick={() => onSelectAct && onSelectAct(null)}
+            className={`shrink-0 px-2 py-0.5 rounded-md font-mono text-[10px] transition-all ${
+              !selectedActId
+                ? 'bg-amber-500 text-black font-bold shadow-sm'
+                : 'bg-[#15171e] text-gray-400 hover:text-white border border-[#232733]'
+            }`}
+            title="Show complete script across all acts"
+          >
+            All Acts ({scenes.length})
+          </button>
+          {folders.map((f) => {
+            const count = scenesByFolder[f.id]?.length || 0;
+            const isActive = selectedActId === f.id;
+            return (
+              <button
+                key={f.id}
+                onClick={() => onSelectAct && onSelectAct(isActive ? null : f.id)}
+                className={`shrink-0 px-2 py-0.5 rounded-md font-mono text-[10px] transition-all flex items-center gap-1 ${
+                  isActive
+                    ? 'bg-amber-500 text-black font-bold shadow-sm'
+                    : 'bg-[#15171e] text-gray-400 hover:text-white border border-[#232733]'
+                }`}
+                title={`Focus on ${f.name} only on main screen`}
+              >
+                <span>{f.name.split(' —')[0]}</span>
+                <span className={isActive ? 'text-black/70' : 'text-gray-500'}>({count})</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+
 
       {/* 2. Search & Filter Bar */}
       <div className="p-2.5 border-b border-[#1a1c22] space-y-2 bg-[#0c0d0f]">
@@ -465,7 +527,9 @@ export const SceneNavigator: React.FC<SceneNavigatorProps> = ({
                     setDraggedSceneId(null);
                   }}
                   className={`space-y-1 p-2 rounded-xl border transition-all duration-200 ${
-                    isDropTarget
+                    selectedActId === folder.id
+                      ? 'bg-amber-500/10 border-amber-500/80 ring-1 ring-amber-500/40 shadow-lg shadow-amber-500/5'
+                      : isDropTarget
                       ? 'bg-amber-500/10 border-amber-500 ring-2 ring-amber-500/50 shadow-lg shadow-amber-500/10'
                       : 'bg-[#101216]/60 border-[#1e2128] hover:border-[#282d38]'
                   }`}
@@ -489,7 +553,23 @@ export const SceneNavigator: React.FC<SceneNavigatorProps> = ({
                     </button>
 
                     {/* Act Controls: Create Scene directly in Act + Delete custom folder */}
-                    <div className="flex items-center gap-1 shrink-0">
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (onSelectAct) {
+                            onSelectAct(selectedActId === folder.id ? null : folder.id);
+                          }
+                        }}
+                        className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold transition-all ${
+                          selectedActId === folder.id
+                            ? 'bg-amber-500 text-black shadow-md shadow-amber-500/20'
+                            : 'bg-[#181a22] hover:bg-[#232736] text-gray-400 hover:text-amber-300 border border-[#232733]'
+                        }`}
+                        title={selectedActId === folder.id ? "Exit focused Act view" : `Focus only ${folder.name} on main screen`}
+                      >
+                        {selectedActId === folder.id ? 'Active' : 'Focus'}
+                      </button>
                       <button
                         onClick={() => handleCreateSceneInFolder(folder.id)}
                         className="flex items-center gap-1 px-2 py-0.5 rounded bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/30 text-[10px] font-mono font-semibold transition-all"
@@ -635,7 +715,25 @@ export const SceneNavigator: React.FC<SceneNavigatorProps> = ({
                   <Layers className="w-3.5 h-3.5 text-gray-500" />
                   <span>Unassigned Scenes ({scenesByFolder['unassigned']?.length || 0})</span>
                 </div>
-                <span className="text-[10px] text-gray-500 font-normal">Drop here to unassign</span>
+                <div className="flex items-center gap-1.5">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (onSelectAct) {
+                        onSelectAct(selectedActId === 'unassigned' ? null : 'unassigned');
+                      }
+                    }}
+                    className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold transition-all ${
+                      selectedActId === 'unassigned'
+                        ? 'bg-amber-500 text-black shadow-md shadow-amber-500/20'
+                        : 'bg-[#181a22] hover:bg-[#232736] text-gray-400 hover:text-amber-300 border border-[#232733]'
+                    }`}
+                    title={selectedActId === 'unassigned' ? "Exit focused view" : "Focus unassigned scenes on main screen"}
+                  >
+                    {selectedActId === 'unassigned' ? 'Active' : 'Focus'}
+                  </button>
+                  <span className="text-[10px] text-gray-500 font-normal">Drop here to unassign</span>
+                </div>
               </div>
 
               <div className="pl-1 space-y-1">
