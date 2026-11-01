@@ -19,10 +19,12 @@ FROM node:22-alpine
 
 WORKDIR /app
 
+RUN corepack enable && corepack prepare pnpm@12.14.0 --activate
+
 ENV NODE_ENV=production
 
 COPY --from=builder /app /app
 
 EXPOSE 10000 3000
 
-CMD ["node", "apps/api/dist/index.js"]
+CMD ["pnpm", "--filter", "api", "run", "start"]
