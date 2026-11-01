@@ -13,6 +13,7 @@
   margin: 20px auto;
   position: relative;
   overflow: visible;
+  flex-shrink: 0;
 }
 
 /* Screenplay Title Page (Symmetric 1.0in margins so title and metadata are geometrically centered on the 8.5in sheet) */
@@ -181,31 +182,49 @@
 }
 
 
-/* Authentic Physical Screenplay Page Separation */
+/* Authentic Physical Screenplay Page Separation on Studio Desk */
 [data-page-break] {
   position: relative;
-  /* Clean visual gap between pages on screen */
-  margin-top: 52px !important;
-  padding-top: 28px !important;
-  border-top: 1px dashed #cbd5e1;
+  margin-top: 64px !important;
+  padding-top: 36px !important;
+}
+
+/* Realistic dark studio desk gap between separate physical sheets */
+[data-page-break]::before {
+  content: "";
+  position: absolute;
+  top: -50px;
+  left: -1.5in;
+  right: -1.0in;
+  height: 36px;
+  background-color: #0d0e11;
+  box-shadow: inset 0 8px 12px -4px rgba(0, 0, 0, 0.5), inset 0 -8px 12px -4px rgba(0, 0, 0, 0.5);
+  pointer-events: none;
+  z-index: 20;
 }
 
 [data-page-break]::after {
   content: "PAGE " attr(data-page-break);
   position: absolute;
-  top: -28px;
+  top: -38px;
   right: 0;
   font-family: 'Courier Prime', Courier, monospace;
   font-size: 9pt;
   font-weight: 600;
-  color: #64748b;
-  background: #f1f5f9;
-  padding: 2px 8px;
+  color: #94a3b8;
+  background: #1e293b;
+  padding: 2px 10px;
   border-radius: 4px;
-  border: 1px solid #cbd5e1;
+  border: 1px solid #334155;
   user-select: none;
   pointer-events: none;
   z-index: 25;
+}
+
+@media print {
+  [data-page-break]::before {
+    display: none !important;
+  }
 }
 
 @media print {
