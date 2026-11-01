@@ -21,8 +21,12 @@ export function buildServer() {
     logger: true,
   });
 
+  const corsOrigins = process.env.CORS_ORIGIN
+    ? process.env.CORS_ORIGIN.split(",").map((o) => o.trim())
+    : ["http://localhost:5173", "https://dev-openscript.ssnpictures.in", "https://openscript-dev.pages.dev"];
+
   server.register(cors, {
-    origin: process.env.CORS_ORIGIN || 'http://localhost:5173',
+    origin: corsOrigins,
     credentials: true,
   });
 
