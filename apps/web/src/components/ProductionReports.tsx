@@ -1,4 +1,4 @@
-import { isNonCharacterCue } from '@openscript/screenplay-schema';
+﻿import { isNonCharacterCue } from '@openscript/screenplay-schema';
 import React, { useState } from 'react';
 import { Users, MapPin, Film, Clock, BarChart3, Calendar, PieChart } from 'lucide-react';
 
@@ -53,6 +53,12 @@ export function computeProductionReportData(contentHtml: string): ProductionRepo
       const words = text.split(/\s+/).filter(Boolean).length;
       actionWords += words;
       totalWords += words;
+      currentCharacter = '';
+    } else if (classNames.includes('script-shot') || classNames.includes('shot')) {
+      const words = text.split(/\s+/).filter(Boolean).length;
+      actionWords += words;
+      totalWords += words;
+      currentCharacter = '';
     } else if (classNames.includes('script-character') || classNames.includes('character')) {
       const candidate = text.replace(/\s*\(.*\)$/, '').trim().toUpperCase();
       if (!candidate || isNonCharacterCue(candidate)) {

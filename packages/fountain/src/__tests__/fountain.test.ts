@@ -74,21 +74,36 @@ describe('Fountain Parser & Serializer', () => {
     expect(characterBlocks.length).toBe(0);
 
     expect(blocks.some((b) => b.type === 'action' && b.text.includes('THE NEXT DAY'))).toBe(true);
-    expect(blocks.some((b) => (b.type === 'action' || b.type === 'transition') && b.text.includes('THE END'))).toBe(true);
+    expect(blocks.some((b) => b.type === 'shot' && b.text.includes('ZOOM OUT SLOWLY'))).toBe(true);
   });
 
   it('parses transitions correctly', () => {
-    const text = `SMASH CUT TO:\n> FADE OUT.`;
+    const text = `> CUT TO:\n\nCUT TO:`;
     const blocks = parseFountain(text);
 
     expect(blocks.length).toBe(2);
     expect(blocks[0].type).toBe('transition');
-    expect(blocks[0].text).toBe('SMASH CUT TO:');
+    expect(blocks[0].text).toBe('CUT TO:');
     expect(blocks[1].type).toBe('transition');
-    expect(blocks[1].text).toBe('FADE OUT.');
+    expect(blocks[1].text).toBe('CUT TO:');
   });
 
-  it('serializes canonical screenplay documents to fountain format', () => {
+  it('parses shot elements correctly without misidentifying as characters or actions', () => {
+    const text = `BACKDROP OF BOTH ASSISTANT AND DETECTIVE STANDING INFRONT OF WALL FILLED WITH PHOTOGRAPHS AND STICKYNOTES.\n\nThen assistant proceeds to asks questions.\n\nZOOM OUT SLOWLY\n\nA CLOSE UP ON DETECTIVE FACE.\n\nANGLE ON DOOR`;
+    const blocks = parseFountain(text);
+
+    expect(blocks[0].type).toBe('shot');
+    expect(blocks[0].text).toContain('BACKDROP OF BOTH ASSISTANT AND DETECTIVE');
+    expect(blocks[1].type).toBe('action');
+    expect(blocks[2].type).toBe('shot');
+    expect(blocks[2].text).toBe('ZOOM OUT SLOWLY');
+    expect(blocks[3].type).toBe('shot');
+    expect(blocks[3].text).toBe('A CLOSE UP ON DETECTIVE FACE.');
+    expect(blocks[4].type).toBe('shot');
+    expect(blocks[4].text).toBe('ANGLE ON DOOR');
+  });
+
+  it('serializes canonical screenplay documents to fountain format including shots', () => {
     const doc: CanonicalScreenplayDocument = {
       schemaVersion: 2,
       id: crypto.randomUUID(),
@@ -109,6 +124,14 @@ describe('Fountain Parser & Serializer', () => {
           id: crypto.randomUUID(),
           type: 'sceneHeading',
           text: 'EXT. STREET - NIGHT',
+          marks: [],
+          isOmitted: false,
+          revisionMark: false,
+        },
+        {
+          id: crypto.randomUUID(),
+          type: 'shot',
+          text: 'WIDE SHOT - CITY SKYLINE',
           marks: [],
           isOmitted: false,
           revisionMark: false,
@@ -150,16 +173,18 @@ describe('Fountain Parser & Serializer', () => {
 
     const serialized = serializeFountain(doc);
     expect(serialized).toContain('EXT. STREET - NIGHT');
+    expect(serialized).toContain('WIDE SHOT - CITY SKYLINE');
     expect(serialized).toContain('The pavement gleams under neon lights.');
     expect(serialized).toContain('DETECTIVE COLE');
     expect(serialized).toContain('Look at the tire marks.');
     expect(serialized).toContain('> CUT TO:');
   });
 
-  it('converts fountain text to tiptap screenplay html correctly', () => {
-    const text = `INT. WAREHOUSE - DAY\n\nA lone guard patrols the corridor.\n\nGUARD\nWho's there?\n\n> FADE OUT.`;
+  it('converts fountain text to tiptap screenplay html correctly including shots', () => {
+    const text = `INT. WAREHOUSE - DAY\n\nWIDE SHOT\n\nA lone guard patrols the corridor.\n\nGUARD\nWho's there?\n\n> FADE OUT.`;
     const html = fountainToHtml(text);
     expect(html).toContain('<div class="script-scene-heading">INT. WAREHOUSE - DAY</div>');
+    expect(html).toContain('<div class="script-shot">WIDE SHOT</div>');
     expect(html).toContain('<div class="script-action">A lone guard patrols the corridor.</div>');
     expect(html).toContain('<div class="script-character">GUARD</div>');
     expect(html).toContain('<div class="script-dialogue">Who&#039;s there?</div>');

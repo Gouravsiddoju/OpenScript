@@ -1,7 +1,7 @@
 /**
  * Screenplay semantic classification and filtering utilities.
  * Handles non-character detection (camera shots, time lapses, transitions),
- * super title and non-INT/EXT scene headings, and title page stamp filtering.
+ * super title and non-INT/EXT scene headings, shot elements, and title page stamp filtering.
  */
 
 // Common time lapse markers that should never be tagged as characters
@@ -17,9 +17,20 @@ const LATER_UNITS_REGEX =
 const STANDALONE_TIME_REGEX =
   /^(?:DAY|NIGHT|DAWN|DUSK|MORNING|EVENING|AFTERNOON)$/i;
 
-// Camera cues, angles, and directorial instructions
-const CAMERA_SHOT_REGEX =
-  /^(?:ZOOM\s+(?:OUT|IN)(?:\s+SLOWLY|\s+FAST)?|CLOSE\s+UP|EXTREME\s+CLOSE\s+UP|CLOSE\s+ON|A\s+CLOSE\s+UP(?:\s+ON)?|WIDE\s+SHOT|MEDIUM\s+SHOT|FULL\s+SHOT|LONG\s+SHOT|ESTABLISHING\s+SHOT|POV|POINT\s+OF\s+VIEW|ANGLE\s+ON|REVERSE\s+ANGLE|HIGH\s+ANGLE|LOW\s+ANGLE|DUTCH\s+ANGLE|PAN\s+TO|TILT\s+(?:UP|DOWN)|TRACKING\s+(?:SHOT|WITH)|DOLLY\s+(?:IN|OUT)|CRANE\s+SHOT|AERIAL\s+SHOT|SLOW\s+MOTION|SLOW\s+MO)(?:\s+.*)?$/i;
+// Camera cues, angles, framing, and directorial instructions (Screenplay Shot Element)
+export const CAMERA_SHOT_REGEX =
+  /^(?:(?:ZOOM\s+(?:OUT|IN)(?:\s+SLOWLY|\s+FAST)?)|(?:CLOSE\s+UP|EXTREME\s+CLOSE\s+UP|ECU|CU|MCU|WIDE\s+SHOT|MEDIUM\s+SHOT|FULL\s+SHOT|LONG\s+SHOT|ESTABLISHING\s+SHOT|EXTREME\s+LONG\s+SHOT|AERIAL\s+SHOT|CRANE\s+SHOT|TRACKING\s+SHOT|DOLLY\s+SHOT|STEADICAM\s+SHOT|MOVING\s+SHOT|HANDHELD\s+SHOT|TWO\s+SHOT|THREE\s+SHOT|INSERT\s+SHOT|INSERT)|(?:(?:A\s+)?CLOSE\s+(?:UP\s+)?ON)|(?:ANGLE\s+ON|REVERSE\s+ANGLE|HIGH\s+ANGLE|LOW\s+ANGLE|DUTCH\s+ANGLE|WIDE\s+ANGLE)|(?:POV|POINT\s+OF\s+VIEW)|(?:PAN\s+(?:TO|ACROSS|LEFT|RIGHT))|(?:TILT\s+(?:UP|DOWN))|(?:TRACKING\s+(?:WITH|ON))|(?:DOLLY\s+(?:IN|OUT|WITH))|(?:SLOW\s+MOTION|SLOW\s+MO)|(?:BACKDROP\s+OF)|(?:OVER\s+THE\s+SHOULDER(?:\s+SHOT)?|OTS)|(?:CUTAWAY|MONTAGE\s+OF\s+SHOTS))(?:[\s:.-].*)?$/i;
+
+/**
+ * Returns true if the text matches a screenplay Shot element
+ * (camera framing, angle, perspective, camera movement, or background backdrop cue).
+ */
+export function isShotCandidate(text: string): boolean {
+  if (!text) return false;
+  const clean = text.replace(/[\(\)\[\]"']/g, '').trim();
+  if (clean.length < 2) return false;
+  return CAMERA_SHOT_REGEX.test(clean);
+}
 
 // Transitions and end markers
 const TRANSITION_MARKER_REGEX =
@@ -42,7 +53,7 @@ export function isNonCharacterCue(text: string): boolean {
   if (TIME_DURATION_REGEX.test(clean)) return true;
   if (LATER_UNITS_REGEX.test(clean)) return true;
   if (STANDALONE_TIME_REGEX.test(clean)) return true;
-  if (CAMERA_SHOT_REGEX.test(clean)) return true;
+  if (isShotCandidate(clean)) return true;
   if (TRANSITION_MARKER_REGEX.test(clean)) return true;
   if (SUPER_TITLE_PREFIX_REGEX.test(clean)) return true;
 

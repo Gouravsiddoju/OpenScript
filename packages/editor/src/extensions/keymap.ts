@@ -7,6 +7,7 @@ export const ELEMENT_CYCLE_ORDER = [
   'parenthetical',
   'dialogue',
   'transition',
+  'shot',
 ] as const;
 
 export const ScreenplayKeymap = Extension.create({
@@ -57,11 +58,16 @@ export const ScreenplayKeymap = Extension.create({
           return editor.chain().insertContentAt(selection.$from.end(), { type: 'sceneHeading' }).focus().run();
         }
 
+        // 7. Shot + Enter -> Create Action
+        if (blockType === 'shot') {
+          return editor.chain().insertContentAt(selection.$from.end(), { type: 'action' }).focus().run();
+        }
+
         return false;
       },
 
       // Full cyclic Tab forward through all screenplay elements in sequence:
-      // sceneHeading -> action -> character -> parenthetical -> dialogue -> transition -> sceneHeading
+      // sceneHeading -> action -> character -> parenthetical -> dialogue -> transition -> shot -> sceneHeading
       'Tab': ({ editor }) => {
         const { state } = editor;
         const { selection } = state;
@@ -78,7 +84,7 @@ export const ScreenplayKeymap = Extension.create({
       },
 
       // Shift+Tab backward cycle in reverse sequence:
-      // sceneHeading <- action <- character <- parenthetical <- dialogue <- transition
+      // sceneHeading <- action <- character <- parenthetical <- dialogue <- transition <- shot
       'Shift-Tab': ({ editor }) => {
         const { state } = editor;
         const { selection } = state;
@@ -94,21 +100,23 @@ export const ScreenplayKeymap = Extension.create({
         return editor.chain().setNode('sceneHeading').run();
       },
 
-      // Direct element shortcuts: Mod+1 through Mod+6 (Ctrl+1 or Cmd+1)
+      // Direct element shortcuts: Mod+1 through Mod+7 (Ctrl+1 or Cmd+1)
       'Mod-1': ({ editor }) => editor.chain().setNode('sceneHeading').run(),
       'Mod-2': ({ editor }) => editor.chain().setNode('action').run(),
       'Mod-3': ({ editor }) => editor.chain().setNode('character').run(),
       'Mod-4': ({ editor }) => editor.chain().setNode('parenthetical').run(),
       'Mod-5': ({ editor }) => editor.chain().setNode('dialogue').run(),
       'Mod-6': ({ editor }) => editor.chain().setNode('transition').run(),
+      'Mod-7': ({ editor }) => editor.chain().setNode('shot').run(),
 
-      // Alt+1 through Alt+6 shortcuts
+      // Alt+1 through Alt+7 shortcuts
       'Alt-1': ({ editor }) => editor.chain().setNode('sceneHeading').run(),
       'Alt-2': ({ editor }) => editor.chain().setNode('action').run(),
       'Alt-3': ({ editor }) => editor.chain().setNode('character').run(),
       'Alt-4': ({ editor }) => editor.chain().setNode('parenthetical').run(),
       'Alt-5': ({ editor }) => editor.chain().setNode('dialogue').run(),
       'Alt-6': ({ editor }) => editor.chain().setNode('transition').run(),
+      'Alt-7': ({ editor }) => editor.chain().setNode('shot').run(),
     };
   },
 });

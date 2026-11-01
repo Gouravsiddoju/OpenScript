@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+﻿import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import { screenplayNodes, ScreenplayKeymap, ScreenplayUppercase, paginateScreenplay } from '@openscript/editor';
@@ -484,9 +484,10 @@ export const ScreenplayEditor: React.FC<ScreenplayEditorProps> = ({
 
       let h = child.offsetHeight || 0;
       const isSceneHeading = child.classList.contains('script-scene-heading');
+      const isShot = child.classList.contains('script-shot');
 
       if (h <= 0) {
-        h = isSceneHeading ? 52 : child.classList.contains('script-action') ? 36 : 28;
+        h = isSceneHeading ? 52 : (child.classList.contains('script-action') || isShot) ? 36 : 28;
       } else {
         try {
           const cs = window.getComputedStyle(child);
@@ -502,8 +503,9 @@ export const ScreenplayEditor: React.FC<ScreenplayEditorProps> = ({
         previousSceneActId = childActId;
       }
 
-      // Scene headings shouldn't be stranded at the very bottom of a page (orphan prevention)
-      const budget = isSceneHeading && accumulatedHeight > PAGE_HEIGHT - 72 ? 0 : PAGE_HEIGHT;
+      // Scene headings and shots shouldn't be stranded at the very bottom of a page (orphan prevention)
+      const isHeadingOrShot = isSceneHeading || isShot;
+      const budget = isHeadingOrShot && accumulatedHeight > PAGE_HEIGHT - 72 ? 0 : PAGE_HEIGHT;
 
       if ((isActBreak || accumulatedHeight + h > budget) && accumulatedHeight > 0) {
         child.setAttribute('data-page-break', String(pageNum));
@@ -734,6 +736,7 @@ export const ScreenplayEditor: React.FC<ScreenplayEditorProps> = ({
             { type: 'parenthetical', label: 'Parenthetical', shortcut: '4' },
             { type: 'dialogue', label: 'Dialogue', shortcut: '5' },
             { type: 'transition', label: 'Transition', shortcut: '6' },
+            { type: 'shot', label: 'Shot', shortcut: '7' },
           ].map(({ type, label, shortcut }) => {
             const isActive = activeNodeType === type;
             return (

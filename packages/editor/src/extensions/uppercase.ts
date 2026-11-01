@@ -14,7 +14,7 @@ export const ScreenplayUppercase = Extension.create({
 
           let tr: any = null;
           newState.doc.descendants((node, pos) => {
-            if (['sceneHeading', 'character', 'transition'].includes(node.type.name)) {
+            if (['sceneHeading', 'character', 'transition', 'shot'].includes(node.type.name)) {
               const text = node.textContent;
               const upper = text.toUpperCase();
               if (text && text !== upper) {

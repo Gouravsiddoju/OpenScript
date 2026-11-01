@@ -1,6 +1,6 @@
-import './pdfPolyfill';
+﻿import './pdfPolyfill';
 import { parseFdx } from '@openscript/fdx';
-import { createScreenplayBlock, isNonCharacterCue, isSceneHeadingCandidate, isDateOrDraftStamp } from '@openscript/screenplay-schema';
+import { createScreenplayBlock, isNonCharacterCue, isSceneHeadingCandidate, isShotCandidate, isDateOrDraftStamp } from '@openscript/screenplay-schema';
 import { fountainToHtml, blocksToHtml, parseFountain } from '@openscript/fountain';
 import JSZip from 'jszip';
 import * as pdfjsLib from 'pdfjs-dist';
@@ -476,7 +476,7 @@ function parseScrivenerXml(xmlString: string, fileName: string): ImportedScreenp
     sceneCount: Math.max(1, scenes),
     wordCount: words,
     warnings: [
-      '⚠️ Notice: This .scrivx file contained only the project binder outline. In Scrivener, the full screenplay text (dialogues, character cues, actions) is stored in the project folder (Files/Data/).',
+      'âš ï¸ Notice: This .scrivx file contained only the project binder outline. In Scrivener, the full screenplay text (dialogues, character cues, actions) is stored in the project folder (Files/Data/).',
       '💡 To import your complete screenplay: Drop the entire .scriv folder (or a .zip of it), or in Scrivener select File > Export / Compile as Final Draft (.fdx), Fountain (.fountain), or Rich Text (.rtf).'
     ],
   };
@@ -562,6 +562,8 @@ function parseScreenplayHtml(html: string, fileName: string): ImportedScreenplay
       fountainLines.push(`${text}\n`);
     } else if (classNames.includes('transition') || classNames.includes('script-transition')) {
       fountainLines.push(`\n> ${text.toUpperCase()}\n`);
+    } else if (classNames.includes('shot') || classNames.includes('script-shot')) {
+      fountainLines.push(`\n${text.toUpperCase()}\n`);
     } else {
       fountainLines.push(`\n${text}\n`);
     }
@@ -607,7 +609,8 @@ export type ScreenplayBlockType =
   | 'character'
   | 'parenthetical'
   | 'dialogue'
-  | 'transition';
+  | 'transition'
+  | 'shot';
 
 export interface ScreenplayDissectedBlock {
   type: ScreenplayBlockType;
@@ -822,6 +825,9 @@ function blocksToFountain(blocks: ScreenplayDissectedBlock[]): string {
       case 'transition':
         lines.push(`\n> ${block.text}\n`);
         break;
+      case 'shot':
+        lines.push(`\n${block.text}\n`);
+        break;
       case 'action':
       default:
         lines.push(`\n${block.text}\n`);
@@ -905,7 +911,17 @@ export async function parseScreenplayPdf(file: File): Promise<ImportedScreenplay
         continue;
       }
 
-      // 2c. Character Cue (must NOT be a non-character time marker or camera direction)
+      // 2c. Shot cue (camera framing, angle, perspective, camera movement, background backdrop)
+      const isShot = line.x < 240 && isShotCandidate(trimmed);
+      if (isShot) {
+        blocks.push({
+          type: 'shot',
+          text: trimmed.toUpperCase(),
+        });
+        continue;
+      }
+
+      // 2d. Character Cue (must NOT be a non-character time marker or camera direction)
       const isCharacter =
         line.x >= 195 &&
         line.x <= 350 &&

@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import { X, Keyboard, Command } from 'lucide-react';
 
 interface KeyboardShortcutsModalProps {
@@ -16,7 +16,7 @@ export const KeyboardShortcutsModal: React.FC<KeyboardShortcutsModalProps> = ({ 
       items: [
         {
           keys: ['Tab'],
-          desc: 'Cycle forward through elements (Scene Heading → Action → Character → Parenthetical → Dialogue → Transition)',
+          desc: 'Cycle forward through elements (Scene Heading → Action → Character → Parenthetical → Dialogue → Transition → Shot)',
         },
         {
           keys: ['Shift', 'Tab'],
@@ -24,7 +24,7 @@ export const KeyboardShortcutsModal: React.FC<KeyboardShortcutsModalProps> = ({ 
         },
         {
           keys: ['Enter'],
-          desc: 'Smart advance: Scene → Action, Character → Dialogue, Paren → Dialogue, Dialogue → Action, Empty Action → Character',
+          desc: 'Smart advance: Scene → Action, Character → Dialogue, Paren → Dialogue, Dialogue → Action, Shot → Action, Empty Action → Character',
         },
         {
           keys: ['Ctrl / Alt', '1'],
@@ -49,6 +49,10 @@ export const KeyboardShortcutsModal: React.FC<KeyboardShortcutsModalProps> = ({ 
         {
           keys: ['Ctrl / Alt', '6'],
           desc: 'Convert current block to Transition (e.g. CUT TO:)',
+        },
+        {
+          keys: ['Ctrl / Alt', '7'],
+          desc: 'Convert current block to Shot (e.g. CLOSE UP, ANGLE ON, POV)',
         },
       ],
     },
