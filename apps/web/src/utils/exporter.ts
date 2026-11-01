@@ -1,5 +1,6 @@
 import { ScreenplayBlock, createScreenplayBlock, RevisionColor, SceneTake, ScriptNote } from '@openscript/screenplay-schema';
 import { serializeFdx } from '@openscript/fdx';
+import { jsPDF } from 'jspdf';
 import { TitlePageMetadata } from '../components/TitlePageModal';
 
 /**
@@ -335,4 +336,274 @@ ${bodyHtml}
 
   const filename = `${sanitizeFilename(metadata.title)}.html`;
   triggerBrowserDownload(fullHtml, filename, 'text/html');
+}
+
+
+export interface PdfExportOptions {
+  blocks: ScreenplayBlock[];
+  metadata: Partial<TitlePageMetadata>;
+  watermarkText?: string;
+  showWatermark?: boolean;
+}
+
+/**
+ * 5. Professional Industry-Standard Screenplay PDF Document Generator
+ * Generates an authentic US Letter screenplay PDF with Courier font, 1.5" left margin,
+ * 1.0" top/bottom/right margins, page numbering at 0.5" top margin, widow/orphan protection,
+ * and classic title page presentation.
+ */
+export function generateScreenplayPdfDoc(options: PdfExportOptions): jsPDF {
+  const { blocks, metadata, watermarkText, showWatermark } = options;
+  const doc = new jsPDF({
+    unit: 'pt',
+    format: 'letter',
+    orientation: 'portrait',
+  });
+
+  const PAGE_WIDTH = 612; // 8.5 inches at 72 pt/in
+  const PAGE_HEIGHT = 792; // 11.0 inches at 72 pt/in
+  const LEFT_MARGIN = 108; // 1.5 inches left margin
+  const RIGHT_MARGIN = 72; // 1.0 inch right margin
+  const CONTENT_RIGHT = PAGE_WIDTH - RIGHT_MARGIN; // 540 pt
+  const CONTENT_WIDTH = CONTENT_RIGHT - LEFT_MARGIN; // 432 pt (6.0 inches)
+  const TOP_MARGIN = 72; // 1.0 inch top margin
+  const BOTTOM_MARGIN = 720; // 10.0 inches (1.0 inch bottom margin)
+  const LINE_HEIGHT = 14.4; // 12pt Courier with standard 1.2 line pitch (6 lines per inch)
+
+  let currentY = TOP_MARGIN;
+  let pageNumber = 1;
+
+  const drawWatermark = () => {
+    const wmText = watermarkText || metadata.watermarkText || (metadata.showWatermark ? 'CONFIDENTIAL' : '');
+    if ((showWatermark || metadata.showWatermark) && wmText) {
+      doc.saveGraphicsState();
+      doc.setFont('courier', 'bold');
+      doc.setFontSize(38);
+      doc.setTextColor(225, 225, 230);
+      doc.text(wmText, PAGE_WIDTH / 2, PAGE_HEIGHT / 2, {
+        align: 'center',
+        angle: 45,
+      });
+      doc.restoreGraphicsState();
+    }
+  };
+
+  const drawPageHeader = (num: number) => {
+    if (num > 1) {
+      doc.setFont('courier', 'normal');
+      doc.setFontSize(10);
+      doc.setTextColor(60, 60, 60);
+      doc.text(`${num}.`, CONTENT_RIGHT, 36, { align: 'right' });
+    }
+  };
+
+  const addNewPage = () => {
+    doc.addPage();
+    pageNumber++;
+    currentY = TOP_MARGIN;
+    drawWatermark();
+    drawPageHeader(pageNumber);
+  };
+
+  // 1. Render Screenplay Title Page
+  if (metadata.showTitlePage !== false) {
+    drawWatermark();
+
+    const title = metadata.title || 'UNTITLED SCREENPLAY';
+    const credit = metadata.credit || 'written by';
+    const author = metadata.author || 'Author';
+
+    // Title centered
+    doc.setFont('courier', 'bold');
+    doc.setFontSize(18);
+    doc.setTextColor(0, 0, 0);
+    doc.text(title.toUpperCase(), PAGE_WIDTH / 2, 280, { align: 'center' });
+
+    // Underline beneath title
+    const titleWidth = doc.getTextWidth(title.toUpperCase());
+    doc.setLineWidth(1.2);
+    doc.line((PAGE_WIDTH - titleWidth) / 2, 286, (PAGE_WIDTH + titleWidth) / 2, 286);
+
+    // Credit & Author
+    doc.setFont('courier', 'normal');
+    doc.setFontSize(12);
+    doc.text(credit, PAGE_WIDTH / 2, 330, { align: 'center' });
+
+    doc.setFont('courier', 'bold');
+    doc.setFontSize(13);
+    doc.text(author, PAGE_WIDTH / 2, 360, { align: 'center' });
+
+    if (metadata.basedOn) {
+      doc.setFont('courier', 'normal');
+      doc.setFontSize(10);
+      doc.text(`Based on: ${metadata.basedOn}`, PAGE_WIDTH / 2, 395, { align: 'center' });
+    }
+
+    // Title Page Bottom metadata
+    // Left: Contact & Copyright
+    const contactLines = (metadata.contact || 'SSN Pictures\ncontact@ssnpictures.in').split('\n');
+    doc.setFont('courier', 'normal');
+    doc.setFontSize(10);
+    doc.setTextColor(50, 50, 50);
+    let contactY = 660;
+    for (const line of contactLines) {
+      doc.text(line.trim(), LEFT_MARGIN, contactY);
+      contactY += 13;
+    }
+    if (metadata.copyright) {
+      doc.text(metadata.copyright, LEFT_MARGIN, contactY + 4);
+    }
+
+    // Right: Draft Color / Draft Date
+    const draftDate = metadata.draftDate || new Date().toISOString().split('T')[0];
+    const draftLabel = metadata.draftLabel || 'White Production Draft';
+    doc.setFont('courier', 'bold');
+    doc.text(draftLabel, CONTENT_RIGHT, 660, { align: 'right' });
+    doc.setFont('courier', 'normal');
+    doc.text(draftDate, CONTENT_RIGHT, 674, { align: 'right' });
+
+    // Advance to Page 1 of Screenplay text
+    doc.addPage();
+    pageNumber = 1;
+  }
+
+  drawWatermark();
+  // Script Page 1 has no page number header by industry convention
+
+  // 2. Render Screenplay Blocks
+  for (let i = 0; i < blocks.length; i++) {
+    const block = blocks[i];
+    const text = block.text?.trim();
+    if (!text) continue;
+
+    switch (block.type) {
+      case 'sceneHeading': {
+        // Widow/orphan protection: scene heading needs at least 3 lines budget
+        if (currentY + LINE_HEIGHT * 3 > BOTTOM_MARGIN) {
+          addNewPage();
+        } else if (currentY > TOP_MARGIN) {
+          // 2 blank lines before scene heading unless starting at top of page
+          currentY += LINE_HEIGHT * 2;
+        }
+
+        doc.setFont('courier', 'bold');
+        doc.setFontSize(12);
+        doc.setTextColor(0, 0, 0);
+
+        const headingText = text.toUpperCase();
+        // Scene numbers in margin gutters
+        if (block.sceneNumber) {
+          doc.setFont('courier', 'normal');
+          doc.setFontSize(11);
+          doc.text(block.sceneNumber, 72, currentY, { align: 'right' });
+          doc.text(block.sceneNumber, CONTENT_RIGHT + 16, currentY, { align: 'left' });
+          doc.setFont('courier', 'bold');
+          doc.setFontSize(12);
+        }
+
+        const lines = doc.splitTextToSize(headingText, CONTENT_WIDTH);
+        for (const line of lines) {
+          if (currentY + LINE_HEIGHT > BOTTOM_MARGIN) addNewPage();
+          doc.text(line, LEFT_MARGIN, currentY);
+          currentY += LINE_HEIGHT;
+        }
+        currentY += LINE_HEIGHT * 0.4;
+        break;
+      }
+
+      case 'action': {
+        if (currentY > TOP_MARGIN) {
+          currentY += LINE_HEIGHT;
+        }
+        doc.setFont('courier', 'normal');
+        doc.setFontSize(12);
+        doc.setTextColor(0, 0, 0);
+
+        const lines = doc.splitTextToSize(text, CONTENT_WIDTH);
+        for (const line of lines) {
+          if (currentY + LINE_HEIGHT > BOTTOM_MARGIN) addNewPage();
+          doc.text(line, LEFT_MARGIN, currentY);
+          currentY += LINE_HEIGHT;
+        }
+        break;
+      }
+
+      case 'character': {
+        // Widow/orphan protection: character cue + dialogue needs at least 2 lines
+        if (currentY + LINE_HEIGHT * 2 > BOTTOM_MARGIN) {
+          addNewPage();
+        } else if (currentY > TOP_MARGIN) {
+          currentY += LINE_HEIGHT;
+        }
+
+        doc.setFont('courier', 'bold');
+        doc.setFontSize(12);
+        doc.setTextColor(0, 0, 0);
+
+        const charX = 266.4; // 3.7 inches from left edge
+        doc.text(text.toUpperCase(), charX, currentY);
+        currentY += LINE_HEIGHT;
+        break;
+      }
+
+      case 'parenthetical': {
+        doc.setFont('courier', 'normal');
+        doc.setFontSize(12);
+        doc.setTextColor(0, 0, 0);
+
+        const pX = 223.2; // 3.1 inches from left
+        const pWidth = 216; // 3.0 inches wide (~30 chars)
+        const formatted = text.startsWith('(') && text.endsWith(')') ? text : `(${text})`;
+        const lines = doc.splitTextToSize(formatted, pWidth);
+        for (const line of lines) {
+          if (currentY + LINE_HEIGHT > BOTTOM_MARGIN) addNewPage();
+          doc.text(line, pX, currentY);
+          currentY += LINE_HEIGHT;
+        }
+        break;
+      }
+
+      case 'dialogue': {
+        doc.setFont('courier', 'normal');
+        doc.setFontSize(12);
+        doc.setTextColor(0, 0, 0);
+
+        const dX = 180; // 2.5 inches from left
+        const dWidth = 252; // 3.5 inches wide (~35 characters)
+        const lines = doc.splitTextToSize(text, dWidth);
+        for (const line of lines) {
+          if (currentY + LINE_HEIGHT > BOTTOM_MARGIN) addNewPage();
+          doc.text(line, dX, currentY);
+          currentY += LINE_HEIGHT;
+        }
+        break;
+      }
+
+      case 'transition': {
+        if (currentY > TOP_MARGIN) {
+          currentY += LINE_HEIGHT;
+        }
+        doc.setFont('courier', 'bold');
+        doc.setFontSize(12);
+        doc.setTextColor(0, 0, 0);
+
+        const tText = text.toUpperCase();
+        doc.text(tText, CONTENT_RIGHT, currentY, { align: 'right' });
+        currentY += LINE_HEIGHT;
+        break;
+      }
+    }
+  }
+
+  return doc;
+}
+
+/**
+ * Triggers instant browser download of the formatted Screenplay PDF file
+ */
+export function exportScreenplayPdf(options: PdfExportOptions): void {
+  const doc = generateScreenplayPdfDoc(options);
+  const title = options.metadata?.title || 'Screenplay';
+  const filename = `${sanitizeFilename(title)}.pdf`;
+  doc.save(filename);
 }

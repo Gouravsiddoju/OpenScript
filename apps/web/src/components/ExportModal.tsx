@@ -17,6 +17,7 @@ import {
   exportFinalDraftFdx,
   exportFountainFile,
   exportHtmlFile,
+  exportScreenplayPdf,
 } from '../utils/exporter';
 
 export interface ExportModalProps {
@@ -71,6 +72,16 @@ export const ExportModal: React.FC<ExportModalProps> = ({
 
   const handleExportHtml = () => {
     exportHtmlFile({ blocks, metadata });
+  };
+
+  const handleDownloadPdf = () => {
+    exportScreenplayPdf({
+      blocks,
+      metadata,
+      showWatermark: metadata.showWatermark,
+      watermarkText: metadata.watermarkText,
+    });
+    onClose();
   };
 
   const handlePrintPdf = () => {
@@ -137,27 +148,38 @@ export const ExportModal: React.FC<ExportModalProps> = ({
           <div className="p-4 rounded-xl bg-[#131622] border border-[#262c3e] hover:border-amber-500/50 transition-all flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div className="flex items-start gap-3.5">
               <div className="w-10 h-10 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400 shrink-0 mt-0.5">
-                <Printer className="w-5 h-5" />
+                <Download className="w-5 h-5" />
               </div>
               <div>
                 <div className="flex items-center gap-2">
-                  <h3 className="text-sm font-bold text-white">Standard Screenplay PDF</h3>
+                  <h3 className="text-sm font-bold text-white">Screenplay PDF (.pdf)</h3>
                   <span className="text-[10px] uppercase font-mono px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">
-                    Production Print
+                    Industry Standard
                   </span>
                 </div>
                 <p className="text-xs text-gray-400 mt-1 leading-relaxed">
-                  Courier Prime 12pt layout with Title Page, page headers, industry margins (1.5" left), watermarks, and widow/orphan protection.
+                  Direct US Letter vector PDF with Courier font, 1.5" left margin, 1.0" top/bottom/right margins, page numbers, title page, and watermarks.
                 </p>
               </div>
             </div>
-            <button
-              onClick={handlePrintPdf}
-              className="w-full sm:w-auto shrink-0 flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-black font-bold text-xs shadow-lg shadow-amber-500/20 transition-all"
-            >
-              <Printer className="w-4 h-4" />
-              <span>Print / Save as PDF</span>
-            </button>
+            <div className="w-full sm:w-auto shrink-0 flex items-center gap-2">
+              <button
+                onClick={handleDownloadPdf}
+                className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-black font-bold text-xs shadow-lg shadow-amber-500/20 transition-all"
+                title="Download formatted Screenplay PDF file"
+              >
+                <Download className="w-4 h-4" />
+                <span>Download PDF</span>
+              </button>
+              <button
+                onClick={handlePrintPdf}
+                className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-[#1a1e2a] hover:bg-[#252b3c] border border-[#343b52] text-gray-300 hover:text-white text-xs font-mono transition-colors"
+                title="Open browser print dialog"
+              >
+                <Printer className="w-3.5 h-3.5" />
+                <span>Print</span>
+              </button>
+            </div>
           </div>
 
           {/* 2. OpenScript Project Snapshot (100% Reloadable) */}
