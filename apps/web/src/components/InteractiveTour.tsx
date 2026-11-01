@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+﻿import React, { useState, useEffect, useCallback } from 'react';
 import {
   X,
   ArrowRight,
@@ -107,11 +107,13 @@ export const InteractiveTour: React.FC<InteractiveTourProps> = ({ isOpen, onClos
     if (!isOpen) return;
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
+        localStorage.setItem('openscript_seen_guide_tour', 'true');
         onClose();
       } else if (e.key === 'ArrowRight') {
         if (currentStepIndex < TOUR_STEPS.length - 1) {
           setCurrentStepIndex((prev) => prev + 1);
         } else {
+          localStorage.setItem('openscript_seen_guide_tour', 'true');
           onClose();
         }
       } else if (e.key === 'ArrowLeft') {

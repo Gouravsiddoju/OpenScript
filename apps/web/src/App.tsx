@@ -749,13 +749,24 @@ export default function App() {
     setIsAuthModalOpen(true);
   };
 
-  const handleAuthSuccess = (user: UserProfileData, token: string) => {
+  const handleAuthSuccess = (user: UserProfileData, token: string, isNewUser?: boolean) => {
     setCurrentUser(user);
     setAuthToken(token);
     setCurrentUserRole(user.role);
     localStorage.setItem('openscript_current_user', JSON.stringify(user));
     localStorage.setItem('openscript_auth_token', token);
     localStorage.setItem('openscript_user_role', user.role);
+
+    // Interactive Guide is triggered JUST ONCE when a new user registers & logs in
+    const userTourKey = `openscript_tour_seen_${user.id || user.email || 'user'}`;
+    const globalTourSeen = localStorage.getItem('openscript_seen_guide_tour');
+    const userTourSeen = localStorage.getItem(userTourKey);
+
+    if (isNewUser && !userTourSeen && !globalTourSeen) {
+      setTimeout(() => {
+        setIsTourOpen(true);
+      }, 700);
+    }
   };
 
   // 1. Initial backend sync for Notes & Collaborators
@@ -2271,7 +2282,6 @@ Neon reflections shimmer in deep puddles. Sirens echo in the far distance.`;
       <KeyboardShortcutsModal
         isOpen={isShortcutsModalOpen}
         onClose={() => setIsShortcutsModalOpen(false)}
-        onStartTour={() => setIsTourOpen(true)}
       />
 
       {/* Universal Screenplay Import Modal (Final Draft, Scrivener, Highland, Text) */}
@@ -2306,7 +2316,13 @@ Neon reflections shimmer in deep puddles. Sirens echo in the far distance.`;
             {/* Interactive On-Screen Spotlight Tour */}
       <InteractiveTour
         isOpen={isTourOpen}
-        onClose={() => setIsTourOpen(false)}
+        onClose={() => {
+          localStorage.setItem('openscript_seen_guide_tour', 'true');
+          if (currentUser?.id || currentUser?.email) {
+            localStorage.setItem(`openscript_tour_seen_${currentUser.id || currentUser.email}`, 'true');
+          }
+          setIsTourOpen(false);
+        }}
       />
 
       {/* Cloud Storage & Automated Snapshots Modal */}

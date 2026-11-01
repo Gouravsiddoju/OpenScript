@@ -4,10 +4,9 @@ import { X, Keyboard, Command } from 'lucide-react';
 interface KeyboardShortcutsModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onStartTour?: () => void;
 }
 
-export const KeyboardShortcutsModal: React.FC<KeyboardShortcutsModalProps> = ({ isOpen, onClose, onStartTour }) => {
+export const KeyboardShortcutsModal: React.FC<KeyboardShortcutsModalProps> = ({ isOpen, onClose }) => {
   if (!isOpen) return null;
 
   const shortcutSections = [
