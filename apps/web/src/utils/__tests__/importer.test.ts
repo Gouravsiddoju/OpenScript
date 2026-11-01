@@ -431,6 +431,35 @@ CourierPrime;
     expect(result.scriptHtml).not.toContain('<div class="script-character">THE END</div>');
   });
 
+
+  it('correctly categorizes spoken lines under characters as dialogue, NOT action', async () => {
+    const pdfFile = createVectorScreenplayPdf([
+      { text: 'INT. OFFICE - DAY', x: 72, y: 700 },
+      { text: 'ASSISTANT', x: 260, y: 640 },
+      { text: 'What do you think sir?', x: 108, y: 620 },
+      { text: 'DETECTIVE', x: 260, y: 580 },
+      { text: '(with sign)', x: 200, y: 560 },
+      { text: 'there are no suspects?', x: 108, y: 540 },
+      { text: 'Assistant listening carefully.', x: 72, y: 500 },
+      { text: 'DETECTIVE', x: 260, y: 460 },
+      { text: 'so that ring is either his engagement ring.', x: 108, y: 440 },
+    ], 'dialogue_test.pdf');
+
+    const result = await importScreenplayFile(pdfFile);
+
+    expect(result.scriptHtml).toContain('<div class="script-character">ASSISTANT</div>');
+    expect(result.scriptHtml).toContain('<div class="script-dialogue">What do you think sir?</div>');
+    expect(result.scriptHtml).toContain('<div class="script-character">DETECTIVE</div>');
+    expect(result.scriptHtml).toContain('<div class="script-parenthetical">(with sign)</div>');
+    expect(result.scriptHtml).toContain('<div class="script-dialogue">there are no suspects?</div>');
+    expect(result.scriptHtml).toContain('<div class="script-action">Assistant listening carefully.</div>');
+    expect(result.scriptHtml).toContain('<div class="script-dialogue">so that ring is either his engagement ring.</div>');
+
+    // Ensure they were NOT erroneously converted into action
+    expect(result.scriptHtml).not.toContain('<div class="script-action">What do you think sir?</div>');
+    expect(result.scriptHtml).not.toContain('<div class="script-action">there are no suspects?</div>');
+  });
+
   it('rejects date/timestamp header from PDF title and falls back cleanly to file name', async () => {
     const pdfFile = createVectorScreenplayPdf([
       { text: '31 DECEMBER 2025 AT 14:30', x: 200, y: 700 },

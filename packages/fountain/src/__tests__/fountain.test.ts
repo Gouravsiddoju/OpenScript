@@ -28,6 +28,31 @@ describe('Fountain Parser & Serializer', () => {
     expect(blocks[3].type).toBe('action');
   });
 
+  it('correctly parses dialogue even with blank line under character and parenthetical', () => {
+    const text = `ASSISTANT\n\nWhat do you think sir?\n\nDETECTIVE\n\n(with sign)\n\nthere are no suspects?\n\nAssistant listening carefully.\n\nDETECTIVE\n\nso that ring is either his engagement ring.`;
+    const blocks = parseFountain(text);
+
+    expect(blocks[0].type).toBe('character');
+    expect(blocks[0].text).toBe('ASSISTANT');
+    expect(blocks[1].type).toBe('dialogue');
+    expect(blocks[1].text).toBe('What do you think sir?');
+
+    expect(blocks[2].type).toBe('character');
+    expect(blocks[2].text).toBe('DETECTIVE');
+    expect(blocks[3].type).toBe('parenthetical');
+    expect(blocks[3].text).toBe('(with sign)');
+    expect(blocks[4].type).toBe('dialogue');
+    expect(blocks[4].text).toBe('there are no suspects?');
+
+    expect(blocks[5].type).toBe('action');
+    expect(blocks[5].text).toBe('Assistant listening carefully.');
+
+    expect(blocks[6].type).toBe('character');
+    expect(blocks[6].text).toBe('DETECTIVE');
+    expect(blocks[7].type).toBe('dialogue');
+    expect(blocks[7].text).toBe('so that ring is either his engagement ring.');
+  });
+
   it('parses character cue and dialogue sequence', () => {
     const text = `JOHN\n(quietly)\nWe cannot stay here any longer.`;
     const blocks = parseFountain(text);
