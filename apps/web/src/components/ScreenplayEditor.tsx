@@ -33,13 +33,10 @@ interface ScreenplayEditorProps {
 }
 
 const DEFAULT_SCRIPT_HTML = `
-  <div class="script-scene-heading">INT. COFFEE SHOP - DAY</div>
-  <div class="script-action">Rain drums against the tall glass windows. A steaming cup of espresso rests on the counter.</div>
-  <div class="script-character">MAYA</div>
-  <div class="script-parenthetical">(checking her watch)</div>
-  <div class="script-dialogue">He should have been here twenty minutes ago. We don't have all day.</div>
-  <div class="script-action">The front door chimes. A soaked figure in a black trench coat steps inside.</div>
-  <div class="script-transition">CUT TO:</div>
+  <div class="script-scene-heading">EXT. CITY STREET - DAY</div>
+  <div class="script-action">A quiet morning. Sunlight filters through the skyscrapers as the city begins to move.</div>
+  <div class="script-character">WRITER</div>
+  <div class="script-dialogue">Every story begins with a blank page.</div>
 `;
 
 const STANDARD_TRANSITIONS = ['CUT TO:', 'FADE OUT.', 'DISSOLVE TO:', 'SMASH CUT TO:', 'MATCH CUT TO:'];
@@ -70,7 +67,7 @@ export const ScreenplayEditor: React.FC<ScreenplayEditorProps> = ({
   onShowHeader,
 }) => {
   const initialKnownChars = useMemo(() => {
-    const chars = new Set<string>(['MAYA', 'GOURAV']);
+    const chars = new Set<string>();
     try {
       const parser = new DOMParser();
       const doc = parser.parseFromString(initialContent, 'text/html');

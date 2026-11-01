@@ -38,56 +38,34 @@ function handleLocalStudioAuth(
     if (existingUsersRaw) existingUsers = JSON.parse(existingUsersRaw);
   } catch {}
 
-  const defaultKnown: Record<string, any> = {
-    'gourav@ssnpictures.in': {
-      id: '11111111-1111-1111-1111-111111111111',
-      email: 'gourav@ssnpictures.in',
-      displayName: 'Gourav (SSN)',
-      role: 'owner',
-      studio: 'SSN Pictures Studio',
-      color: '#f59e0b',
-    },
-    'navateja@ssnpictures.in': {
-      id: '22222222-2222-2222-2222-222222222222',
-      email: 'navateja@ssnpictures.in',
-      displayName: 'Navateja',
-      role: 'co-writer',
-      studio: 'SSN Pictures Studio',
-      color: '#3b82f6',
-    },
-    'sarah.prod@studio.com': {
-      id: '33333333-3333-3333-3333-333333333333',
-      email: 'sarah.prod@studio.com',
-      displayName: 'Sarah',
-      role: 'commenter',
-      studio: 'SSN Pictures Studio',
-      color: '#ec4899',
-    },
-  };
-
-  const allUsers = { ...defaultKnown, ...existingUsers };
-
   if (mode === 'register') {
+    const name = displayName?.trim() || cleanEmail.split('@')[0];
     const newUser = {
       id: typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `user-${Date.now()}`,
       email: cleanEmail,
-      displayName: displayName?.trim() || cleanEmail.split('@')[0],
+      displayName: name,
       role: 'owner',
-      studio: 'SSN Pictures Studio',
+      studio: `${name}'s Studio`,
       color: '#f59e0b',
     };
-    allUsers[cleanEmail] = newUser;
-    localStorage.setItem('openscript_local_users', JSON.stringify(allUsers));
+    existingUsers[cleanEmail] = newUser;
+    localStorage.setItem('openscript_local_users', JSON.stringify(existingUsers));
     return { user: newUser, token: `local-token-${Date.now()}` };
   } else {
-    const found = allUsers[cleanEmail] || {
-      id: typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `user-${Date.now()}`,
-      email: cleanEmail,
-      displayName: cleanEmail.split('@')[0],
-      role: 'owner',
-      studio: 'SSN Pictures Studio',
-      color: '#f59e0b',
-    };
+    let found = existingUsers[cleanEmail];
+    if (!found) {
+      const name = cleanEmail.split('@')[0];
+      found = {
+        id: typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `user-${Date.now()}`,
+        email: cleanEmail,
+        displayName: name,
+        role: 'owner',
+        studio: `${name}'s Studio`,
+        color: '#f59e0b',
+      };
+      existingUsers[cleanEmail] = found;
+      localStorage.setItem('openscript_local_users', JSON.stringify(existingUsers));
+    }
     return { user: found, token: `local-token-${Date.now()}` };
   }
 }
@@ -174,12 +152,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     } finally {
       setIsLoading(false);
     }
-  };
-
-  const handleQuickDemoLogin = (demoEmail: string, demoRole: any, demoName: string) => {
-    setEmail(demoEmail);
-    setPassword('password123');
-    setError(null);
   };
 
   return (
@@ -417,39 +389,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               )}
             </button>
 
-            {/* Quick Demo Access Badges */}
-            <div className="pt-3 border-t border-white/5 space-y-2">
-              <div className="flex items-center justify-between text-[10px] font-mono text-gray-500 uppercase tracking-wider">
-                <span className="flex items-center gap-1.5 text-amber-400/90 font-semibold">
-                  <Sparkles className="w-3 h-3 text-amber-400" /> Quick Demo Accounts:
-                </span>
-                <span>Click to autofill</span>
-              </div>
-              <div className="grid grid-cols-3 gap-1.5">
-                {[
-                  { name: 'Gourav', email: 'gourav@ssnpictures.in', role: 'owner', label: 'Owner', color: '#f59e0b' },
-                  { name: 'Navateja', email: 'navateja@ssnpictures.in', role: 'co-writer', label: 'Co-writer', color: '#3b82f6' },
-                  { name: 'Sarah', email: 'sarah.prod@studio.com', role: 'commenter', label: 'Producer', color: '#ec4899' },
-                ].map((demo) => (
-                  <button
-                    key={demo.email}
-                    type="button"
-                    onClick={() => handleQuickDemoLogin(demo.email, demo.role, demo.name)}
-                    className="p-2 rounded-xl bg-[#141720]/80 hover:bg-[#1b1f2b] border border-white/5 hover:border-amber-500/40 text-left transition-all duration-150 cursor-pointer group"
-                  >
-                    <div className="flex items-center gap-1.5 mb-0.5">
-                      <span className="w-2 h-2 rounded-full" style={{ backgroundColor: demo.color }} />
-                      <div className="text-[11px] font-semibold text-gray-200 group-hover:text-amber-300 transition-colors truncate">
-                        {demo.name}
-                      </div>
-                    </div>
-                    <div className="text-[9px] font-mono text-gray-400">
-                      {demo.label}
-                    </div>
-                  </button>
-                ))}
-              </div>
-            </div>
           </form>
         </div>
       </div>

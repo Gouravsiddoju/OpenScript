@@ -71,15 +71,10 @@ import {
 } from '@openscript/screenplay-schema';
 
 const INITIAL_SCRIPT_HTML = `
-  <div class="script-scene-heading">INT. COFFEE SHOP - DAY</div>
-  <div class="script-action">Rain drums against the tall glass windows. A steaming cup of espresso rests on the counter.</div>
-  <div class="script-character">MAYA</div>
-  <div class="script-parenthetical">(checking her watch)</div>
-  <div class="script-dialogue">He should have been here twenty minutes ago. We don't have all day.</div>
-  <div class="script-action">The front door chimes. A soaked figure in a black trench coat steps inside.</div>
-  <div class="script-transition">CUT TO:</div>
-  <div class="script-scene-heading">EXT. ALLEYWAY - CONTINUOUS</div>
-  <div class="script-action">Neon reflections shimmer in deep puddles. Sirens echo in the far distance.</div>
+  <div class="script-scene-heading">EXT. CITY STREET - DAY</div>
+  <div class="script-action">A quiet morning. Sunlight filters through the skyscrapers as the city begins to move.</div>
+  <div class="script-character">WRITER</div>
+  <div class="script-dialogue">Every story begins with a blank page.</div>
 `;
 
 function computeEighths(lineCount: number): string {
@@ -853,14 +848,24 @@ export default function App() {
 
   const [titleMetadata, setTitleMetadata] = useState<TitlePageMetadata>(() => {
     const saved = localStorage.getItem('openscript_title_metadata');
-    return saved ? JSON.parse(saved) : {
-      title: 'THE GLASS COUNTER',
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (parsed.title === 'THE GLASS COUNTER' || parsed.title === 'THE NEON DRIFT') {
+          localStorage.removeItem('openscript_title_metadata');
+        } else {
+          return parsed;
+        }
+      } catch {}
+    }
+    return {
+      title: 'UNTITLED SCREENPLAY',
       credit: 'written by',
-      author: 'Gourav Siddoju',
+      author: 'Author Name',
       basedOn: '',
-      contact: 'SSN Pictures\ncontact@ssnpictures.in',
-      draftLabel: 'White Production Draft',
-      draftDate: 'October 2026',
+      contact: '',
+      draftLabel: 'First Draft',
+      draftDate: new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }),
       showTitlePage: true,
       watermarkText: 'CONFIDENTIAL',
       showWatermark: false,
@@ -868,25 +873,27 @@ export default function App() {
   });
 
   const [scriptHtml, setScriptHtml] = useState<string>(() => {
-    return localStorage.getItem('openscript_draft_html') || INITIAL_SCRIPT_HTML;
+    const saved = localStorage.getItem('openscript_draft_html');
+    if (saved) {
+      if (saved.includes('MAYA') && saved.includes('twenty minutes ago')) {
+        localStorage.removeItem('openscript_draft_html');
+      } else {
+        return saved;
+      }
+    }
+    return INITIAL_SCRIPT_HTML;
   });
+
   const [fountainText, setFountainText] = useState<string>(() => {
-    return localStorage.getItem('openscript_draft_fountain') || 
-`INT. COFFEE SHOP - DAY
-
-Rain drums against the tall glass windows. A steaming cup of espresso rests on the counter.
-
-MAYA
-(checking her watch)
-He should have been here twenty minutes ago. We don't have all day.
-
-The front door chimes. A soaked figure in a black trench coat steps inside.
-
-> CUT TO:
-
-EXT. ALLEYWAY - CONTINUOUS
-
-Neon reflections shimmer in deep puddles. Sirens echo in the far distance.`;
+    const saved = localStorage.getItem('openscript_draft_fountain');
+    if (saved) {
+      if (saved.includes('MAYA') && saved.includes('twenty minutes ago')) {
+        localStorage.removeItem('openscript_draft_fountain');
+      } else {
+        return saved;
+      }
+    }
+    return `EXT. CITY STREET - DAY\n\nA quiet morning. Sunlight filters through the skyscrapers as the city begins to move.\n\nWRITER\nEvery story begins with a blank page.`;
   });
 
   const [editorInstance, setEditorInstance] = useState<any>(null);
@@ -1691,7 +1698,7 @@ Neon reflections shimmer in deep puddles. Sirens echo in the far distance.`;
             setSelectedPeerProfile(null);
             setIsProfileModalOpen(true);
           }}
-          currentUser={currentUser}
+          currentUser={currentUser || { displayName: 'Screenwriter', role: 'owner' }}
         />
 
         <ImportModal
@@ -2270,11 +2277,6 @@ Neon reflections shimmer in deep puddles. Sirens echo in the far distance.`;
         onUpdateRole={handleUpdateCollaboratorRole}
         onRemoveCollaborator={handleRemoveCollaborator}
         currentUserRole={currentUserRole}
-        onChangeUserRolePreview={(newRole) => {
-          setCurrentUserRole(newRole);
-          setCurrentUser((prev) => ({ ...prev, role: newRole }));
-          localStorage.setItem('openscript_user_role', newRole);
-        }}
         documentTitle={titleMetadata.title}
       />
 
@@ -2345,7 +2347,7 @@ Neon reflections shimmer in deep puddles. Sirens echo in the far distance.`;
         scene={selectedSceneForTakes}
         takes={sceneTakes}
         currentUserRole={currentUserRole}
-        currentUserName={currentUser.displayName}
+        currentUserName={currentUser?.displayName || 'Screenwriter'}
         onFinalizeTake={handleFinalizeSceneTake}
         onProposeTake={handleProposeSceneTake}
       />
@@ -2357,12 +2359,13 @@ Neon reflections shimmer in deep puddles. Sirens echo in the far distance.`;
           setIsProfileModalOpen(false);
           setSelectedPeerProfile(null);
         }}
-        user={selectedPeerProfile || currentUser}
-        onUpdateDisplayName={selectedPeerProfile ? undefined : handleUpdateDisplayName}
-        onChangeRolePreview={(newRole) => {
-          setCurrentUserRole(newRole);
-          setCurrentUser((prev) => ({ ...prev, role: newRole }));
-          localStorage.setItem('openscript_user_role', newRole);
+        user={selectedPeerProfile || currentUser || {
+          id: 'user',
+          email: '',
+          displayName: 'Screenwriter',
+          role: 'owner',
+          studio: 'OpenScript Studio',
+          color: '#f59e0b',
         }}
         onLogout={handleLogout}
         onOpenLogin={() => setIsAuthModalOpen(true)}
