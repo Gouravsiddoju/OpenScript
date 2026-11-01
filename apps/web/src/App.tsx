@@ -425,6 +425,7 @@ export default function App() {
   const [droppedImportFile, setDroppedImportFile] = useState<File | null>(null);
   const [droppedFolderEntry, setDroppedFolderEntry] = useState<any>(null);
   const [currentPage, setCurrentPage] = useState<number>(1);
+  const [documentTotalPages, setDocumentTotalPages] = useState<number>(1);
   const saveCurrentProject = () => {
     const activeId = getActiveProjectId();
     const existing = getProject(activeId);
@@ -1706,7 +1707,7 @@ Neon reflections shimmer in deep puddles. Sirens echo in the far distance.`;
               <ChevronRight className="w-3.5 h-3.5 text-gray-600 hidden md:inline" />
               <span className="text-amber-500/90 hidden md:flex items-center gap-1">
                 <Clock className="w-3 h-3" />
-                <span>Page {currentPage} of {metrics.estimatedPages} ({metrics.estimatedPages} mins)</span>
+                <span>Page {currentPage} of {documentTotalPages || metrics.estimatedPages} ({metrics.estimatedPages} mins)</span>
               </span>
             </div>
           </div>
@@ -1921,7 +1922,10 @@ Neon reflections shimmer in deep puddles. Sirens echo in the far distance.`;
               notes={notes}
               onAddNoteFromSelection={(selectedText, commentText, category) => handleAddNote(category, commentText, undefined, selectedText)}
               onOpenSceneTakesForBlock={handleOpenSceneTakesForBlockText}
-              onPageChange={(page) => setCurrentPage(page)}
+              onPageChange={(page, totalPages) => {
+                setCurrentPage(page);
+                if (totalPages) setDocumentTotalPages(totalPages);
+              }}
             />
           )}
 
@@ -1955,7 +1959,7 @@ Neon reflections shimmer in deep puddles. Sirens echo in the far distance.`;
         {/* Studio Status Bar (Lovable-calibrated metrics footer) */}
         <footer className="no-print h-8 shrink-0 border-t border-[#1c1e24] bg-[#0c0d0f] px-4 flex items-center justify-between text-[11px] font-mono text-gray-400 select-none">
           <div className="flex items-center gap-3">
-            <span className="text-gray-200 font-semibold">Page {currentPage} of {metrics.estimatedPages}</span>
+            <span className="text-gray-200 font-semibold">Page {currentPage} of {documentTotalPages || metrics.estimatedPages}</span>
             <span className="text-gray-600">·</span>
             <span>{scenes.length} {scenes.length === 1 ? 'scene' : 'scenes'}</span>
             <span className="text-gray-600">·</span>

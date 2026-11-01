@@ -573,7 +573,7 @@ export const ScreenplayEditor: React.FC<ScreenplayEditorProps> = ({
   const isCurrentBlockMarked = Boolean(currentSelectionParent.attrs.revisionMark);
 
   return (
-    <div className="flex flex-col items-center w-full">
+    <div className="flex flex-col items-center w-full min-h-full pb-24">
       {/* Dynamic Dialogue Isolator Styles */}
       {isolatedCharacter && (
         <style>{`
@@ -781,7 +781,7 @@ export const ScreenplayEditor: React.FC<ScreenplayEditorProps> = ({
             }
           }
         }}
-        className={`screenplay-page font-screenplay select-text relative ${isolatedCharacter ? 'isolating-active' : ''}`}
+        className={`screenplay-page font-screenplay select-text relative shrink-0 shadow-2xl ${isolatedCharacter ? 'isolating-active' : ''}`}
       >
         {(metadata?.showWatermark && metadata?.watermarkText) ? (
           <div className="screenplay-watermark">{metadata.watermarkText}</div>
