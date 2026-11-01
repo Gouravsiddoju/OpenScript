@@ -13,6 +13,28 @@ const commonAttributes = {
       };
     },
   },
+  pageBreak: {
+    default: null,
+    keepOnSplit: false,
+    parseHTML: (element: HTMLElement) => element.getAttribute('data-page-break'),
+    renderHTML: (attributes: Record<string, any>) => {
+      if (!attributes.pageBreak) return {};
+      return {
+        'data-page-break': attributes.pageBreak,
+      };
+    },
+  },
+  actBreak: {
+    default: null,
+    keepOnSplit: false,
+    parseHTML: (element: HTMLElement) => element.getAttribute('data-act-break'),
+    renderHTML: (attributes: Record<string, any>) => {
+      if (!attributes.actBreak) return {};
+      return {
+        'data-act-break': attributes.actBreak,
+      };
+    },
+  },
   revisionColor: {
     default: null,
     keepOnSplit: false,
@@ -176,3 +198,4 @@ export const screenplayNodes = [
   TransitionNode,
   DualDialogueNode,
 ];
+
