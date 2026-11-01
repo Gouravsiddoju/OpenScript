@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { htmlToBlocks, blocksToFountainText, generateScreenplayPdfDoc } from '../exporter';
+import { htmlToBlocks, blocksToFountainText, generateScreenplayPdfDoc, saveScreenplayToLocalDisk } from '../exporter';
 import { importScreenplayFile } from '../importer';
 import { ScreenplayBlock, createScreenplayBlock } from '@openscript/screenplay-schema';
 import { serializeFdx } from '@openscript/fdx';
@@ -8,6 +8,7 @@ describe('Universal Screenplay Exporter & Round-Trip', () => {
   it('converts screenplay HTML into structured ScreenplayBlock array', () => {
     const html = `
       <div class="script-scene-heading" data-scene-number="1">INT. LAB - NIGHT</div>
+      <div class="script-shot">WIDE SHOT - THE LAB</div>
       <div class="script-action">Dr. Aris monitors the glowing core.</div>
       <div class="script-character">ARIS</div>
       <div class="script-parenthetical">(whispering)</div>
@@ -16,18 +17,20 @@ describe('Universal Screenplay Exporter & Round-Trip', () => {
     `;
 
     const blocks = htmlToBlocks(html);
-    expect(blocks.length).toBe(6);
+    expect(blocks.length).toBe(7);
+    expect(blocks[1].type).toBe('shot');
+    expect(blocks[1].text).toBe('WIDE SHOT - THE LAB');
     expect(blocks[0].type).toBe('sceneHeading');
     expect(blocks[0].text).toBe('INT. LAB - NIGHT');
     expect(blocks[0].sceneNumber).toBe('1');
 
-    expect(blocks[1].type).toBe('action');
-    expect(blocks[2].type).toBe('character');
-    expect(blocks[2].text).toBe('ARIS');
-    expect(blocks[3].type).toBe('parenthetical');
-    expect(blocks[4].type).toBe('dialogue');
-    expect(blocks[4].text).toBe('It works.');
-    expect(blocks[5].type).toBe('transition');
+    expect(blocks[2].type).toBe('action');
+    expect(blocks[3].type).toBe('character');
+    expect(blocks[3].text).toBe('ARIS');
+    expect(blocks[4].type).toBe('parenthetical');
+    expect(blocks[5].type).toBe('dialogue');
+    expect(blocks[5].text).toBe('It works.');
+    expect(blocks[6].type).toBe('transition');
   });
 
   it('generates valid Fountain text including complete Title Page header', () => {
@@ -173,4 +176,29 @@ describe('Universal Screenplay Exporter & Round-Trip', () => {
     expect(pdfBuffer.byteLength).toBeGreaterThan(5000);
   });
 
+  it('saves screenplay to local disk using fallback download when showSaveFilePicker is unavailable', async () => {
+    const blocks: ScreenplayBlock[] = [
+      createScreenplayBlock({ id: crypto.randomUUID(), type: 'sceneHeading', text: 'INT. OFFICE - DAY' }),
+      createScreenplayBlock({ id: crypto.randomUUID(), type: 'shot', text: 'CLOSE UP - MONITOR' }),
+      createScreenplayBlock({ id: crypto.randomUUID(), type: 'action', text: 'The report is ready.' }),
+    ];
+
+    const result = await saveScreenplayToLocalDisk({
+      blocks,
+      metadata: {
+        title: 'Operation Omega',
+        author: 'Agent Smith',
+        credit: 'written by',
+        draftLabel: 'Final Draft',
+        contact: 'agent@agency.gov',
+        basedOn: '',
+        draftDate: '2026-11-02',
+        showTitlePage: true,
+      },
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.filename).toBe('Operation_Omega.openscript');
+    expect(result.mode).toBe('download');
+  });
 });

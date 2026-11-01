@@ -1,4 +1,4 @@
-import { registerCourierPrimeFonts } from './courierPrimeFont';
+﻿import { registerCourierPrimeFonts } from './courierPrimeFont';
 import { ScreenplayBlock, createScreenplayBlock, RevisionColor, SceneTake, ScriptNote } from '@openscript/screenplay-schema';
 import { serializeFdx } from '@openscript/fdx';
 import { jsPDF } from 'jspdf';
@@ -24,6 +24,7 @@ export function htmlToBlocks(html: string): ScreenplayBlock[] {
 
       let type: ScreenplayBlock['type'] = 'action';
       if (el.classList.contains('script-scene-heading')) type = 'sceneHeading';
+      else if (el.classList.contains('script-shot')) type = 'shot';
       else if (el.classList.contains('script-character')) type = 'character';
       else if (el.classList.contains('script-parenthetical')) type = 'parenthetical';
       else if (el.classList.contains('script-dialogue')) type = 'dialogue';
@@ -63,6 +64,7 @@ export function htmlToBlocks(html: string): ScreenplayBlock[] {
 
     let type: ScreenplayBlock['type'] = 'action';
     if (classNames.includes('script-scene-heading')) type = 'sceneHeading';
+    else if (classNames.includes('script-shot')) type = 'shot';
     else if (classNames.includes('script-character')) type = 'character';
     else if (classNames.includes('script-parenthetical')) type = 'parenthetical';
     else if (classNames.includes('script-dialogue')) type = 'dialogue';
@@ -130,6 +132,9 @@ export function blocksToFountainText(
       case 'transition':
         parts.push(text.endsWith('TO:') ? `\n${text.toUpperCase()}\n` : `\n> ${text.toUpperCase()}\n`);
         break;
+      case 'shot':
+        parts.push(`\n${text.toUpperCase()}\n`);
+        break;
       case 'action':
       default:
         parts.push(`\n${text}\n`);
@@ -144,6 +149,7 @@ export function blocksToFountainText(
  * Safe download trigger helper
  */
 function triggerBrowserDownload(content: string, filename: string, mimeType: string) {
+  if (typeof document === 'undefined') return;
   const blob = new Blob([content], { type: `${mimeType};charset=utf-8` });
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
@@ -203,6 +209,86 @@ export function exportOpenScriptProject(options: ExportScreenplayOptions, extens
   triggerBrowserDownload(JSON.stringify(projectSnapshot, null, 2), filename, 'application/json');
 }
 
+
+/**
+ * Saves screenplay directly to local disk using Chromium File System Access API
+ * (window.showSaveFilePicker) with seamless browser download fallback.
+ */
+export async function saveScreenplayToLocalDisk(
+  options: ExportScreenplayOptions
+): Promise<{ success: boolean; filename: string; mode: 'picker' | 'download' }> {
+  const { blocks, metadata, sceneTakes = [], notes = [], revisionNumber = 1, activeRevisionColor = 'white' } = options;
+
+  const projectSnapshot = {
+    schemaVersion: 2,
+    generator: 'OpenScript Studio Pro',
+    exportedAt: new Date().toISOString(),
+    revisionNumber,
+    activeRevisionColor,
+    metadata: {
+      title: metadata.title || 'Untitled Screenplay',
+      credit: metadata.credit || 'written by',
+      authors: [metadata.author || 'Author Name'],
+      draftLabel: metadata.draftLabel || 'First Draft',
+      draftDate: metadata.draftDate || new Date().toISOString().split('T')[0],
+      draftColor: activeRevisionColor,
+      contact: metadata.contact || '',
+      basedOn: metadata.basedOn || '',
+      copyright: metadata.copyright || '',
+      watermark: metadata.watermarkText || '',
+      showTitlePage: metadata.showTitlePage ?? true,
+      showWatermark: metadata.showWatermark ?? false,
+    },
+    content: blocks,
+    sceneTakes,
+    notes,
+  };
+
+  const jsonContent = JSON.stringify(projectSnapshot, null, 2);
+  const baseName = sanitizeFilename(metadata.title);
+  const defaultFilename = `${baseName}.openscript`;
+
+  // 1. Chromium File System Access API
+  if (typeof window !== 'undefined' && 'showSaveFilePicker' in window) {
+    try {
+      const fileHandle = await (window as any).showSaveFilePicker({
+        suggestedName: defaultFilename,
+        types: [
+          {
+            description: 'OpenScript Screenplay (*.openscript)',
+            accept: { 'application/json': ['.openscript', '.json'] },
+          },
+          {
+            description: 'Fountain Screenplay (*.fountain)',
+            accept: { 'text/plain': ['.fountain', '.txt'] },
+          },
+        ],
+      });
+
+      const chosenName: string = fileHandle.name || defaultFilename;
+      const writable = await fileHandle.createWritable();
+
+      if (chosenName.endsWith('.fountain') || chosenName.endsWith('.txt')) {
+        const fountainContent = blocksToFountainText(blocks, metadata);
+        await writable.write(fountainContent);
+      } else {
+        await writable.write(jsonContent);
+      }
+      await writable.close();
+
+      return { success: true, filename: chosenName, mode: 'picker' };
+    } catch (err: any) {
+      if (err.name === 'AbortError') {
+        return { success: false, filename: '', mode: 'picker' };
+      }
+      console.warn('Native showSaveFilePicker failed, falling back to download:', err);
+    }
+  }
+
+  // 2. Standard browser download fallback
+  triggerBrowserDownload(jsonContent, defaultFilename, 'application/json');
+  return { success: true, filename: defaultFilename, mode: 'download' };
+}
 /**
  * 2. Final Draft 12 FDX Export (.fdx)
  * Industry-standard XML format for production, casting, and scheduling.
