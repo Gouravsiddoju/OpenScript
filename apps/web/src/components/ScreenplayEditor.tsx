@@ -482,16 +482,26 @@ export const ScreenplayEditor: React.FC<ScreenplayEditorProps> = ({
         child.style.display = '';
       }
 
-      let h = child.offsetHeight || 0;
       const isSceneHeading = child.classList.contains('script-scene-heading');
       const isShot = child.classList.contains('script-shot');
+      const hasPageBreak = child.hasAttribute('data-page-break');
+
+      let h = child.offsetHeight || 0;
+      if (hasPageBreak) {
+        // Strip the 28px padding-top added by [data-page-break] so intrinsic text height is measured
+        h = Math.max(16, h - 28);
+      }
 
       if (h <= 0) {
         h = isSceneHeading ? 52 : (child.classList.contains('script-action') || isShot) ? 36 : 28;
       } else {
         try {
           const cs = window.getComputedStyle(child);
-          const mt = parseFloat(cs.marginTop) || 0;
+          let mt = parseFloat(cs.marginTop) || 0;
+          // Strip the 96px desk gap margin added by [data-page-break], restore standard element margin
+          if (hasPageBreak && mt >= 90) {
+            mt = isSceneHeading ? 32 : (child.classList.contains('script-character') ? 16 : 0);
+          }
           const mb = parseFloat(cs.marginBottom) || 0;
           h += (mt + mb);
         } catch {}
@@ -508,48 +518,26 @@ export const ScreenplayEditor: React.FC<ScreenplayEditorProps> = ({
       const budget = isHeadingOrShot && accumulatedHeight > PAGE_HEIGHT - 72 ? 0 : PAGE_HEIGHT;
 
       if ((isActBreak || accumulatedHeight + h > budget) && accumulatedHeight > 0) {
-        child.setAttribute('data-page-break', String(pageNum));
+        if (child.getAttribute('data-page-break') !== String(pageNum)) {
+          child.setAttribute('data-page-break', String(pageNum));
+        }
         if (isActBreak) {
-          child.setAttribute('data-act-break', 'true');
+          if (!child.hasAttribute('data-act-break')) {
+            child.setAttribute('data-act-break', 'true');
+          }
         } else {
           child.removeAttribute('data-act-break');
         }
         accumulatedHeight = h;
         pageNum++;
       } else {
-        child.removeAttribute('data-page-break');
-        child.removeAttribute('data-act-break');
-        accumulatedHeight += h;
-      }
-    }
-
-    // Synchronize pageBreak and actBreak attributes into ProseMirror state
-    if (editor && !editor.isDestroyed) {
-      let tr = editor.state.tr;
-      let docModified = false;
-      let nodeIdx = 0;
-
-      editor.state.doc.forEach((node, offset) => {
-        if (nodeIdx < domChildren.length) {
-          const domChild = domChildren[nodeIdx];
-          const targetBreak = domChild.getAttribute('data-page-break') || null;
-          const targetActBreak = domChild.getAttribute('data-act-break') || null;
-
-          if (node.attrs.pageBreak !== targetBreak || node.attrs.actBreak !== targetActBreak) {
-            tr = tr.setNodeMarkup(offset, undefined, {
-              ...node.attrs,
-              pageBreak: targetBreak,
-              actBreak: targetActBreak,
-            });
-            docModified = true;
-          }
+        if (child.hasAttribute('data-page-break')) {
+          child.removeAttribute('data-page-break');
         }
-        nodeIdx++;
-      });
-
-      if (docModified) {
-        tr.setMeta('addToHistory', false);
-        editor.view.dispatch(tr);
+        if (child.hasAttribute('data-act-break')) {
+          child.removeAttribute('data-act-break');
+        }
+        accumulatedHeight += h;
       }
     }
 
@@ -564,11 +552,17 @@ export const ScreenplayEditor: React.FC<ScreenplayEditorProps> = ({
     }
   };
 
+  const paginationTimerRef = useRef<any>(null);
+
   useEffect(() => {
     if (!editor) return;
 
     const runPagination = () => {
-      setTimeout(updatePagination, 50);
+      if (paginationTimerRef.current) {
+        clearTimeout(paginationTimerRef.current);
+      }
+      // 300ms debounce: eliminates page jumping while typing by letting keystrokes flow smoothly
+      paginationTimerRef.current = setTimeout(updatePagination, 300);
     };
 
     runPagination();
@@ -576,6 +570,9 @@ export const ScreenplayEditor: React.FC<ScreenplayEditorProps> = ({
     editor.on('create', runPagination);
 
     return () => {
+      if (paginationTimerRef.current) {
+        clearTimeout(paginationTimerRef.current);
+      }
       editor.off('update', runPagination);
       editor.off('create', runPagination);
     };
