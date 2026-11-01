@@ -29,7 +29,7 @@ import {
   BookOpen,
 } from 'lucide-react';
 import { isNonCharacterCue, isSceneHeadingCandidate } from '@openscript/screenplay-schema';
-import { StudioGuideModal } from './components/StudioGuideModal';
+import { InteractiveTour } from './components/InteractiveTour';
 import { ScreenplayEditor } from './components/ScreenplayEditor';
 import { FountainView } from './components/FountainView';
 import { ProductionReports } from './components/ProductionReports';
@@ -225,9 +225,7 @@ export default function App() {
   const [isShortcutsModalOpen, setIsShortcutsModalOpen] = useState(false);
   // Smart Auto-revealing Header on Scroll & Studio Guide State
   const [isHeaderVisible, setIsHeaderVisible] = useState(true);
-  const [isGuideModalOpen, setIsGuideModalOpen] = useState(() => {
-    return localStorage.getItem('openscript_seen_guide_tour') !== 'true';
-  });
+  const [isTourOpen, setIsTourOpen] = useState(false);
   const lastScrollTopRef = useRef(0);
 
   const handleWorkspaceScroll = (e: React.UIEvent<HTMLDivElement>) => {
@@ -1678,6 +1676,7 @@ Neon reflections shimmer in deep puddles. Sirens echo in the far distance.`;
 
       {/* 1. Left Sidebar / Final Draft Outliner & Scene Navigator */}
       <aside
+        data-tour="sidebar"
         className={`no-print border-r border-[#1e2025] bg-[#090a0c] flex flex-col justify-between transition-all duration-300 z-20 ${
           effectiveSidebarOpen ? 'w-80' : 'w-0 -translate-x-full overflow-hidden'
         }`}
@@ -1942,7 +1941,7 @@ Neon reflections shimmer in deep puddles. Sirens echo in the far distance.`;
             </div>
 
             {/* 3. Export & File Cluster */}
-            <div className="flex items-center bg-[#14161d] border border-[#242835] rounded-xl p-0.5 shadow-sm">
+            <div data-tour="header-actions" className="flex items-center bg-[#14161d] border border-[#242835] rounded-xl p-0.5 shadow-sm">
               <button
                 onClick={() => {
                   setDroppedImportFile(null);
@@ -1985,15 +1984,7 @@ Neon reflections shimmer in deep puddles. Sirens echo in the far distance.`;
               <span className="hidden sm:inline">Cloud</span>
             </button>
 
-                        {/* Studio Walkthrough & Feature Guide */}
-            <button
-              onClick={() => setIsGuideModalOpen(true)}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/40 text-xs font-mono text-amber-300 hover:text-white transition-colors shadow-sm"
-              title="Open Studio Guide & Feature Walkthrough"
-            >
-              <BookOpen className="w-3.5 h-3.5 text-amber-400" />
-              <span className="hidden sm:inline">Guide</span>
-            </button>
+            
 
             {/* 4. Single Definitive Keyboard Shortcuts Button */}
             <button
@@ -2151,7 +2142,7 @@ Neon reflections shimmer in deep puddles. Sirens echo in the far distance.`;
             <span className="text-gray-700">|</span>
             <span className="flex items-center gap-1.5 text-emerald-400 font-mono">
               <CheckCircle2 className="w-3.5 h-3.5" />
-              <span>{isSaved ? 'Saved locally' : 'Saving...'}</span>
+              <span>{isSaved ? 'Cloud Synced' : 'Saving...'}</span>
             </span>
           </div>
         </footer>
@@ -2222,6 +2213,7 @@ Neon reflections shimmer in deep puddles. Sirens echo in the far distance.`;
       <KeyboardShortcutsModal
         isOpen={isShortcutsModalOpen}
         onClose={() => setIsShortcutsModalOpen(false)}
+        onStartTour={() => setIsTourOpen(true)}
       />
 
       {/* Universal Screenplay Import Modal (Final Draft, Scrivener, Highland, Text) */}
@@ -2253,13 +2245,10 @@ Neon reflections shimmer in deep puddles. Sirens echo in the far distance.`;
         folders={sceneFolders}
       />
 
-            {/* Interactive Studio Tour & Feature Guide Modal */}
-      <StudioGuideModal
-        isOpen={isGuideModalOpen}
-        onClose={() => {
-          setIsGuideModalOpen(false);
-          localStorage.setItem('openscript_seen_guide_tour', 'true');
-        }}
+            {/* Interactive On-Screen Spotlight Tour */}
+      <InteractiveTour
+        isOpen={isTourOpen}
+        onClose={() => setIsTourOpen(false)}
       />
 
       {/* Cloud Storage & Automated Snapshots Modal */}
