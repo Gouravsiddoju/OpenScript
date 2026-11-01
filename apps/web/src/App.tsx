@@ -2011,7 +2011,15 @@ Neon reflections shimmer in deep puddles. Sirens echo in the far distance.`;
         </header>
 
         {/* Workspace Canvas Area */}
-        <div onScroll={handleWorkspaceScroll} className="flex-1 overflow-y-auto p-4 sm:p-8 flex justify-center bg-[#0d0e11]">
+        <div 
+          onScroll={handleWorkspaceScroll} 
+          onMouseMove={(e) => {
+            if (e.clientY < 60 && !isHeaderVisible) {
+              setIsHeaderVisible(true);
+            }
+          }}
+          className="flex-1 overflow-y-auto p-4 sm:p-8 flex justify-center bg-[#0d0e11]"
+        >
           {activeMode === 'screenplay' && (
             <ScreenplayEditor
               initialContent={scriptHtml}
@@ -2035,6 +2043,7 @@ Neon reflections shimmer in deep puddles. Sirens echo in the far distance.`;
               sceneFolderMap={sceneFolderMap}
               folders={sceneFolders}
               onClearActFilter={() => setSelectedActId(null)}
+              isToolbarVisible={isHeaderVisible}
             />
           )}
 
