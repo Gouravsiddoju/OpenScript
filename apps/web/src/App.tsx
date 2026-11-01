@@ -220,6 +220,7 @@ export default function App() {
   // User Profile & Authentication state
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [authModalMode, setAuthModalMode] = useState<'login' | 'register'>('login');
   const [selectedPeerProfile, setSelectedPeerProfile] = useState<UserProfileData | null>(null);
   const [authToken, setAuthToken] = useState<string | null>(() => {
     return localStorage.getItem('openscript_auth_token');
