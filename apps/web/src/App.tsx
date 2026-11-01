@@ -244,14 +244,21 @@ export default function App() {
   const [currentUser, setCurrentUser] = useState<UserProfileData>(() => {
     const saved = localStorage.getItem('openscript_current_user');
     if (saved) {
-      try { return JSON.parse(saved); } catch {}
+      try {
+        const parsed = JSON.parse(saved);
+        if (parsed.email?.includes('ssnpictures.in') || parsed.displayName === 'Gourav (SSN)') {
+          localStorage.removeItem('openscript_current_user');
+        } else {
+          return parsed;
+        }
+      } catch {}
     }
     return {
-      id: '11111111-1111-1111-1111-111111111111',
-      email: 'gourav@ssnpictures.in',
-      displayName: 'Gourav (SSN)',
+      id: 'default-owner',
+      email: '',
+      displayName: 'Screenwriter',
       role: 'owner',
-      studio: 'SSN Pictures Studio',
+      studio: 'OpenScript Studio',
       color: '#f59e0b',
     };
   });
@@ -263,21 +270,16 @@ export default function App() {
   const [sceneTakes, setSceneTakes] = useState<SceneTake[]>(() => {
     const saved = localStorage.getItem('openscript_scene_takes');
     if (saved) {
-      try { return JSON.parse(saved); } catch {}
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.some((t: any) => t.authorName === 'Gourav (SSN)')) {
+          localStorage.removeItem('openscript_scene_takes');
+        } else if (Array.isArray(parsed)) {
+          return parsed;
+        }
+      } catch {}
     }
-    return [
-      {
-        id: 'take-1-default',
-        sceneId: 1,
-        takeNumber: 1,
-        title: 'Take 1 (Original Master)',
-        fountainText: 'INT. SCENE 1 - DAY\n\nAction description begins here.',
-        authorName: 'Gourav (SSN)',
-        authorRole: 'owner',
-        createdAt: new Date().toISOString(),
-        isFinalized: true,
-      },
-    ];
+    return [];
   });
 
 
@@ -535,7 +537,7 @@ export default function App() {
       draftLabel: proj.draftLabel || 'First Draft',
       draftDate: new Date(proj.updatedAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }),
       showTitlePage: true,
-      contact: 'SSN Pictures\ncontact@ssnpictures.in',
+      contact: proj.contact || '',
       basedOn: '',
       showWatermark: false,
       watermarkText: '',
@@ -604,31 +606,36 @@ export default function App() {
   const [collaborators, setCollaborators] = useState<CollaboratorProfile[]>(() => {
     const saved = localStorage.getItem('openscript_collaborators');
     if (saved) {
-      try { return JSON.parse(saved); } catch {}
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.some((c: any) => c.email?.includes('ssnpictures.in') || c.email?.includes('sarah.prod') || c.displayName === 'Navateja' || c.displayName === 'Gourav (SSN)')) {
+          localStorage.removeItem('openscript_collaborators');
+        } else if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed;
+        }
+      } catch {}
+    }
+    const savedUserRaw = localStorage.getItem('openscript_current_user');
+    let uName = 'Screenwriter';
+    let uEmail = '';
+    let uId = 'default-owner';
+    let uColor = '#f59e0b';
+    if (savedUserRaw) {
+      try {
+        const u = JSON.parse(savedUserRaw);
+        if (u.displayName && u.displayName !== 'Gourav (SSN)') uName = u.displayName;
+        if (u.email && !u.email.includes('ssnpictures.in')) uEmail = u.email;
+        if (u.id) uId = u.id;
+        if (u.color) uColor = u.color;
+      } catch {}
     }
     return [
       {
-        userId: '11111111-1111-1111-1111-111111111111',
-        email: 'gourav@ssnpictures.in',
-        displayName: 'Gourav (SSN)',
-        color: '#f59e0b',
+        userId: uId,
+        email: uEmail,
+        displayName: uName,
+        color: uColor,
         role: 'owner',
-        lastSeenAt: new Date().toISOString(),
-      },
-      {
-        userId: '22222222-2222-2222-2222-222222222222',
-        email: 'navateja@ssnpictures.in',
-        displayName: 'Navateja',
-        color: '#3b82f6',
-        role: 'co-writer',
-        lastSeenAt: new Date().toISOString(),
-      },
-      {
-        userId: '33333333-3333-3333-3333-333333333333',
-        email: 'sarah.prod@studio.com',
-        displayName: 'Sarah (Producer)',
-        color: '#ec4899',
-        role: 'commenter',
         lastSeenAt: new Date().toISOString(),
       },
     ];
@@ -637,42 +644,16 @@ export default function App() {
   const [notes, setNotes] = useState<ScriptNote[]>(() => {
     const saved = localStorage.getItem('openscript_script_notes');
     if (saved) {
-      try { return JSON.parse(saved); } catch {}
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.some((n: any) => n.authorName === 'Navateja' || n.content?.includes("Maya's line") || n.content?.includes('rain FX'))) {
+          localStorage.removeItem('openscript_script_notes');
+        } else if (Array.isArray(parsed)) {
+          return parsed;
+        }
+      } catch {}
     }
-    return [
-      {
-        id: 'note-uuid-0001',
-        blockId: '00000000-0000-0000-0000-000000000001',
-        documentId: '00000000-0000-0000-0000-000000000000',
-        authorName: 'Navateja',
-        authorColor: '#3b82f6',
-        category: 'dialogue',
-        content: "Maya's line should sound more impatient here—maybe cut the second sentence?",
-        createdAt: new Date().toISOString(),
-        resolved: false,
-        replies: [
-          {
-            id: 'reply-uuid-0001',
-            authorName: 'Gourav (SSN)',
-            authorColor: '#f59e0b',
-            content: 'Agreed! Punchier rhythm fits the scene opening better.',
-            createdAt: new Date().toISOString(),
-          },
-        ],
-      },
-      {
-        id: 'note-uuid-0002',
-        blockId: '00000000-0000-0000-0000-000000000002',
-        documentId: '00000000-0000-0000-0000-000000000000',
-        authorName: 'Sarah (Producer)',
-        authorColor: '#ec4899',
-        category: 'production',
-        content: 'Check permit availability for rain FX in alleyway scene.',
-        createdAt: new Date().toISOString(),
-        resolved: false,
-        replies: [],
-      },
-    ];
+    return [];
   });
 
   const [livePeers, setLivePeers] = useState<LivePresence[]>([]);
@@ -742,6 +723,16 @@ export default function App() {
     localStorage.setItem('openscript_auth_token', token);
     localStorage.setItem('openscript_user_role', user.role);
 
+    setCollaborators([{
+      userId: user.id || 'default-owner',
+      email: user.email || '',
+      displayName: user.displayName || 'Screenwriter',
+      color: user.color || '#f59e0b',
+      role: 'owner',
+      lastSeenAt: new Date().toISOString(),
+    }]);
+    localStorage.removeItem('openscript_collaborators');
+
     // Interactive Guide is triggered JUST ONCE when a new user registers & logs in
     const userTourKey = `openscript_tour_seen_${user.id || user.email || 'user'}`;
     const globalTourSeen = localStorage.getItem('openscript_seen_guide_tour');
@@ -769,7 +760,12 @@ export default function App() {
       .then((r) => r.json())
       .then((data) => {
         if (data?.collaborators && Array.isArray(data.collaborators) && data.collaborators.length > 0) {
-          setCollaborators(data.collaborators);
+          const filtered = data.collaborators.filter(
+            (c: any) => !c.email?.includes('ssnpictures.in') && !c.email?.includes('sarah.prod') && c.displayName !== 'Navateja' && c.displayName !== 'Gourav (SSN)'
+          );
+          if (filtered.length > 0) {
+            setCollaborators(filtered);
+          }
         }
       })
       .catch(() => {});
@@ -783,9 +779,9 @@ export default function App() {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            userId: currentUserRole === 'owner' ? '11111111-1111-1111-1111-111111111111' : '22222222-2222-2222-2222-222222222222',
-            displayName: currentUserRole === 'owner' ? 'Gourav (SSN)' : 'Navateja',
-            color: currentUserRole === 'owner' ? '#f59e0b' : '#3b82f6',
+            userId: currentUser.id || 'default-owner',
+            displayName: currentUser.displayName || 'Screenwriter',
+            color: currentUser.color || '#f59e0b',
             role: currentUserRole,
             isTyping: !isSaved,
           }),
@@ -975,8 +971,8 @@ export default function App() {
   }, [scriptHtml]);
 
   const handleAddNote = async (category: ScriptNoteCategory, content: string, blockId?: string, selectedText?: string) => {
-    const authorName = currentUserRole === 'owner' ? 'Gourav (SSN)' : 'Navateja';
-    const authorColor = currentUserRole === 'owner' ? '#f59e0b' : '#3b82f6';
+    const authorName = currentUser.displayName || 'Screenwriter';
+    const authorColor = currentUser.color || '#f59e0b';
     const blockTargetId = blockId || '00000000-0000-0000-0000-000000000001';
 
     try {
@@ -1019,8 +1015,8 @@ export default function App() {
   };
 
   const handleAddReply = async (noteId: string, replyContent: string) => {
-    const authorName = currentUserRole === 'owner' ? 'Gourav (SSN)' : 'Navateja';
-    const authorColor = currentUserRole === 'owner' ? '#f59e0b' : '#3b82f6';
+    const authorName = currentUser.displayName || 'Screenwriter';
+    const authorColor = currentUser.color || '#f59e0b';
 
     try {
       const res = await fetch(`/api/v1/notes/${noteId}/replies`, {
@@ -2064,13 +2060,14 @@ export default function App() {
                   setIsProfileModalOpen(true);
                 }}
                 onSelectPeerProfile={(peer) => {
+                  const match = collaborators.find((c) => c.userId === peer.userId);
                   setSelectedPeerProfile({
                     id: peer.userId,
-                    email: peer.userId === '11111111-1111-1111-1111-111111111111' ? 'gourav@ssnpictures.in' : peer.userId === '22222222-2222-2222-2222-222222222222' ? 'navateja@ssnpictures.in' : 'sarah.prod@studio.com',
-                    displayName: peer.displayName,
-                    role: peer.role,
-                    color: peer.color,
-                    studio: 'SSN Pictures Studio',
+                    email: match?.email || '',
+                    displayName: peer.displayName || 'Collaborator',
+                    role: peer.role || 'co-writer',
+                    color: peer.color || '#3b82f6',
+                    studio: 'OpenScript Studio',
                   });
                   setIsProfileModalOpen(true);
                 }}

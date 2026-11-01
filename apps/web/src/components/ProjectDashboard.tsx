@@ -453,7 +453,7 @@ export const ProjectDashboard: React.FC<ProjectDashboardProps> = ({
                 </label>
                 <input
                   type="text"
-                  placeholder="e.g. Gourav (SSN)"
+                  placeholder="e.g. Jane Doe"
                   value={newAuthor}
                   onChange={(e) => setNewAuthor(e.target.value)}
                   className="w-full bg-[#0a0c10] border border-[#232736] rounded-xl px-3.5 py-2.5 text-xs font-mono text-white placeholder-gray-600 focus:outline-none focus:border-amber-500/70"

@@ -87,77 +87,7 @@ class MemoryStore {
   sessions = new Map<string, InMemSession>();
 
   constructor() {
-    // Seed default demo project & document
-    const defaultProjectId = '00000000-0000-0000-0000-000000000000';
-    const defaultOwnerId = '11111111-1111-1111-1111-111111111111';
-
-    // Seed default users for instant login & preview
-    this.users.set(defaultOwnerId, {
-      id: defaultOwnerId,
-      email: 'gourav@ssnpictures.in',
-      displayName: 'Gourav (SSN)',
-      passwordHash: 'demo',
-      role: 'owner',
-      createdAt: new Date(),
-    });
-
-    this.users.set('22222222-2222-2222-2222-222222222222', {
-      id: '22222222-2222-2222-2222-222222222222',
-      email: 'navateja@ssnpictures.in',
-      displayName: 'Navateja',
-      passwordHash: 'demo',
-      role: 'co-writer',
-      createdAt: new Date(),
-    });
-
-    this.users.set('33333333-3333-3333-3333-333333333333', {
-      id: '33333333-3333-3333-3333-333333333333',
-      email: 'sarah.prod@hollywood.com',
-      displayName: 'Sarah (Producer)',
-      passwordHash: 'demo',
-      role: 'commenter',
-      createdAt: new Date(),
-    });
-
-    this.projects.set(defaultProjectId, {
-      id: defaultProjectId,
-      name: 'SSN Studios Master Production',
-      description: 'Default screenplay workspace for SSN Pictures',
-      ownerId: defaultOwnerId,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    });
-
-    // Seed default project members
-    this.members.set(`${defaultProjectId}_${defaultOwnerId}`, {
-      id: crypto.randomUUID(),
-      projectId: defaultProjectId,
-      userId: defaultOwnerId,
-      role: 'owner',
-      email: 'gourav@ssnpictures.in',
-      displayName: 'Gourav (SSN)',
-      createdAt: new Date(),
-    });
-
-    this.members.set(`${defaultProjectId}_22222222-2222-2222-2222-222222222222`, {
-      id: crypto.randomUUID(),
-      projectId: defaultProjectId,
-      userId: '22222222-2222-2222-2222-222222222222',
-      role: 'co-writer',
-      email: 'navateja@ssnpictures.in',
-      displayName: 'Navateja',
-      createdAt: new Date(),
-    });
-
-    this.members.set(`${defaultProjectId}_33333333-3333-3333-3333-333333333333`, {
-      id: crypto.randomUUID(),
-      projectId: defaultProjectId,
-      userId: '33333333-3333-3333-3333-333333333333',
-      role: 'commenter',
-      email: 'sarah.prod@hollywood.com',
-      displayName: 'Sarah (Producer)',
-      createdAt: new Date(),
-    });
+    // Clean production store: no dummy demo seed users or mock collaborators
   }
 }
 
@@ -298,7 +228,7 @@ export class ResilientStore {
               userId: m.userId,
               projectId: m.projectId,
               role: m.role,
-              email: u?.email || 'unknown@ssnpictures.in',
+              email: u?.email || 'collaborator@studio.com',
               displayName: u?.displayName || 'Collaborator',
               createdAt: m.createdAt,
             };
