@@ -62,7 +62,18 @@
 }
 
 @media print {
-  html, body, #root, #root > div, main {
+  html,
+  body,
+  #root,
+  #root > div,
+  main,
+  main > div,
+  .screenplay-editor-wrapper,
+  [class*="overflow-y-auto"],
+  [class*="overflow-hidden"],
+  [class*="h-screen"],
+  [class*="min-h-screen"],
+  [class*="flex-1"] {
     overflow: visible !important;
     height: auto !important;
     min-height: auto !important;
@@ -71,6 +82,8 @@
     color: black !important;
     display: block !important;
     position: static !important;
+    padding: 0 !important;
+    margin: 0 !important;
   }
 
   .no-print {
@@ -87,6 +100,10 @@
     padding: 1.0in 1.0in 1.0in 1.5in !important;
     background: white !important;
     color: black !important;
+    page-break-inside: auto !important;
+    break-inside: auto !important;
+    display: block !important;
+    position: relative !important;
   }
 
   .screenplay-title-page {
@@ -95,6 +112,31 @@
     height: 11.0in !important;
     page-break-after: always !important;
     break-after: page !important;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: space-between !important;
+  }
+
+  [data-page-break] {
+    page-break-before: always !important;
+    break-before: page !important;
+    margin-top: 0 !important;
+    padding-top: 0 !important;
+    border-top: none !important;
+  }
+
+  [data-page-break]::after {
+    display: block !important;
+    position: absolute !important;
+    top: -0.5in !important;
+    right: 0 !important;
+    border: none !important;
+    background: transparent !important;
+    padding: 0 !important;
+    color: black !important;
+    font-size: 10pt !important;
+    font-weight: normal !important;
+    content: attr(data-page-break) "." !important;
   }
 
   .script-scene-heading {

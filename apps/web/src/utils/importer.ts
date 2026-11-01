@@ -60,6 +60,11 @@ function extractFountainMetadata(fountainText: string): { title?: string; author
  * Fast & Robust RTF (Rich Text Format) to Plain Text / Fountain Converter.
  * Unpacks font/color tables, handles unicode/hex escapes, and formats line breaks.
  */
+/**
+ * Fast & Robust RTF (Rich Text Format) & Scrivener Markup to Clean Screenplay Fountain Converter.
+ * Safely strips RTF control codes, unpacks font/color tables, handles unicode/hex escapes,
+ * and translates Scrivener screenplay element tags into standard industry format.
+ */
 export function rtfToText(rtf: string): string {
   if (!rtf) return '';
 
@@ -101,33 +106,64 @@ export function rtfToText(rtf: string): string {
     return String.fromCharCode(num < 0 ? num + 65536 : num);
   });
 
-  // 5. Remove control words like \pard, \sb240, \b, \i, \fs24, etc.
-  text = text.replace(/\\[a-zA-Z]+-?\d*(?:\s)?/g, '');
+  // 5. Remove known RTF control words using length-sorted list (so e.g. \ulnone is matched before \ul)
+  const rtfWords = [
+    'rtf', 'ansi', 'mac', 'pc', 'pca', 'ansicpg', 'deff', 'deflang', 'fonttbl', 'colortbl', 'stylesheet', 'info',
+    'generator', 'pard', 'plain', 'par', 'line', 'tab', 'b', 'i', 'ulnone', 'ul', 'v', 'strike', 'outl', 'shad',
+    'caps', 'scaps', 'fs', 'f', 'cf', 'cb', 'cs', 'ds', 's', 'qc', 'qr', 'ql', 'qj', 'sb', 'sa', 'sl', 'slmult',
+    'keepn', 'keep', 'widowctrl', 'fldinst', 'fldrslt', 'field', 'partightenfactor', 'cocoartf', 'cocoasubrtf',
+    'expandedcolortbl', 'cssrgb', 'viewkind', 'paperw', 'paperh', 'margl', 'margr', 'margt', 'margb', 'additive'
+  ].sort((a, b) => b.length - a.length);
 
-  // 6. Remove leftover font definitions ending in semicolon (e.g. CourierPrime;)
+  const rtfRegex = new RegExp(`\\\\(?:${rtfWords.join('|')})-?\\d*(?:[ \\t]|(?=[^a-zA-Z]))?`, 'gi');
+  text = text.replace(rtfRegex, '');
+
+  // Fallback for any other remaining control words: \xyz123
+  text = text.replace(/\\(?:[a-zA-Z]{1,32})-?\d*(?:[ \t]|(?=[^a-zA-Z]))?/g, '');
+
+  // 6. Remove leftover font definitions ending in semicolon (e.g. CourierPrime; or Courier;)
   text = text.replace(/^[a-zA-Z0-9\s_-]+;\s*/gm, '');
+  text = text.replace(/;\s*[a-zA-Z0-9\s_-]+;\s*/g, '\n');
 
-  // 7. Remove Scrivener tags like <c450>00pt</c450> or <$Scr_...> or 00pt
-  text = text.replace(/<\/?c\d*[^>]*>/gi, '');
-  text = text.replace(/<\/?\$Scr_[^>]*>/gi, '');
-  text = text.replace(/<\/?pt>/gi, '');
+  // 7. Remove Scrivener tags like <NAME>, <Scene Heading>, etc.
+  text = text.replace(/<NAME>\s*/gi, '');
+  text = text.replace(/<\/?(?:Scene\s*Heading|Heading|General|Action|Dialogue|Text|Body)[^>]*>/gi, '');
+
+  // 8. Transform Scrivener character & parenthetical tags into standard Fountain
+  text = text.replace(/<Character>([^<]+)<\/Character>/gi, '\n\n$1\n');
+  text = text.replace(/<speaker>([^<]+)<\/speaker>/gi, '\n\n$1\n');
+  text = text.replace(/<Parenthetical>([^<]+)<\/Parenthetical>/gi, '\n($1)\n');
+
+  // Handle specific Scrivener markup like <part> (parenthetical cue)
+  text = text.replace(/<part>\s*/gi, '\n(');
+  text = text.replace(/<\/part>\s*/gi, ')\n');
+
+  // Any remaining <tag> where tag is words (e.g. <assistant>, <detective>): convert to Character Cue!
+  text = text.replace(/<([a-zA-Z0-9_\s'-]+)>/g, (_, tag) => {
+    const cleanTag = tag.trim();
+    if (/^(c\d+|pt|\$scr)/i.test(cleanTag)) return '';
+    return `\n\n${cleanTag.toUpperCase()}\n`;
+  });
+
+  // Ensure closed parentheticals
+  text = text.replace(/\n\(([^\n\)]+)(?:\n|$)/g, '\n($1)\n');
+
+  // 9. Strip Scrivener measurement remnants like 00pt, 12pt
   text = text.replace(/\b\d+pt\b/gi, '');
   text = text.replace(/\d+pt/gi, '');
 
-  // 8. Unescape escaped characters \{, \}, \\
+  // 10. Strip any leftover XML/Scrivener tags
+  text = text.replace(/<\/?[a-zA-Z0-9_\$#:-]+[^>]*>/g, '');
+
+  // 10. Unescape escaped characters \{, \}, \\
   text = text.replace(/\\([{}\\])/g, '$1');
-
-  // 9. Remove outer { and }
   text = text.replace(/[{}]/g, '');
+  text = text.replace(/\\/g, '');
 
-  // 10. Normalize newlines
-  return text.replace(/\r\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
+  // 11. Normalize newlines
+  return text.replace(/\r\n/g, '\n').replace(/[ \t]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim();
 }
 
-/**
- * Extracts Binder items from Scrivener project.scrivx XML.
- * Works seamlessly across Scrivener 1, 2, and 3 (supporting both ID and UUID).
- */
 export function extractScrivenerBinderItems(xmlContent: string): { id: string; title: string; synopsis?: string }[] {
   const items: { id: string; title: string; synopsis?: string }[] = [];
 

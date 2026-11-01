@@ -1897,6 +1897,7 @@ Neon reflections shimmer in deep puddles. Sirens echo in the far distance.`;
               notes={notes}
               onAddNoteFromSelection={(selectedText, commentText, category) => handleAddNote(category, commentText, undefined, selectedText)}
               onOpenSceneTakesForBlock={handleOpenSceneTakesForBlockText}
+              onPageChange={(page) => setCurrentPage(page)}
             />
           )}
 

@@ -233,4 +233,25 @@ We are running out of time.
     expect(cleaned).toContain('INT. DETECTIVE OFFICE - MORNING');
     expect(cleaned).toContain('The assistant is typing on the laptop.');
   });
+  it('cleans inline Scrivener screenplay RTF control codes, custom character tags, and preserves scene headings', () => {
+    const rawRtf = `getting his hands touch keyboard...
+\\cs40\\v\\f0\\fs24\\cf1\\ul\\b\\ulnone\\b0\\cf0\\fs24\\b<assistant>\\cf0\\fs24<part> rohit, you should see this!
+\\cs40\\v\\f0\\fs24\\cf1\\ul\\b\\ulnone\\b0\\cf0\\fs24\\b<detective> comes to him and watches it.
+DOUF TO:
+\\cs40\\v\\f0\\fs24\\cf1\\fs24\\bEXT. RAIN SCENE - MINUTES LATER
+CourierPrime;
+\\cs40\\v\\f0\\fs24\\b<NAME> INT. DETECTIVE OFFICE - MORNING`;
+
+    const cleaned = rtfToText(rawRtf);
+    expect(cleaned).not.toContain('\\cs40');
+    expect(cleaned).not.toContain('ulnone');
+    expect(cleaned).not.toContain('CourierPrime;');
+    expect(cleaned).not.toContain('<NAME>');
+    expect(cleaned).not.toContain('<assistant>');
+    expect(cleaned).toContain('ASSISTANT');
+    expect(cleaned).toContain('rohit, you should see this!');
+    expect(cleaned).toContain('DETECTIVE');
+    expect(cleaned).toContain('EXT. RAIN SCENE - MINUTES LATER');
+    expect(cleaned).toContain('INT. DETECTIVE OFFICE - MORNING');
+  });
 });
