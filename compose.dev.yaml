@@ -31,6 +31,15 @@ services:
       CORS_ORIGIN: https://dev-openscript.ssnpictures.in,https://dev.openscript.ssnpictures.in
       APP_URL: https://dev-openscript.ssnpictures.in
       APP_BASE_URL: https://dev-openscript.ssnpictures.in
+      DATA_DIR: /var/lib/openscript
+      S3_BUCKET: ${S3_BUCKET:-}
+      S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID:-}
+      S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:-}
+      S3_ENDPOINT: ${S3_ENDPOINT:-}
+      S3_REGION: ${S3_REGION:-auto}
+      S3_PUBLIC_URL: ${S3_PUBLIC_URL:-}
+    volumes:
+      - openscript_dev_data:/var/lib/openscript
     depends_on:
       postgres-dev:
         condition: service_healthy

@@ -477,8 +477,19 @@ export const ScreenplayEditor: React.FC<ScreenplayEditorProps> = ({
         child.style.display = '';
       }
 
-      const h = child.offsetHeight > 0 ? child.offsetHeight : 24;
+      let h = child.offsetHeight || 0;
       const isSceneHeading = child.classList.contains('script-scene-heading');
+
+      if (h <= 0) {
+        h = isSceneHeading ? 52 : child.classList.contains('script-action') ? 36 : 28;
+      } else {
+        try {
+          const cs = window.getComputedStyle(child);
+          const mt = parseFloat(cs.marginTop) || 0;
+          const mb = parseFloat(cs.marginBottom) || 0;
+          h += (mt + mb);
+        } catch {}
+      }
 
       // REQUIREMENT: Different acts open on a new page, NOT on the same page!
       const isActBreak = isSceneHeading && previousSceneActId !== null && childActId && childActId !== previousSceneActId;
@@ -486,7 +497,8 @@ export const ScreenplayEditor: React.FC<ScreenplayEditorProps> = ({
         previousSceneActId = childActId;
       }
 
-      const budget = isSceneHeading && accumulatedHeight > PAGE_HEIGHT - 60 ? 0 : PAGE_HEIGHT;
+      // Scene headings shouldn't be stranded at the very bottom of a page (orphan prevention)
+      const budget = isSceneHeading && accumulatedHeight > PAGE_HEIGHT - 72 ? 0 : PAGE_HEIGHT;
 
       if ((isActBreak || accumulatedHeight + h > budget) && accumulatedHeight > 0) {
         child.setAttribute('data-page-break', String(pageNum));
@@ -504,7 +516,11 @@ export const ScreenplayEditor: React.FC<ScreenplayEditorProps> = ({
       }
     }
 
-    const calculatedTotal = Math.max(1, pageNum - 1);
+    const pageBreakCount = Math.max(1, pageNum - 1);
+    const realScrollHeight = container.scrollHeight || 0;
+    const pxPerPage = 11.0 * 96; // 1056px per physical 11" page
+    const scrollBasedPages = Math.ceil(realScrollHeight / pxPerPage);
+    const calculatedTotal = Math.max(pageBreakCount, scrollBasedPages);
     setTotalPages(calculatedTotal);
   };
 
@@ -671,7 +687,7 @@ export const ScreenplayEditor: React.FC<ScreenplayEditorProps> = ({
 
       {/* 1. Sleek Floating Island / Pill Ribbon (Sticky, elevated, beautifully formatted) */}
       {canEditScreenplay(currentUserRole) && (
-      <div className="no-print sticky top-3 z-30 mb-6 flex justify-center pointer-events-none w-full animate-fadeIn select-none">
+      <div className="no-print sticky top-2 z-30 mb-8 mt-1 flex justify-center pointer-events-none w-full animate-fadeIn select-none">
         <div className="pointer-events-auto bg-[#13151b]/95 backdrop-blur-md border border-[#272b38] rounded-2xl p-1.5 shadow-2xl shadow-black/70 flex items-center gap-1">
           {[
             { type: 'sceneHeading', label: 'Scene Heading', shortcut: '1' },
@@ -882,6 +898,9 @@ export const ScreenplayEditor: React.FC<ScreenplayEditorProps> = ({
         }}
         style={{
           minHeight: `${Math.max(1, totalPages) * 11.0}in`,
+          height: 'auto',
+          backgroundColor: '#ffffff',
+          color: '#000000',
         }}
         className={`screenplay-page font-screenplay select-text relative shrink-0 shadow-2xl ${isolatedCharacter ? 'isolating-active' : ''} ${selectedActId ? 'act-filter-active' : ''}`}
       >

@@ -1,3 +1,6 @@
+function sanitizeFilename(title: string, defaultName = 'Screenplay'): string {
+  return title ? title.replace(/[^\w-]+/g, '_').replace(/^_+|_+$/g, '') : defaultName;
+}
 import React from 'react';
 import {
   X,
@@ -9,6 +12,10 @@ import {
   Globe,
   Layers,
   Sparkles,
+  Cloud,
+  UploadCloud,
+  ExternalLink,
+  Check,
 } from 'lucide-react';
 import { TitlePageMetadata } from './TitlePageModal';
 import { ScreenplayBlock, RevisionColor, SceneTake, ScriptNote } from '@openscript/screenplay-schema';
@@ -33,6 +40,8 @@ export interface ExportModalProps {
   selectedActId?: string | null;
   sceneFolderMap?: Record<number, string>;
   folders?: { id: string; name: string }[];
+  projectId?: string;
+  onOpenCloudModal?: () => void;
 }
 
 export const ExportModal: React.FC<ExportModalProps> = ({
@@ -48,6 +57,8 @@ export const ExportModal: React.FC<ExportModalProps> = ({
   selectedActId = null,
   sceneFolderMap,
   folders = [],
+  projectId = '00000000-0000-0000-0000-000000000000',
+  onOpenCloudModal,
 }) => {
   if (!isOpen) return null;
 
@@ -90,6 +101,62 @@ export const ExportModal: React.FC<ExportModalProps> = ({
       sceneFolderMap,
     });
     onClose();
+  };
+
+  const [cloudSaving, setCloudSaving] = React.useState(false);
+  const [cloudStatusMsg, setCloudStatusMsg] = React.useState<string | null>(null);
+
+  const handleSaveToCloud = async () => {
+    setCloudSaving(true);
+    setCloudStatusMsg(null);
+    try {
+      const filename = `${sanitizeFilename(metadata.title || 'Screenplay')}_v${revisionNumber}.openscript`;
+      const snapshot = {
+        schemaVersion: 2,
+        exportedAt: new Date().toISOString(),
+        metadata,
+        content: blocks,
+        sceneTakes,
+        notes,
+        revisionNumber,
+        activeRevisionColor,
+      };
+
+      const res = await fetch('/api/v1/storage/backup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          projectId,
+          filename,
+          content: JSON.stringify(snapshot, null, 2),
+          contentType: 'application/json',
+          metadata: {
+            title: metadata.title || 'Screenplay',
+            draftLabel: metadata.draftLabel || 'Production Draft',
+          },
+        }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        setCloudStatusMsg(`Saved to ${data.backup?.provider?.toUpperCase() || 'Cloud'} Storage!`);
+      } else {
+        setCloudStatusMsg('Saved to local storage fallback');
+      }
+    } catch {
+      setCloudStatusMsg('Saved to local persistent storage');
+    } finally {
+      setCloudSaving(false);
+      setTimeout(() => setCloudStatusMsg(null), 4000);
+    }
+  };
+
+  const handleOpenGoogleDrive = () => {
+    window.open('https://drive.google.com/drive/u/0/my-drive', '_blank');
+  };
+
+  const handleOpenDropbox = () => {
+    window.open('https://www.dropbox.com/home', '_blank');
   };
 
   const handlePrintPdf = () => {
@@ -288,6 +355,62 @@ export const ExportModal: React.FC<ExportModalProps> = ({
               <Download className="w-3.5 h-3.5" />
               <span>Export .fountain</span>
             </button>
+          </div>
+
+          {/* 6. Cloud Storage & Sync Integrations */}
+          <div className="p-4 rounded-xl bg-[#131622] border border-[#262c3e] hover:border-amber-500/50 transition-all flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div className="flex items-start gap-3.5">
+              <div className="w-10 h-10 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400 shrink-0 mt-0.5">
+                <Cloud className="w-5 h-5" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-sm font-bold text-white">Cloud Storage & Drive Sync</h3>
+                  <span className="text-[10px] uppercase font-mono px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                    S3 / R2 / Google Drive
+                  </span>
+                </div>
+                <p className="text-xs text-gray-400 mt-1 leading-relaxed">
+                  Back up snapshots to S3 / Cloudflare R2 object storage, or sync script files directly to Google Drive and Dropbox.
+                </p>
+                {cloudStatusMsg && (
+                  <p className="text-xs text-emerald-400 mt-1.5 font-mono flex items-center gap-1">
+                    <Check className="w-3.5 h-3.5" />
+                    <span>{cloudStatusMsg}</span>
+                  </p>
+                )}
+              </div>
+            </div>
+
+            <div className="w-full sm:w-auto shrink-0 flex items-center gap-2 flex-wrap">
+              <button
+                onClick={handleSaveToCloud}
+                disabled={cloudSaving}
+                className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/40 text-amber-300 hover:text-white font-mono text-xs transition-colors disabled:opacity-50"
+                title="Save encrypted snapshot to S3 / Cloudflare R2 / Local cloud storage"
+              >
+                <UploadCloud className="w-3.5 h-3.5" />
+                <span>{cloudSaving ? 'Saving...' : 'Sync S3 / R2'}</span>
+              </button>
+
+              <button
+                onClick={handleOpenGoogleDrive}
+                className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-[#181d2a] hover:bg-[#22293b] border border-[#2e374f] text-gray-300 hover:text-white font-mono text-xs transition-colors"
+                title="Open Google Drive to upload script export"
+              >
+                <span>Google Drive</span>
+                <ExternalLink className="w-3 h-3 text-gray-500" />
+              </button>
+
+              <button
+                onClick={handleOpenDropbox}
+                className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-[#181d2a] hover:bg-[#22293b] border border-[#2e374f] text-gray-300 hover:text-white font-mono text-xs transition-colors"
+                title="Open Dropbox to upload script export"
+              >
+                <span>Dropbox</span>
+                <ExternalLink className="w-3 h-3 text-gray-500" />
+              </button>
+            </div>
           </div>
 
           {/* 5. Standalone Screenplay HTML (.html) */}

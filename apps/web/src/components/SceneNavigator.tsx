@@ -536,21 +536,40 @@ export const SceneNavigator: React.FC<SceneNavigatorProps> = ({
                 >
                   {/* Folder / Act Header */}
                   <div className="flex items-center justify-between gap-1 group">
-                    <button
-                      onClick={() => toggleFolderCollapse(folder.id)}
-                      className="flex items-center gap-1.5 font-mono text-[11px] font-bold text-gray-300 hover:text-white truncate flex-1 text-left"
-                    >
-                      {isCollapsed ? (
-                        <ChevronRight className="w-3.5 h-3.5 text-gray-500 flex-shrink-0" />
-                      ) : (
-                        <ChevronDown className="w-3.5 h-3.5 text-gray-500 flex-shrink-0" />
-                      )}
-                      <Folder className={`w-3.5 h-3.5 flex-shrink-0 ${isDropTarget ? 'text-amber-400 animate-bounce' : 'text-amber-500/80'}`} />
-                      <span className="truncate">{folder.name}</span>
-                      <span className="text-[10px] font-normal text-gray-500 font-mono">
-                        ({folderScenes.length})
-                      </span>
-                    </button>
+                    <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleFolderCollapse(folder.id);
+                        }}
+                        className="p-0.5 text-gray-500 hover:text-white rounded cursor-pointer"
+                        title={isCollapsed ? "Expand folder" : "Collapse folder"}
+                      >
+                        {isCollapsed ? (
+                          <ChevronRight className="w-3.5 h-3.5 flex-shrink-0" />
+                        ) : (
+                          <ChevronDown className="w-3.5 h-3.5 flex-shrink-0" />
+                        )}
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (onSelectAct) {
+                            onSelectAct(selectedActId === folder.id ? null : folder.id);
+                          }
+                        }}
+                        className="flex items-center gap-1.5 font-mono text-[11px] font-bold text-gray-300 hover:text-white truncate flex-1 text-left cursor-pointer"
+                        title={selectedActId === folder.id ? `Exit ${folder.name} focus (show all scenes)` : `Focus only ${folder.name} on main screen`}
+                      >
+                        <Folder className={`w-3.5 h-3.5 flex-shrink-0 ${isDropTarget ? 'text-amber-400 animate-bounce' : selectedActId === folder.id ? 'text-amber-400' : 'text-amber-500/80'}`} />
+                        <span className={`truncate ${selectedActId === folder.id ? 'text-amber-300 font-bold' : ''}`}>{folder.name}</span>
+                        <span className="text-[10px] font-normal text-gray-500 font-mono">
+                          ({folderScenes.length})
+                        </span>
+                      </button>
+                    </div>
 
                     {/* Act Controls: Create Scene directly in Act + Delete custom folder */}
                     <div className="flex items-center gap-1.5 shrink-0">

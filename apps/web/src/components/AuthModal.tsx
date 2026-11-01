@@ -329,7 +329,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                       setMode('login');
                       setError(null);
                     }}
-                    className="self-start text-[11px] font-bold text-amber-400 hover:text-amber-300 underline underline-offset-2 flex items-center gap-1 cursor-pointer"
+                    className="self-start mt-1 px-3 py-1 bg-amber-500 hover:bg-amber-400 text-black text-xs font-bold rounded-lg transition-all flex items-center gap-1.5 cursor-pointer shadow-md shadow-amber-500/20"
                   >
                     <span>Switch to Sign In →</span>
                   </button>
