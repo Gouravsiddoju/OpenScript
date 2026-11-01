@@ -1523,6 +1523,14 @@ Neon reflections shimmer in deep puddles. Sirens echo in the far distance.`;
             setDroppedImportFile(null);
             setIsImportModalOpen(true);
           }}
+          onOpenAuthModal={(mode) => {
+            setAuthModalMode(mode);
+            setIsAuthModalOpen(true);
+          }}
+          onOpenProfileModal={() => {
+            setSelectedPeerProfile(null);
+            setIsProfileModalOpen(true);
+          }}
           currentUser={currentUser}
         />
 
@@ -2112,6 +2120,7 @@ Neon reflections shimmer in deep puddles. Sirens echo in the far distance.`;
         isOpen={isAuthModalOpen}
         onClose={() => setIsAuthModalOpen(false)}
         onAuthSuccess={handleAuthSuccess}
+        defaultMode={authModalMode}
       />
     </div>
   );

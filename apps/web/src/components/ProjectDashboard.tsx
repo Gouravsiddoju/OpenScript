@@ -17,6 +17,7 @@ import {
   Video,
   Smile,
   X,
+  LogIn,
 } from 'lucide-react';
 import { ScreenplayProject, ScreenplayProjectTemplate, listProjects, deleteProject, duplicateProject, createProject } from '../utils/projectStore';
 import { CollaboratorProfile, CollaboratorRole } from '@openscript/screenplay-schema';
@@ -25,12 +26,16 @@ export interface ProjectDashboardProps {
   onOpenProject: (projectId: string) => void;
   onOpenImportModal: () => void;
   currentUser: { displayName: string; role: CollaboratorRole };
+  onOpenAuthModal?: (mode: 'login' | 'register') => void;
+  onOpenProfileModal?: () => void;
 }
 
 export const ProjectDashboard: React.FC<ProjectDashboardProps> = ({
   onOpenProject,
   onOpenImportModal,
   currentUser,
+  onOpenAuthModal,
+  onOpenProfileModal,
 }) => {
   const [projects, setProjects] = useState<ScreenplayProject[]>(() => listProjects());
   const [searchQuery, setSearchQuery] = useState('');
@@ -130,18 +135,38 @@ export const ProjectDashboard: React.FC<ProjectDashboardProps> = ({
             <span>New Screenplay</span>
           </button>
 
-          <div className="pl-3 border-l border-[#242838] flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-amber-600 to-amber-400 flex items-center justify-center text-black font-bold text-xs shadow-md">
-              {currentUser.displayName.charAt(0).toUpperCase()}
-            </div>
-            <div className="hidden lg:block text-left">
-              <span className="text-xs font-bold text-gray-200 block truncate max-w-[120px]">
-                {currentUser.displayName}
-              </span>
-              <span className="text-[10px] text-amber-400 uppercase font-mono block">
-                {currentUser.role}
-              </span>
-            </div>
+          {/* User Profile & Auth Trigger */}
+          <div className="pl-3 border-l border-[#242838] flex items-center gap-2">
+            <button
+              type="button"
+              onClick={onOpenProfileModal}
+              className="flex items-center gap-2.5 p-1 sm:pr-2.5 rounded-xl hover:bg-[#1a1d26] transition-colors group text-left cursor-pointer"
+              title="Click to view profile, switch roles, or manage account"
+            >
+              <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-amber-600 to-amber-400 flex items-center justify-center text-black font-bold text-xs shadow-md group-hover:scale-105 transition-transform">
+                {currentUser.displayName.charAt(0).toUpperCase()}
+              </div>
+              <div className="hidden lg:block text-left">
+                <span className="text-xs font-bold text-gray-200 block truncate max-w-[120px] group-hover:text-amber-400 transition-colors">
+                  {currentUser.displayName}
+                </span>
+                <span className="text-[10px] text-amber-400 uppercase font-mono block">
+                  {currentUser.role}
+                </span>
+              </div>
+            </button>
+
+            {onOpenAuthModal && (
+              <button
+                type="button"
+                onClick={() => onOpenAuthModal('login')}
+                className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#14161d] hover:bg-[#1f222b] border border-[#242835] text-xs font-mono text-gray-300 hover:text-white transition-colors cursor-pointer shadow-sm"
+                title="Sign in or create account"
+              >
+                <LogIn className="w-3.5 h-3.5 text-amber-500" />
+                <span>Sign In</span>
+              </button>
+            )}
           </div>
         </div>
       </header>
