@@ -141,7 +141,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
               </div>
               <div>
                 <div className="flex items-center gap-2">
-                  <h3 className="text-sm font-bold text-white">Hollywood Industry Standard PDF</h3>
+                  <h3 className="text-sm font-bold text-white">Standard Screenplay PDF</h3>
                   <span className="text-[10px] uppercase font-mono px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">
                     Production Print
                   </span>

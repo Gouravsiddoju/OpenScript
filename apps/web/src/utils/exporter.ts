@@ -203,7 +203,7 @@ export function exportOpenScriptProject(options: ExportScreenplayOptions, extens
 
 /**
  * 2. Final Draft 12 FDX Export (.fdx)
- * Industry-standard XML format for Hollywood production, casting, and scheduling.
+ * Industry-standard XML format for production, casting, and scheduling.
  */
 export function exportFinalDraftFdx(options: Pick<ExportScreenplayOptions, 'blocks' | 'metadata'>): void {
   const { blocks, metadata } = options;

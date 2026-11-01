@@ -640,7 +640,7 @@ export const ScreenplayEditor: React.FC<ScreenplayEditorProps> = ({
             <span>Dual</span>
           </button>
 
-          {/* Hollywood Revision Asterisk Toggle */}
+          {/* Revision Asterisk Toggle */}
           <button
             onClick={() => {
               editor.chain().focus().updateAttributes(activeNodeType, {
@@ -653,7 +653,7 @@ export const ScreenplayEditor: React.FC<ScreenplayEditorProps> = ({
                 ? 'bg-red-500/20 text-red-300 border border-red-500/40 shadow-sm font-semibold'
                 : 'text-gray-400 hover:text-white hover:bg-[#1a1d26]'
             }`}
-            title="Toggle Hollywood revision asterisk (*) on current block (Alt+T)"
+            title="Toggle revision asterisk (*) on current block (Alt+T)"
           >
             <span className="text-red-400 font-bold text-sm leading-none">*</span>
             <span>Revision</span>

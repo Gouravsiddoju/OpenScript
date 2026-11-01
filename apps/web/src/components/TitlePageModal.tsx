@@ -41,7 +41,7 @@ export const TitlePageModal: React.FC<TitlePageModalProps> = ({
             </div>
             <div>
               <h3 className="text-base font-bold text-white">Title Page & PDF Watermarking</h3>
-              <p className="text-xs text-gray-400">Industry-standard Hollywood cover page & security watermark</p>
+              <p className="text-xs text-gray-400">Standard screenplay cover page & security watermark</p>
             </div>
           </div>
           <button

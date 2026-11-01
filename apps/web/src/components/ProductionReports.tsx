@@ -225,7 +225,7 @@ export const ProductionReports: React.FC<ProductionReportsProps> = ({ contentHtm
             Day-Out-of-Days (DOOD) Cast Schedule Matrix
           </h3>
           <p className="text-xs text-gray-400 mb-4 font-mono">
-            Standard Hollywood DOOD schedule: Work (W), Start-Work (SW), Finish-Work (FW), Hold (H) across scenes.
+            Standard DOOD schedule: Work (W), Start-Work (SW), Finish-Work (FW), Hold (H) across scenes.
           </p>
 
           {sortedCharacters.length === 0 || sceneHeadings.length === 0 ? (
@@ -327,7 +327,7 @@ export const ProductionReports: React.FC<ProductionReportsProps> = ({ contentHtm
                 <div className="bg-sky-500 h-full" style={{ width: `${actionRatio}%` }} />
               </div>
               <p className="text-[11px] text-gray-500 leading-relaxed font-sans">
-                Industry standard features typically land between 45%–60% dialogue. Your script currently trends toward {dialogueRatio > 60 ? 'dialogue-heavy drama' : dialogueRatio < 40 ? 'visual action-driven pacing' : 'balanced Hollywood narrative'}.
+                Industry standard features typically land between 45%–60% dialogue. Your script currently trends toward {dialogueRatio > 60 ? 'dialogue-heavy drama' : dialogueRatio < 40 ? 'visual action-driven pacing' : 'balanced dramatic pacing'}.
               </p>
             </div>
 
