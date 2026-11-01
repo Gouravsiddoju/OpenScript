@@ -26,7 +26,9 @@ import {
   Radio,
   Keyboard,
   Cloud,
+  BookOpen,
 } from 'lucide-react';
+import { StudioGuideModal } from './components/StudioGuideModal';
 import { ScreenplayEditor } from './components/ScreenplayEditor';
 import { FountainView } from './components/FountainView';
 import { ProductionReports } from './components/ProductionReports';
@@ -218,6 +220,29 @@ export default function App() {
   const [isNotesPanelOpen, setIsNotesPanelOpen] = useState(false);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [isShortcutsModalOpen, setIsShortcutsModalOpen] = useState(false);
+  // Smart Auto-revealing Header on Scroll & Studio Guide State
+  const [isHeaderVisible, setIsHeaderVisible] = useState(true);
+  const [isGuideModalOpen, setIsGuideModalOpen] = useState(false);
+  const lastScrollTopRef = useRef(0);
+
+  const handleWorkspaceScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    const currentScrollTop = e.currentTarget.scrollTop;
+    const delta = currentScrollTop - lastScrollTopRef.current;
+
+    if (currentScrollTop <= 35) {
+      // Near top: always keep header visible
+      setIsHeaderVisible(true);
+    } else if (delta > 8) {
+      // Scrolling down: hide header smoothly
+      setIsHeaderVisible(false);
+    } else if (delta < -5) {
+      // Small scroll up: immediately show header!
+      setIsHeaderVisible(true);
+    }
+
+    lastScrollTopRef.current = currentScrollTop;
+  };
+
 
   // User Profile & Authentication state
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
@@ -1721,7 +1746,11 @@ Neon reflections shimmer in deep puddles. Sirens echo in the far distance.`;
         className="flex-1 flex flex-col bg-[#111215] overflow-hidden"
       >
         {/* Top Header Bar */}
-        <header className="no-print h-14 shrink-0 border-b border-[#1c1e24] bg-[#0c0d0f] px-4 flex items-center justify-between">
+        <header className={`no-print border-b border-[#1c1e24] bg-[#0c0d0f]/95 backdrop-blur-md px-4 flex items-center justify-between transition-all duration-300 ease-in-out z-40 shrink-0 ${
+          isHeaderVisible
+            ? 'h-14 translate-y-0 opacity-100 shadow-xl'
+            : 'h-0 -translate-y-full opacity-0 pointer-events-none border-transparent overflow-hidden'
+        }`}>
           <div className="flex items-center gap-2 sm:gap-3">
             {!focusMode && (
               <button
@@ -1925,6 +1954,16 @@ Neon reflections shimmer in deep puddles. Sirens echo in the far distance.`;
               <span className="hidden sm:inline">Cloud</span>
             </button>
 
+                        {/* Studio Walkthrough & Feature Guide */}
+            <button
+              onClick={() => setIsGuideModalOpen(true)}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/40 text-xs font-mono text-amber-300 hover:text-white transition-colors shadow-sm"
+              title="Open Studio Guide & Feature Walkthrough"
+            >
+              <BookOpen className="w-3.5 h-3.5 text-amber-400" />
+              <span className="hidden sm:inline">Guide</span>
+            </button>
+
             {/* 4. Single Definitive Keyboard Shortcuts Button */}
             <button
               onClick={() => setIsShortcutsModalOpen(true)}
@@ -1967,7 +2006,7 @@ Neon reflections shimmer in deep puddles. Sirens echo in the far distance.`;
         </header>
 
         {/* Workspace Canvas Area */}
-        <div className="flex-1 overflow-y-auto p-4 sm:p-8 flex justify-center bg-[#0d0e11]">
+        <div onScroll={handleWorkspaceScroll} className="flex-1 overflow-y-auto p-4 sm:p-8 flex justify-center bg-[#0d0e11]">
           {activeMode === 'screenplay' && (
             <ScreenplayEditor
               initialContent={scriptHtml}
@@ -2170,6 +2209,12 @@ Neon reflections shimmer in deep puddles. Sirens echo in the far distance.`;
         selectedActId={selectedActId}
         sceneFolderMap={sceneFolderMap}
         folders={sceneFolders}
+      />
+
+            {/* Interactive Studio Tour & Feature Guide Modal */}
+      <StudioGuideModal
+        isOpen={isGuideModalOpen}
+        onClose={() => setIsGuideModalOpen(false)}
       />
 
       {/* Cloud Storage & Automated Snapshots Modal */}
