@@ -56,11 +56,7 @@ interface SceneNavigatorProps {
   onFolderMapChange?: (map: Record<number, string>) => void;
 }
 
-const DEFAULT_FOLDERS: SceneFolder[] = [
-  { id: 'act-1', name: 'Act I — Setup', color: 'border-blue-500/40 text-blue-400' },
-  { id: 'act-2', name: 'Act II — Confrontation', color: 'border-amber-500/40 text-amber-400' },
-  { id: 'act-3', name: 'Act III — Resolution', color: 'border-emerald-500/40 text-emerald-400' },
-];
+const DEFAULT_FOLDERS: SceneFolder[] = [];
 
 export const SceneNavigator: React.FC<SceneNavigatorProps> = ({
   scenes,
@@ -91,12 +87,36 @@ export const SceneNavigator: React.FC<SceneNavigatorProps> = ({
 
   const [internalFolders, setInternalFolders] = useState<SceneFolder[]>(() => {
     const saved = localStorage.getItem('openscript_scene_folders');
-    return saved ? JSON.parse(saved) : DEFAULT_FOLDERS;
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (
+          Array.isArray(parsed) &&
+          parsed.length === 3 &&
+          parsed.some((p: any) => p.id === 'act-1' && p.name && p.name.includes('Act I')) &&
+          parsed.some((p: any) => p.id === 'act-2' && p.name && p.name.includes('Act II')) &&
+          parsed.some((p: any) => p.id === 'act-3' && p.name && p.name.includes('Act III'))
+        ) {
+          return [];
+        }
+        return parsed;
+      } catch {}
+    }
+    return DEFAULT_FOLDERS;
   });
 
   const [internalSceneFolderMap, setInternalSceneFolderMap] = useState<Record<number, string>>(() => {
     const saved = localStorage.getItem('openscript_scene_folder_map');
-    return saved ? JSON.parse(saved) : {};
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (parsed['1'] === 'act-1' && parsed['2'] === 'act-2' && Object.keys(parsed).length <= 2) {
+          return {};
+        }
+        return parsed;
+      } catch {}
+    }
+    return {};
   });
 
   const folders = propFolders ?? internalFolders;
@@ -493,10 +513,53 @@ export const SceneNavigator: React.FC<SceneNavigatorProps> = ({
           /* ACTS & FOLDERS VIEW (Drag & Drop Between Acts & Folders)    */
           /* ========================================================== */
           <div className="space-y-3">
-            {folders.map((folder) => {
+            {folders.length === 0 ? (
+              <div className="space-y-3">
+                <div className="p-4 rounded-xl border border-dashed border-[#232733] bg-[#101217] text-center space-y-2.5 my-2">
+                  <FolderPlus className="w-6 h-6 text-amber-400/80 mx-auto" />
+                  <div className="text-xs font-semibold text-gray-200">No Custom Folders Yet</div>
+                  <p className="text-[11px] text-gray-400 leading-relaxed">
+                    Create custom folders or acts to organize scenes into your own structure (e.g. Sequences, Chapters, Acts).
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setIsAddingFolder(true)}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/40 text-[11px] font-mono font-bold transition-all cursor-pointer"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>+ Create Folder / Act</span>
+                  </button>
+                </div>
+
+                {/* All Scenes List when no folders are created */}
+                <div className="space-y-1">
+                  {scenes.map((scene) => (
+                    <SceneCardItem
+                      key={scene.id}
+                      scene={scene}
+                      canDelete={canManageScenes}
+                      onOpenTakes={onOpenTakes ? () => onOpenTakes(scene) : undefined}
+                      isActive={activeSceneId === scene.id}
+                      isSelected={selectedSceneIds.includes(scene.id)}
+                      isDraggable={false}
+                      confirmingDelete={confirmingDeleteSceneId === scene.id}
+                      onRequestDelete={() => setConfirmingDeleteSceneId(scene.id)}
+                      onCancelDelete={() => setConfirmingDeleteSceneId(null)}
+                      onConfirmDelete={() => handleDeleteSceneConfirmed(scene.id)}
+                      onToggleSelect={() => toggleSelectScene(scene.id)}
+                      onSelect={() => {
+                        setActiveSceneId(scene.id);
+                        onSelectScene(scene.id - 1);
+                      }}
+                    />
+                  ))}
+                </div>
+              </div>
+            ) : (
+              folders.map((folder) => {
               const folderScenes = scenesByFolder[folder.id] || [];
               const isCollapsed = collapsedFolders[folder.id];
-              const isCustom = !DEFAULT_FOLDERS.some((df) => df.id === folder.id);
+              const isCustom = true;
               const isDropTarget = dragOverFolderId === folder.id;
 
               return (
@@ -695,9 +758,11 @@ export const SceneNavigator: React.FC<SceneNavigatorProps> = ({
                   )}
                 </div>
               );
-            })}
+            })
+          )}
 
             {/* Unassigned Category Drop Target in Acts View */}
+            {folders.length > 0 && (
             <div 
               onDragOver={(e) => {
                 e.preventDefault();
@@ -786,6 +851,7 @@ export const SceneNavigator: React.FC<SceneNavigatorProps> = ({
                 ))}
               </div>
             </div>
+            )}
           </div>
         )}
       </div>

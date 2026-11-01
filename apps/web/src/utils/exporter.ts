@@ -364,7 +364,7 @@ export function generateScreenplayPdfDoc(options: PdfExportOptions): jsPDF {
     let currentScene = 0;
     activeBlocks = blocks.filter((b) => {
       if (b.type === 'sceneHeading') currentScene++;
-      const actId = (sceneFolderMap && sceneFolderMap[currentScene]) || (currentScene === 1 ? 'act-1' : currentScene === 2 ? 'act-2' : 'unassigned');
+      const actId = (sceneFolderMap && sceneFolderMap[currentScene]) || 'unassigned';
       return actId === selectedActId;
     });
   }
@@ -498,8 +498,8 @@ export function generateScreenplayPdfDoc(options: PdfExportOptions): jsPDF {
     switch (block.type) {
       case 'sceneHeading': {
         currentSceneCounter++;
-        const actId = (sceneFolderMap && sceneFolderMap[currentSceneCounter]) || (currentSceneCounter === 1 ? 'act-1' : currentSceneCounter === 2 ? 'act-2' : 'unassigned');
-        const isActBreak = !selectedActId && prevSceneActId !== null && actId !== prevSceneActId;
+        const actId = (sceneFolderMap && sceneFolderMap[currentSceneCounter]) || 'unassigned';
+        const isActBreak = !selectedActId && prevSceneActId !== null && actId !== 'unassigned' && prevSceneActId !== 'unassigned' && actId !== prevSceneActId;
         prevSceneActId = actId;
 
         // Force Act boundaries to start on a new physical page

@@ -459,8 +459,7 @@ export const ScreenplayEditor: React.FC<ScreenplayEditorProps> = ({
         }
       }
       child.setAttribute('data-scene-id', String(currentSceneNum));
-      const actId = (sceneFolderMap && sceneFolderMap[currentSceneNum]) || 
-        (currentSceneNum === 1 ? 'act-1' : currentSceneNum === 2 ? 'act-2' : 'unassigned');
+      const actId = (sceneFolderMap && sceneFolderMap[currentSceneNum]) || 'unassigned';
       child.setAttribute('data-act-id', actId);
     }
 
@@ -494,7 +493,7 @@ export const ScreenplayEditor: React.FC<ScreenplayEditorProps> = ({
       }
 
       // REQUIREMENT: Different acts open on a new page, NOT on the same page!
-      const isActBreak = isSceneHeading && previousSceneActId !== null && childActId && childActId !== previousSceneActId;
+      const isActBreak = isSceneHeading && previousSceneActId !== null && childActId && childActId !== 'unassigned' && previousSceneActId !== 'unassigned' && childActId !== previousSceneActId;
       if (isSceneHeading) {
         previousSceneActId = childActId;
       }

@@ -463,15 +463,41 @@ export default function App() {
   const [selectedActId, setSelectedActId] = useState<string | null>(null);
   const [sceneFolders, setSceneFolders] = useState<SceneFolder[]>(() => {
     const saved = localStorage.getItem('openscript_scene_folders');
-    return saved ? JSON.parse(saved) : [
-      { id: 'act-1', name: 'Act I — Setup', color: 'border-blue-500/40 text-blue-400' },
-      { id: 'act-2', name: 'Act II — Confrontation', color: 'border-amber-500/40 text-amber-400' },
-      { id: 'act-3', name: 'Act III — Resolution', color: 'border-emerald-500/40 text-emerald-400' },
-    ];
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        // Purge legacy hardcoded default acts (Act I — Setup, Act II — Confrontation, Act III — Resolution)
+        if (
+          Array.isArray(parsed) &&
+          parsed.length === 3 &&
+          parsed.some((p: any) => p.id === 'act-1' && p.name && p.name.includes('Act I')) &&
+          parsed.some((p: any) => p.id === 'act-2' && p.name && p.name.includes('Act II')) &&
+          parsed.some((p: any) => p.id === 'act-3' && p.name && p.name.includes('Act III'))
+        ) {
+          localStorage.removeItem('openscript_scene_folders');
+          localStorage.removeItem('openscript_scene_folder_map');
+          return [];
+        }
+        return parsed;
+      } catch {}
+    }
+    return [];
   });
   const [sceneFolderMap, setSceneFolderMap] = useState<Record<number, string>>(() => {
+    const savedFolders = localStorage.getItem('openscript_scene_folders');
+    if (!savedFolders) return {};
     const saved = localStorage.getItem('openscript_scene_folder_map');
-    return saved ? JSON.parse(saved) : { 1: 'act-1', 2: 'act-2' };
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (parsed['1'] === 'act-1' && parsed['2'] === 'act-2' && Object.keys(parsed).length <= 2) {
+          localStorage.removeItem('openscript_scene_folder_map');
+          return {};
+        }
+        return parsed;
+      } catch {}
+    }
+    return {};
   });
 
   const handleUpdateSceneFolders = (newFolders: SceneFolder[]) => {
