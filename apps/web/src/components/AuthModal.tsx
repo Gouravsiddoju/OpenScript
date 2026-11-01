@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import { 
   X, 
   LogIn, 
@@ -20,7 +20,7 @@ import { UserProfileData } from './UserProfileModal';
 interface AuthModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onAuthSuccess: (user: UserProfileData, token: string) => void;
+  onAuthSuccess: (user: UserProfileData, token: string, isNewUser?: boolean) => void;
   defaultMode?: 'login' | 'register';
   isCompulsory?: boolean;
 }
@@ -167,7 +167,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         color: data.user.color || (data.user.role === 'co-writer' ? '#3b82f6' : data.user.role === 'commenter' ? '#ec4899' : '#f59e0b'),
       };
 
-      onAuthSuccess(userProfile, data.token || `token-${Date.now()}`);
+      onAuthSuccess(userProfile, data.token || `token-${Date.now()}`, mode === 'register');
       onClose();
     } catch (err: any) {
       setError(err.message || 'An unexpected authentication error occurred.');
