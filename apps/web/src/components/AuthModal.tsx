@@ -19,6 +19,7 @@ interface AuthModalProps {
   onClose: () => void;
   onAuthSuccess: (user: UserProfileData, token: string) => void;
   defaultMode?: 'login' | 'register';
+  isCompulsory?: boolean;
 }
 
 
@@ -93,7 +94,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   isOpen,
   onClose,
   onAuthSuccess,
-  defaultMode = 'login',
+  defaultMode = 'register',
+  isCompulsory = false,
 }) => {
   const [mode, setMode] = useState<'login' | 'register'>(defaultMode);
   const [email, setEmail] = useState('');
@@ -185,14 +187,21 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               <p className="text-xs text-gray-400">
                 {mode === 'login' ? 'Sign in to access production screenplays' : 'Create a new screenwriting account'}
               </p>
+              {isCompulsory && (
+                <span className="text-[10px] text-amber-400/90 font-mono block mt-0.5">
+                  Sign up required to access OpenScript Studio
+                </span>
+              )}
             </div>
           </div>
-          <button
-            onClick={onClose}
-            className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-[#20232c] transition-colors"
-          >
-            <X className="w-5 h-5" />
-          </button>
+          {!isCompulsory && (
+            <button
+              onClick={onClose}
+              className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-[#20232c] transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          )}
         </div>
 
         {/* Tab Switcher */}

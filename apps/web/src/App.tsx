@@ -1514,6 +1514,21 @@ Neon reflections shimmer in deep puddles. Sirens echo in the far distance.`;
 
   const effectiveSidebarOpen = sidebarOpen && !focusMode;
 
+  // Compulsory Authentication Gate: Users must sign up or sign in to access the application
+  if (!authToken) {
+    return (
+      <div className="min-h-screen bg-[#0a0b0e] flex items-center justify-center p-4">
+        <AuthModal
+          isOpen={true}
+          isCompulsory={true}
+          onClose={() => {}}
+          onAuthSuccess={handleAuthSuccess}
+          defaultMode="register"
+        />
+      </div>
+    );
+  }
+
   if (isDashboardOpen) {
     return (
       <div className="min-h-screen bg-[#0a0b0e]">
