@@ -27,6 +27,7 @@ interface ScreenplayEditorProps {
   sceneFolderMap?: Record<number, string>;
   folders?: { id: string; name: string; color: string }[];
   onClearActFilter?: () => void;
+  isToolbarVisible?: boolean;
 }
 
 const DEFAULT_SCRIPT_HTML = `
@@ -62,6 +63,7 @@ export const ScreenplayEditor: React.FC<ScreenplayEditorProps> = ({
   sceneFolderMap = {},
   folders = [],
   onClearActFilter,
+  isToolbarVisible = true,
 }) => {
   const initialKnownChars = useMemo(() => {
     const chars = new Set<string>(['MAYA', 'GOURAV']);
@@ -687,8 +689,14 @@ export const ScreenplayEditor: React.FC<ScreenplayEditorProps> = ({
 
       {/* 1. Sleek Floating Island / Pill Ribbon (Sticky, elevated, beautifully formatted) */}
       {canEditScreenplay(currentUserRole) && (
-      <div className="no-print sticky top-2 z-30 mb-8 mt-1 flex justify-center pointer-events-none w-full animate-fadeIn select-none">
-        <div className="pointer-events-auto bg-[#13151b]/95 backdrop-blur-md border border-[#272b38] rounded-2xl p-1.5 shadow-2xl shadow-black/70 flex items-center gap-1">
+      <div className={`no-print sticky top-2 z-30 mb-8 mt-1 flex justify-center w-full select-none transition-all duration-300 ease-in-out ${
+        isToolbarVisible
+          ? 'translate-y-0 opacity-100 pointer-events-auto'
+          : '-translate-y-16 opacity-0 pointer-events-none'
+      }`}>
+        <div className={`pointer-events-auto bg-[#13151b]/95 backdrop-blur-md border border-[#272b38] rounded-2xl p-1.5 shadow-2xl shadow-black/70 flex items-center gap-1 transition-all duration-300 ${
+          isToolbarVisible ? 'scale-100' : 'scale-95'
+        }`}>
           {[
             { type: 'sceneHeading', label: 'Scene Heading', shortcut: '1' },
             { type: 'action', label: 'Action', shortcut: '2' },
