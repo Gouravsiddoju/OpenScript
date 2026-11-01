@@ -73,7 +73,7 @@ export const KeyboardShortcutsModal: React.FC<KeyboardShortcutsModalProps> = ({ 
         },
         {
           keys: ['Ctrl / Alt', 'S'],
-          desc: 'Save Checkpoint to cloud & resilient local cache',
+          desc: 'Save screenplay to local disk (Chromium File System Access / download)',
         },
         {
           keys: ['Alt', 'F'],

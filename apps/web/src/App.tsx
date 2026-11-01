@@ -1,10 +1,11 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+﻿import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { 
   FileText, 
   Code, 
   BarChart2, 
   Download, 
   Printer, 
+  Save,
   CheckCircle2, 
   Clock, 
   ChevronRight, 
@@ -50,7 +51,7 @@ import { ExportModal } from './components/ExportModal';
 import { CloudStorageModal } from './components/CloudStorageModal';
 import { ProjectDashboard } from './components/ProjectDashboard';
 import { listProjects, getProject, saveProject, createProject, getActiveProjectId, setActiveProjectId } from './utils/projectStore';
-import { htmlToBlocks, exportScreenplayPdf } from './utils/exporter';
+import { htmlToBlocks, exportScreenplayPdf, saveScreenplayToLocalDisk } from './utils/exporter';
 import { ImportedScreenplayResult } from './utils/importer';
 import { fountainToHtml, parseFountain, blocksToHtml } from '@openscript/fountain';
 import { parseFdx, serializeFdx } from '@openscript/fdx';
@@ -209,6 +210,7 @@ export default function App() {
     return id;
   });
   const [isSaved, setIsSaved] = useState(true);
+  const [localSaveNotification, setLocalSaveNotification] = useState<string | null>(null);
   const [activeMode, setActiveMode] = useState<'screenplay' | 'beats' | 'fountain' | 'reports'>('screenplay');
   const [focusMode, setFocusMode] = useState(false);
   const [isTitleModalOpen, setIsTitleModalOpen] = useState(false);
@@ -1416,6 +1418,38 @@ Neon reflections shimmer in deep puddles. Sirens echo in the far distance.`;
     URL.revokeObjectURL(url);
   };
 
+  const handleSaveToLocalDisk = async () => {
+    try {
+      const blocks = htmlToBlocks(scriptHtml);
+      const res = await saveScreenplayToLocalDisk({
+        blocks,
+        metadata: titleMetadata,
+        sceneTakes,
+        notes,
+        revisionNumber,
+        activeRevisionColor,
+      });
+
+      if (res.success && res.filename) {
+        setLocalSaveNotification(res.filename);
+        setTimeout(() => setLocalSaveNotification(null), 4000);
+      }
+    } catch (err) {
+      console.error('Failed to save to local disk:', err);
+    }
+  };
+
+  useEffect(() => {
+    const handleGlobalSaveKey = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+        e.preventDefault();
+        handleSaveToLocalDisk();
+      }
+    };
+    window.addEventListener('keydown', handleGlobalSaveKey);
+    return () => window.removeEventListener('keydown', handleGlobalSaveKey);
+  }, [scriptHtml, titleMetadata, sceneTakes, notes, revisionNumber, activeRevisionColor]);
+
   const handleDownloadPdf = () => {
     try {
       const blocks = htmlToBlocks(scriptHtml);
@@ -1963,6 +1997,16 @@ Neon reflections shimmer in deep puddles. Sirens echo in the far distance.`;
                 <span>Export</span>
               </button>
 
+              {/* Save to Local Disk (Chromium File System Access / Native Disk Save) */}
+              <button
+                onClick={handleSaveToLocalDisk}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg hover:bg-[#1f222b] text-xs font-mono text-gray-300 hover:text-white transition-colors"
+                title="Save directly to Local Disk (Ctrl+S / Chromium File System Access)"
+              >
+                <Save className="w-3.5 h-3.5 text-emerald-400" />
+                <span className="hidden sm:inline">Save Disk</span>
+              </button>
+
               {/* Primary PDF Export Button */}
               <button
                 onClick={handleDownloadPdf}
@@ -2142,11 +2186,25 @@ Neon reflections shimmer in deep puddles. Sirens echo in the far distance.`;
             <span className="text-gray-700">|</span>
             <span className="flex items-center gap-1.5 text-emerald-400 font-mono">
               <CheckCircle2 className="w-3.5 h-3.5" />
-              <span>{isSaved ? 'Cloud Synced' : 'Saving...'}</span>
+              <span>{localSaveNotification ? `Saved to ${localSaveNotification}` : (isSaved ? 'Cloud Synced' : 'Saving...')}</span>
             </span>
           </div>
         </footer>
       </main>
+
+      {/* Local Disk Save Notification Toast */}
+      {localSaveNotification && (
+        <aside
+          aria-label="Local disk save notification"
+          className="fixed bottom-12 right-6 z-50 bg-[#141720]/95 backdrop-blur-md border border-emerald-500/50 text-white px-4 py-2.5 rounded-xl shadow-2xl shadow-black/80 flex items-center gap-2.5 animate-in fade-in slide-in-from-bottom-2 duration-200"
+        >
+          <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+          <div className="text-xs font-mono">
+            <span className="text-emerald-400 font-bold">Saved to Local Disk: </span>
+            <span className="text-gray-200">{localSaveNotification}</span>
+          </div>
+        </aside>
+      )}
 
       {/* Title Page Modal */}
       <TitlePageModal
