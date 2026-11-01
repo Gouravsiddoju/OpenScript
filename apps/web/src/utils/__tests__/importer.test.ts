@@ -522,4 +522,35 @@ CourierPrime;
     expect(result.scriptHtml).not.toContain('(No sir not at present.)');
     expect(result.scriptHtml).not.toContain('(The suspect is girlfriend or wife.)');
   });
+
+  it('correctly unwraps dialogue enclosed in parentheses from PDF into dialogue, preserving actor directions as parentheticals', async () => {
+    const pdfFile = createVectorScreenplayPdf([
+      { text: 'INT. POLICE LAB - NIGHT', x: 72, y: 700 },
+      { text: 'ASSISTANT', x: 250, y: 660 },
+      { text: '(What do you think sir?)', x: 200, y: 640 },
+      { text: 'DETECTIVE', x: 250, y: 600 },
+      { text: '(with sigh)', x: 210, y: 580 },
+      { text: '(There are no suspects?)', x: 200, y: 560 },
+      { text: 'ASSISTANT', x: 250, y: 520 },
+      { text: '(no sir not at present.)', x: 200, y: 500 },
+      { text: 'DETECTIVE', x: 250, y: 460 },
+      { text: '(The suspect is girlfriend or wife.)', x: 200, y: 440 },
+    ]);
+
+    const result = await importScreenplayFile(pdfFile);
+
+    // Spoken dialogue wrapped in parentheses must be cleanly categorized as dialogue
+    expect(result.scriptHtml).toContain('<div class="script-dialogue">What do you think sir?</div>');
+    expect(result.scriptHtml).toContain('<div class="script-dialogue">There are no suspects?</div>');
+    expect(result.scriptHtml).toContain('<div class="script-dialogue">no sir not at present.</div>');
+    expect(result.scriptHtml).toContain('<div class="script-dialogue">The suspect is girlfriend or wife.</div>');
+
+    // Genuine actor direction must remain a parenthetical
+    expect(result.scriptHtml).toContain('<div class="script-parenthetical">(with sigh)</div>');
+
+    // Dialogue must NOT be parsed as parentheticals
+    expect(result.scriptHtml).not.toContain('<div class="script-parenthetical">(What do you think sir?)</div>');
+    expect(result.scriptHtml).not.toContain('<div class="script-parenthetical">(There are no suspects?)</div>');
+    expect(result.scriptHtml).not.toContain('<div class="script-parenthetical">(no sir not at present.)</div>');
+  });
 });

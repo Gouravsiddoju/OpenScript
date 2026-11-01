@@ -1,6 +1,6 @@
 ﻿import './pdfPolyfill';
 import { parseFdx } from '@openscript/fdx';
-import { createScreenplayBlock, isNonCharacterCue, isSceneHeadingCandidate, isShotCandidate, isDateOrDraftStamp } from '@openscript/screenplay-schema';
+import { createScreenplayBlock, isNonCharacterCue, isSceneHeadingCandidate, isShotCandidate, isDateOrDraftStamp, isGenuineParenthetical } from '@openscript/screenplay-schema';
 import { fountainToHtml, blocksToHtml, parseFountain } from '@openscript/fountain';
 import JSZip from 'jszip';
 import * as pdfjsLib from 'pdfjs-dist';
@@ -37,6 +37,7 @@ export interface ImportedScreenplayResult {
   fullMetadata?: Record<string, any>;
   sceneTakes?: any[];
   notes?: any[];
+  hasTitlePage?: boolean;
 }
 
 export interface FileEntry {
@@ -858,6 +859,7 @@ export async function parseScreenplayPdf(file: File): Promise<ImportedScreenplay
   let detectedAuthor = 'Screenplay Author';
   let detectedDraftDate: string | undefined;
   let detectedContact: string | undefined;
+  let detectedHasTitlePage = false;
 
   if (pages.length > 0) {
     const { isTitlePage, metadata } = detectTitlePage(pages[0]);
@@ -944,7 +946,7 @@ export async function parseScreenplayPdf(file: File): Promise<ImportedScreenplay
         line.x >= 120 &&
         line.x <= 340 &&
         trimmed.startsWith('(') &&
-        trimmed.length <= 80 &&
+        isGenuineParenthetical(trimmed) &&
         prevBlock &&
         (prevBlock.type === 'character' || prevBlock.type === 'parenthetical' || prevBlock.type === 'dialogue');
 
@@ -972,12 +974,16 @@ export async function parseScreenplayPdf(file: File): Promise<ImportedScreenplay
         ((line.x >= 105 && line.x <= 380) || (prevLine && Math.abs(prevLine.y - line.y) < 18 && line.x >= 85));
 
       if (isImmediateDialogue || isContinuingDialogue) {
+        let dialogueText = trimmed;
+        if (dialogueText.startsWith('(') && dialogueText.endsWith(')')) {
+          dialogueText = dialogueText.slice(1, -1).trim();
+        }
         if (prevBlock.type === 'dialogue' && prevLine && Math.abs(prevLine.y - line.y) < 18) {
-          prevBlock.text += ' ' + trimmed;
+          prevBlock.text += ' ' + dialogueText;
         } else {
           blocks.push({
             type: 'dialogue',
-            text: trimmed,
+            text: dialogueText,
           });
         }
         continue;

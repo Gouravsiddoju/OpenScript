@@ -139,3 +139,44 @@ export function isDateOrDraftStamp(text: string): boolean {
 
   return false;
 }
+
+
+/**
+ * Determines whether text wrapped in parentheses is a genuine screenplay actor direction
+ * (e.g. `(beat)`, `(smiling)`, `(with sigh)`, `(whispering)`, `(to John)`, `(into phone)`)
+ * versus spoken dialogue wrapped in parentheses (e.g. `(What do you think sir?)`,
+ * `(Where are no suspects?)`, `(The suspect is girlfriend or wife.)`).
+ */
+export function isGenuineParenthetical(text: string): boolean {
+  if (!text) return false;
+  const trimmed = text.trim();
+  if (!trimmed.startsWith('(') || !trimmed.endsWith(')')) return false;
+
+  const inner = trimmed.slice(1, -1).trim();
+  if (!inner) return false;
+
+  // 1. Questions are NEVER actor directions; questions are dialogue spoken to another character
+  if (inner.includes('?')) return false;
+
+  // 2. Lines longer than 55 characters are speech or action paragraphs wrapped in parentheses
+  if (inner.length > 55) return false;
+
+  // 3. Known actor directions / delivery cues
+  const directionRegex =
+    /^(?:beat|pause|smiling|smiles|laughs?|laughing|crying|cries|sighs?|with\s+sigh|whispers?|whispering|sarcastic(?:ally)?|dryly|quietly|softly|shouting|screaming|firmly|angrily|confused|hesitant|calmly|nodding|shrugging|gasping|pointing.*|looks?.*|turns?.*|to\s+[a-z0-9\s'-]+|into\s+phone|on\s+phone|re:.*|o\.s\.|v\.o\.|cont'?d|continuing|filtered|in\s+[a-z]+|translated|subtitled|singing|humming|overlapping|interrupted|clears\s+throat|mutters?|muttering|winks?|winking|grins?|grinning|groans?|snickers?|chuckling|deadpan|mocking|pleading|tearful|mock-serious|under\s+breath|aside|simultaneous(?:ly)?)\b/i;
+
+  if (directionRegex.test(inner)) return true;
+
+  // 4. Conversational markers and sentence punctuation indicate spoken dialogue
+  const conversationalSpeech =
+    /\b(?:sir|ma'am|hello|hi|yes|no|yeah|nope|please|thanks|thank\s+you|what|where|how|who|why|when|i\b|i'm|i've|i'll|i'd|we\b|we're|we've|you\b|you're|you've|he\b|she\b|they\b|it\b|isn't|aren't|don't|can't|won't|police|officer|suspect|victim|car|house|money|kill|murder|suicide)\b/i;
+
+  if (conversationalSpeech.test(inner)) return false;
+
+  // 5. Short cues (< 30 chars) without sentences or quotes that look like actor directions
+  if (inner.length <= 30 && !/[!?"']/.test(inner)) {
+    return true;
+  }
+
+  return false;
+}

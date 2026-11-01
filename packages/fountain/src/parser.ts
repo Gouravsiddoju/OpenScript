@@ -4,6 +4,7 @@ import {
   isNonCharacterCue,
   isSceneHeadingCandidate,
   isShotCandidate,
+  isGenuineParenthetical,
 } from '@openscript/screenplay-schema';
 
 export function parseFountain(fountainText: string): ScreenplayBlock[] {

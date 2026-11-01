@@ -420,129 +420,109 @@ export const ScreenplayEditor: React.FC<ScreenplayEditorProps> = ({
   const [currentPage, setCurrentPage] = useState<number>(1);
 
   const updatePagination = () => {
-    console.log('[DEBUG PAGINATION RUNNING]');
-    const container = paperContainerRef.current || (document.querySelectorAll('.screenplay-page')[1] as HTMLElement);
-    if (!container) {
-      setTimeout(updatePagination, 100);
-      return;
-    }
-    const tiptapRoot = container.querySelector('.tiptap') || container.querySelector('.ProseMirror') || (document.querySelector('.ProseMirror') as HTMLElement);
-    if (!tiptapRoot) {
-      setTimeout(updatePagination, 100);
-      return;
-    }
-
-    const domChildren = Array.from(tiptapRoot.children) as HTMLElement[];
-    if (domChildren.length === 0) {
+    if (!editor || !editor.state) return;
+    const { doc, tr } = editor.state;
+    if (!doc || doc.childCount === 0) {
       setTotalPages(1);
       return;
     }
 
-    // Standard screenplay page content height: 864px (9 inches of text at 96 DPI = 54 lines of 16px)
-    const PAGE_HEIGHT = 864;
-    let accumulatedHeight = 0;
-    let pageNum = 2;
+    // Standard screenplay page content: 54 lines per page (9 inches of Courier Prime text)
+    const PAGE_LINE_BUDGET = 54;
+    let accumulatedLines = 0;
+    let pageNum = 1;
     let currentSceneNum = 1;
-    let previousSceneActId: string | null = null;
-
-    // Pass 1: Tag every child with its sequential scene-id and act-id
     let sceneCounter = 0;
-    for (let i = 0; i < domChildren.length; i++) {
-      const child = domChildren[i];
-      if (child.classList.contains('script-scene-heading')) {
+    let previousSceneActId: string | null = null;
+    let hasChanges = false;
+
+    doc.forEach((node: any, offset: number) => {
+      let blockLines = 2;
+      const text = node.textContent || '';
+      const typeName = node.type.name;
+
+      if (typeName === 'sceneHeading') {
         sceneCounter++;
-        const numAttr = child.getAttribute('data-scene-number');
+        const numAttr = node.attrs.sceneNumber;
         if (numAttr) {
-          const parsed = parseInt(numAttr, 10);
+          const parsed = parseInt(String(numAttr), 10);
           currentSceneNum = !isNaN(parsed) && parsed > 0 ? parsed : sceneCounter;
         } else {
           currentSceneNum = sceneCounter;
         }
+        blockLines = 3;
+      } else if (typeName === 'action') {
+        blockLines = Math.max(1, Math.ceil(text.length / 60)) + 1;
+      } else if (typeName === 'character') {
+        blockLines = 2;
+      } else if (typeName === 'parenthetical') {
+        blockLines = 1;
+      } else if (typeName === 'dialogue') {
+        blockLines = Math.max(1, Math.ceil(text.length / 35));
+      } else if (typeName === 'transition') {
+        blockLines = 2;
+      } else if (typeName === 'shot') {
+        blockLines = 2;
       }
-      child.setAttribute('data-scene-id', String(currentSceneNum));
-      const actId = (sceneFolderMap && sceneFolderMap[currentSceneNum]) || 'unassigned';
-      child.setAttribute('data-act-id', actId);
-    }
 
-    // Pass 2: Filter scenes if selectedActId is active, AND force a new page for different acts!
-    for (let i = 0; i < domChildren.length; i++) {
-      const child = domChildren[i];
-      const childActId = child.getAttribute('data-act-id');
-      const isVisible = !selectedActId || childActId === selectedActId;
+      const actId = (sceneFolderMap && sceneFolderMap[currentSceneNum]) || 'unassigned';
+      const isVisible = !selectedActId || actId === selectedActId;
 
       if (!isVisible) {
-        child.style.display = 'none';
-        child.removeAttribute('data-page-break');
-        child.removeAttribute('data-act-break');
-        continue;
-      } else {
-        child.style.display = '';
+        if (node.attrs.pageBreak !== null || node.attrs.actBreak !== null) {
+          tr.setNodeMarkup(offset, null, {
+            ...node.attrs,
+            pageBreak: null,
+            actBreak: null,
+          });
+          hasChanges = true;
+        }
+        return;
       }
 
-      const isSceneHeading = child.classList.contains('script-scene-heading');
-      const isShot = child.classList.contains('script-shot');
-      const hasPageBreak = child.hasAttribute('data-page-break');
-
-      let h = child.offsetHeight || 0;
-      if (hasPageBreak) {
-        // Strip the 28px padding-top added by [data-page-break] so intrinsic text height is measured
-        h = Math.max(16, h - 28);
-      }
-
-      if (h <= 0) {
-        h = isSceneHeading ? 52 : (child.classList.contains('script-action') || isShot) ? 36 : 28;
-      } else {
-        try {
-          const cs = window.getComputedStyle(child);
-          let mt = parseFloat(cs.marginTop) || 0;
-          // Strip the 96px desk gap margin added by [data-page-break], restore standard element margin
-          if (hasPageBreak && mt >= 90) {
-            mt = isSceneHeading ? 32 : (child.classList.contains('script-character') ? 16 : 0);
-          }
-          const mb = parseFloat(cs.marginBottom) || 0;
-          h += (mt + mb);
-        } catch {}
-      }
-
-      // REQUIREMENT: Different acts open on a new page, NOT on the same page!
-      const isActBreak = isSceneHeading && previousSceneActId !== null && childActId && childActId !== 'unassigned' && previousSceneActId !== 'unassigned' && childActId !== previousSceneActId;
+      const isSceneHeading = typeName === 'sceneHeading';
+      const isShot = typeName === 'shot';
+      const isActBreak = isSceneHeading && previousSceneActId !== null && actId && actId !== 'unassigned' && previousSceneActId !== 'unassigned' && actId !== previousSceneActId;
       if (isSceneHeading) {
-        previousSceneActId = childActId;
+        previousSceneActId = actId;
       }
 
-      // Scene headings and shots shouldn't be stranded at the very bottom of a page (orphan prevention)
+      // Widow/orphan protection: Headings and shots shouldn't sit alone at bottom of page
       const isHeadingOrShot = isSceneHeading || isShot;
-      const budget = isHeadingOrShot && accumulatedHeight > PAGE_HEIGHT - 72 ? 0 : PAGE_HEIGHT;
+      const budget = isHeadingOrShot && accumulatedLines > PAGE_LINE_BUDGET - 4 ? 0 : PAGE_LINE_BUDGET;
 
-      if ((isActBreak || accumulatedHeight + h > budget) && accumulatedHeight > 0) {
-        if (child.getAttribute('data-page-break') !== String(pageNum)) {
-          child.setAttribute('data-page-break', String(pageNum));
-        }
-        if (isActBreak) {
-          if (!child.hasAttribute('data-act-break')) {
-            child.setAttribute('data-act-break', 'true');
-          }
-        } else {
-          child.removeAttribute('data-act-break');
-        }
-        accumulatedHeight = h;
+      if ((isActBreak || accumulatedLines + blockLines > budget) && accumulatedLines > 0) {
         pageNum++;
+        const pageStr = String(pageNum);
+        const actStr = isActBreak ? 'true' : null;
+
+        if (node.attrs.pageBreak !== pageStr || node.attrs.actBreak !== actStr) {
+          tr.setNodeMarkup(offset, null, {
+            ...node.attrs,
+            pageBreak: pageStr,
+            actBreak: actStr,
+          });
+          hasChanges = true;
+        }
+        accumulatedLines = blockLines;
       } else {
-        if (child.hasAttribute('data-page-break')) {
-          child.removeAttribute('data-page-break');
+        if (node.attrs.pageBreak !== null || node.attrs.actBreak !== null) {
+          tr.setNodeMarkup(offset, null, {
+            ...node.attrs,
+            pageBreak: null,
+            actBreak: null,
+          });
+          hasChanges = true;
         }
-        if (child.hasAttribute('data-act-break')) {
-          child.removeAttribute('data-act-break');
-        }
-        accumulatedHeight += h;
+        accumulatedLines += blockLines;
       }
+    });
+
+    if (hasChanges) {
+      editor.view.dispatch(tr.setMeta('addToHistory', false));
     }
 
-    const pageBreakCount = Math.max(1, pageNum - 1);
-    const realScrollHeight = container.scrollHeight || 0;
-    const pxPerPage = 11.0 * 96; // 1056px per physical 11" page
-    const scrollBasedPages = Math.ceil(realScrollHeight / pxPerPage);
-    const calculatedTotal = Math.max(pageBreakCount, scrollBasedPages);
+    const calculatedTotal = Math.max(1, pageNum);
     setTotalPages(calculatedTotal);
     if (onPageChange) {
       onPageChange(currentPage, calculatedTotal);
@@ -559,7 +539,7 @@ export const ScreenplayEditor: React.FC<ScreenplayEditorProps> = ({
         clearTimeout(paginationTimerRef.current);
       }
       // 300ms debounce: eliminates page jumping while typing by letting keystrokes flow smoothly
-      paginationTimerRef.current = setTimeout(updatePagination, 300);
+      paginationTimerRef.current = setTimeout(updatePagination, 1000);
     };
 
     runPagination();
@@ -747,22 +727,7 @@ export const ScreenplayEditor: React.FC<ScreenplayEditorProps> = ({
 
       {/* 1. Sleek Floating Island / Pill Ribbon (Fixed to Viewport, always accessible) */}
       {canEditScreenplay(currentUserRole) && (
-      <div 
-        data-tour="format-bar"
-        style={{
-          position: 'fixed',
-          left: '50%',
-          transform: 'translateX(-50%)',
-          zIndex: 40,
-        }}
-        className={`no-print select-none transition-all duration-200 ease-out ${
-          isToolbarVisible
-            ? isHeaderVisible
-              ? 'top-[60px] opacity-100 pointer-events-auto scale-100'
-              : 'top-3.5 opacity-100 pointer-events-auto scale-100'
-            : '-top-16 opacity-0 pointer-events-none scale-95'
-        }`}
-      >
+      <div data-tour="format-bar" className="sticky top-0 z-30 w-full py-2 flex justify-center pointer-events-none no-print select-none mb-3">
         <div className="pointer-events-auto bg-[#13151b]/95 backdrop-blur-md border border-[#272b38] rounded-2xl p-1.5 shadow-2xl shadow-black/80 flex items-center gap-1">
           {[
             { type: 'sceneHeading', label: 'Scene Heading', shortcut: '1' },
@@ -904,7 +869,7 @@ export const ScreenplayEditor: React.FC<ScreenplayEditorProps> = ({
 
           <div className="mt-auto w-full flex justify-between items-end text-[10pt] text-gray-700 pb-4 pt-4">
             <div className="whitespace-pre-line text-left leading-relaxed">
-              {metadata.contact || 'SSN Pictures\ncontact@ssnpictures.in'}
+              {metadata.contact || ''}
             </div>
             <div className="text-right leading-relaxed">
               <div className="font-semibold text-gray-900">{metadata.draftLabel || 'First Draft'}</div>
