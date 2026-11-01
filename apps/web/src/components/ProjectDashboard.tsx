@@ -14,9 +14,11 @@ import {
   ChevronRight,
   Tv,
   Clapperboard,
+  Video,
+  Smile,
   X,
 } from 'lucide-react';
-import { ScreenplayProject, listProjects, deleteProject, duplicateProject, createProject } from '../utils/projectStore';
+import { ScreenplayProject, ScreenplayProjectTemplate, listProjects, deleteProject, duplicateProject, createProject } from '../utils/projectStore';
 import { CollaboratorProfile, CollaboratorRole } from '@openscript/screenplay-schema';
 
 export interface ProjectDashboardProps {
@@ -35,7 +37,7 @@ export const ProjectDashboard: React.FC<ProjectDashboardProps> = ({
   const [isNewProjectModalOpen, setIsNewProjectModalOpen] = useState(false);
   const [newTitle, setNewTitle] = useState('');
   const [newAuthor, setNewAuthor] = useState(currentUser.displayName || '');
-  const [selectedTemplate, setSelectedTemplate] = useState<'blank' | 'feature' | 'short'>('blank');
+  const [selectedTemplate, setSelectedTemplate] = useState<ScreenplayProjectTemplate>('blank');
 
   const refreshProjects = () => {
     setProjects(listProjects());
@@ -179,25 +181,25 @@ export const ProjectDashboard: React.FC<ProjectDashboardProps> = ({
           </div>
 
           {/* Quick Start Templates Row */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 pt-2">
             <button
               onClick={() => {
                 setSelectedTemplate('blank');
                 setIsNewProjectModalOpen(true);
               }}
-              className="p-4 rounded-2xl bg-[#12141d] border border-[#222738] hover:border-amber-500/50 hover:bg-[#161925] text-left transition-all group flex items-start gap-3.5 shadow-sm"
+              className="p-3.5 rounded-2xl bg-[#12141d] border border-[#222738] hover:border-amber-500/50 hover:bg-[#161925] text-left transition-all group flex flex-col justify-between shadow-sm"
             >
-              <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400 group-hover:scale-105 transition-transform shrink-0">
-                <FileText className="w-5 h-5" />
-              </div>
-              <div>
-                <span className="text-xs font-bold text-white block group-hover:text-amber-400 transition-colors">
-                  Blank Screenplay
-                </span>
-                <span className="text-[11px] text-gray-400 font-mono block mt-0.5 leading-snug">
-                  Start fresh with pristine Hollywood standard margins
+              <div className="flex items-center gap-2.5 mb-2">
+                <div className="w-8 h-8 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400 group-hover:scale-105 transition-transform shrink-0">
+                  <FileText className="w-4 h-4" />
+                </div>
+                <span className="text-xs font-bold text-white group-hover:text-amber-400 transition-colors truncate">
+                  Blank Spec
                 </span>
               </div>
+              <span className="text-[10px] text-gray-400 font-mono leading-tight">
+                Pristine canvas with industry standard margins
+              </span>
             </button>
 
             <button
@@ -205,19 +207,59 @@ export const ProjectDashboard: React.FC<ProjectDashboardProps> = ({
                 setSelectedTemplate('feature');
                 setIsNewProjectModalOpen(true);
               }}
-              className="p-4 rounded-2xl bg-[#12141d] border border-[#222738] hover:border-blue-500/50 hover:bg-[#161925] text-left transition-all group flex items-start gap-3.5 shadow-sm"
+              className="p-3.5 rounded-2xl bg-[#12141d] border border-[#222738] hover:border-blue-500/50 hover:bg-[#161925] text-left transition-all group flex flex-col justify-between shadow-sm"
             >
-              <div className="w-10 h-10 rounded-xl bg-blue-500/10 border border-blue-500/30 flex items-center justify-center text-blue-400 group-hover:scale-105 transition-transform shrink-0">
-                <Clapperboard className="w-5 h-5" />
-              </div>
-              <div>
-                <span className="text-xs font-bold text-white block group-hover:text-blue-400 transition-colors">
-                  Feature Film Spec
-                </span>
-                <span className="text-[11px] text-gray-400 font-mono block mt-0.5 leading-snug">
-                  Pre-configured 3-act structure with opening hook
+              <div className="flex items-center gap-2.5 mb-2">
+                <div className="w-8 h-8 rounded-xl bg-blue-500/10 border border-blue-500/30 flex items-center justify-center text-blue-400 group-hover:scale-105 transition-transform shrink-0">
+                  <Clapperboard className="w-4 h-4" />
+                </div>
+                <span className="text-xs font-bold text-white group-hover:text-blue-400 transition-colors truncate">
+                  Feature Spec (3-Act)
                 </span>
               </div>
+              <span className="text-[10px] text-gray-400 font-mono leading-tight">
+                Classic 3-Act Hollywood Syd Field / Snyder beats
+              </span>
+            </button>
+
+            <button
+              onClick={() => {
+                setSelectedTemplate('tv_drama');
+                setIsNewProjectModalOpen(true);
+              }}
+              className="p-3.5 rounded-2xl bg-[#12141d] border border-[#222738] hover:border-emerald-500/50 hover:bg-[#161925] text-left transition-all group flex flex-col justify-between shadow-sm"
+            >
+              <div className="flex items-center gap-2.5 mb-2">
+                <div className="w-8 h-8 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 group-hover:scale-105 transition-transform shrink-0">
+                  <Video className="w-4 h-4" />
+                </div>
+                <span className="text-xs font-bold text-white group-hover:text-emerald-400 transition-colors truncate">
+                  TV 1-Hour Drama
+                </span>
+              </div>
+              <span className="text-[10px] text-gray-400 font-mono leading-tight">
+                5-Act episodic format with Teaser & Cliffhanger
+              </span>
+            </button>
+
+            <button
+              onClick={() => {
+                setSelectedTemplate('sitcom');
+                setIsNewProjectModalOpen(true);
+              }}
+              className="p-3.5 rounded-2xl bg-[#12141d] border border-[#222738] hover:border-yellow-500/50 hover:bg-[#161925] text-left transition-all group flex flex-col justify-between shadow-sm"
+            >
+              <div className="flex items-center gap-2.5 mb-2">
+                <div className="w-8 h-8 rounded-xl bg-yellow-500/10 border border-yellow-500/30 flex items-center justify-center text-yellow-400 group-hover:scale-105 transition-transform shrink-0">
+                  <Smile className="w-4 h-4" />
+                </div>
+                <span className="text-xs font-bold text-white group-hover:text-yellow-400 transition-colors truncate">
+                  30-Min Sitcom
+                </span>
+              </div>
+              <span className="text-[10px] text-gray-400 font-mono leading-tight">
+                Cold Open, 3-Act comedic beats, and Tag
+              </span>
             </button>
 
             <button
@@ -225,19 +267,19 @@ export const ProjectDashboard: React.FC<ProjectDashboardProps> = ({
                 setSelectedTemplate('short');
                 setIsNewProjectModalOpen(true);
               }}
-              className="p-4 rounded-2xl bg-[#12141d] border border-[#222738] hover:border-purple-500/50 hover:bg-[#161925] text-left transition-all group flex items-start gap-3.5 shadow-sm"
+              className="p-3.5 rounded-2xl bg-[#12141d] border border-[#222738] hover:border-purple-500/50 hover:bg-[#161925] text-left transition-all group flex flex-col justify-between shadow-sm"
             >
-              <div className="w-10 h-10 rounded-xl bg-purple-500/10 border border-purple-500/30 flex items-center justify-center text-purple-400 group-hover:scale-105 transition-transform shrink-0">
-                <Tv className="w-5 h-5" />
-              </div>
-              <div>
-                <span className="text-xs font-bold text-white block group-hover:text-purple-400 transition-colors">
-                  Dramatic Short Film
-                </span>
-                <span className="text-[11px] text-gray-400 font-mono block mt-0.5 leading-snug">
-                  10-15 page punchy narrative format
+              <div className="flex items-center gap-2.5 mb-2">
+                <div className="w-8 h-8 rounded-xl bg-purple-500/10 border border-purple-500/30 flex items-center justify-center text-purple-400 group-hover:scale-105 transition-transform shrink-0">
+                  <Tv className="w-4 h-4" />
+                </div>
+                <span className="text-xs font-bold text-white group-hover:text-purple-400 transition-colors truncate">
+                  Dramatic Short
                 </span>
               </div>
+              <span className="text-[10px] text-gray-400 font-mono leading-tight">
+                Compact 4-beat festival submission structure
+              </span>
             </button>
           </div>
         </div>
@@ -397,10 +439,12 @@ export const ProjectDashboard: React.FC<ProjectDashboardProps> = ({
                 <label className="text-xs font-mono text-gray-300 block mb-1.5 font-bold">
                   Structure Template
                 </label>
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                   {[
-                    { id: 'blank', label: 'Blank' },
-                    { id: 'feature', label: 'Feature Film' },
+                    { id: 'blank', label: 'Blank Spec' },
+                    { id: 'feature', label: 'Feature (3-Act)' },
+                    { id: 'tv_drama', label: 'TV 1-Hr Drama' },
+                    { id: 'sitcom', label: '30-Min Sitcom' },
                     { id: 'short', label: 'Short Film' },
                   ].map((t) => (
                     <button

@@ -1,5 +1,6 @@
 import { RevisionColor } from '@openscript/screenplay-schema';
 
+export type ScreenplayProjectTemplate = 'blank' | 'feature' | 'tv_drama' | 'sitcom' | 'short';
 export interface ScreenplayProject {
   id: string;
   title: string;
@@ -119,43 +120,98 @@ export function setActiveProjectId(id: string): void {
 export function createProject(
   title: string = 'Untitled Screenplay',
   author: string = 'Author Name',
-  template: 'blank' | 'feature' | 'short' = 'blank'
+  template: ScreenplayProjectTemplate = 'blank'
 ): ScreenplayProject {
   const id = crypto.randomUUID();
-  let scriptHtml = '<div class="script-scene-heading">INT. NEW SCENE - DAY</div><div class="script-action">Describe the scene here.</div>';
-  let fountainText = `INT. NEW SCENE - DAY\n\nDescribe the scene here.`;
+  let scriptHtml = '';
+  let fountainText = '';
+  let draftLabel = 'First Draft';
 
   if (template === 'feature') {
+    draftLabel = 'First Draft - Feature Spec';
     scriptHtml = `
-      <div class="script-scene-heading">INT. PROTAGONIST APARTMENT - DAWN</div>
-      <div class="script-action">Morning sun slices through blinds onto a cluttered desk. An alarm wails unanswered.</div>
-      <div class="script-character">PROTAGONIST</div>
-      <div class="script-dialogue">Five more minutes...</div>
-      <div class="script-action">The phone rings—a call that will change everything.</div>
+      <div class="script-scene-heading">EXT. LOS ANGELES SKYLINE - DAWN</div>
+      <div class="script-action">Smog hangs over the sleeping metropolis like amber silk. Sirens whisper from five miles away.</div>
+      <div class="script-scene-heading">INT. CLUTTERED WORKSHOP - CONTINUOUS</div>
+      <div class="script-action">Vintage lens glass and micro-circuitry cover the workbench. MAYA CHEN (32), laser-focused, adjusts an antique optical scanner with a jeweler's screwdriver.</div>
+      <div class="script-character">MAYA</div>
+      <div class="script-parenthetical">(whispering)</div>
+      <div class="script-dialogue">Almost there. Hold steady...</div>
+      <div class="script-action">The front door bell chimes violently. A sealed black courier pouch slides through the brass mail slot.</div>
+      <div class="script-scene-heading">INT. WORKSHOP HALLWAY - SECONDS LATER</div>
+      <div class="script-action">Maya kneels, examines the package. Wax seal: an ouroboros clutching a key. Her hands freeze.</div>
       <div class="script-transition">CUT TO:</div>
+      <div class="script-scene-heading">EXT. DOWNTOWN METRO PLATFORM - NIGHT</div>
+      <div class="script-action">Rain washes over the concrete. Maya clutching her leather bag, waiting for the midnight express. She isn't alone.</div>
     `;
-    fountainText = `INT. PROTAGONIST APARTMENT - DAWN\n\nMorning sun slices through blinds onto a cluttered desk. An alarm wails unanswered.\n\nPROTAGONIST\nFive more minutes...\n\nThe phone rings—a call that will change everything.\n\nCUT TO:`;
+    fountainText = `EXT. LOS ANGELES SKYLINE - DAWN\n\nSmog hangs over the sleeping metropolis like amber silk. Sirens whisper from five miles away.\n\nINT. CLUTTERED WORKSHOP - CONTINUOUS\n\nVintage lens glass and micro-circuitry cover the workbench. MAYA CHEN (32), laser-focused, adjusts an antique optical scanner with a jeweler's screwdriver.\n\nMAYA\n(whispering)\nAlmost there. Hold steady...\n\nThe front door bell chimes violently. A sealed black courier pouch slides through the brass mail slot.\n\nINT. WORKSHOP HALLWAY - SECONDS LATER\n\nMaya kneels, examines the package. Wax seal: an ouroboros clutching a key. Her hands freeze.\n\nCUT TO:\n\nEXT. DOWNTOWN METRO PLATFORM - NIGHT\n\nRain washes over the concrete. Maya clutching her leather bag, waiting for the midnight express. She isn't alone.`;
+  } else if (template === 'tv_drama') {
+    draftLabel = 'Pilot Episode - Network Draft';
+    scriptHtml = `
+      <div class="script-scene-heading">EXT. ROOFTOP HELIPAD - NIGHT (TEASER)</div>
+      <div class="script-action">Wind thrashes rain against industrial spotlight towers. A corporate helicopter touches down with engines roaring.</div>
+      <div class="script-character">DETECTIVE REYES</div>
+      <div class="script-parenthetical">(shouting over blades)</div>
+      <div class="script-dialogue">Nobody leaves this roof until forensics confirms the vault breach!</div>
+      <div class="script-action">A suited figure steps out, rain running off a titanium briefcase.</div>
+      <div class="script-character">STRANGER</div>
+      <div class="script-dialogue">It wasn't a breach, Detective. It was a trade.</div>
+      <div class="script-transition">SMASH CUT TO:</div>
+      <div class="script-scene-heading">INT. PRECINCT BULLPEN - NEXT MORNING (ACT I)</div>
+      <div class="script-action">Fluorescent lights hum. Phones ring across twenty desks. Reyes pins a crime scene photo onto the glass murder board.</div>
+    `;
+    fountainText = `EXT. ROOFTOP HELIPAD - NIGHT (TEASER)\n\nWind thrashes rain against industrial spotlight towers. A corporate helicopter touches down with engines roaring.\n\nDETECTIVE REYES\n(shouting over blades)\nNobody leaves this roof until forensics confirms the vault breach!\n\nA suited figure steps out, rain running off a titanium briefcase.\n\nSTRANGER\nIt wasn't a breach, Detective. It was a trade.\n\nSMASH CUT TO:\n\nINT. PRECINCT BULLPEN - NEXT MORNING (ACT I)\n\nFluorescent lights hum. Phones ring across twenty desks. Reyes pins a crime scene photo onto the glass murder board.`;
+  } else if (template === 'sitcom') {
+    draftLabel = 'Showrunner Production Draft';
+    scriptHtml = `
+      <div class="script-scene-heading">INT. COZY APARTMENT KITCHEN - MORNING (COLD OPEN)</div>
+      <div class="script-action">Smoke BILLOWS from the toaster. SAM (28) stands frozen with an oven mitt on one hand and a fire extinguisher in the other.</div>
+      <div class="script-character">SAM</div>
+      <div class="script-dialogue">Remain calm. The bagels are merely... caramelizing.</div>
+      <div class="script-action">RILEY (29) enters in professional attire, sees the inferno, and calmly sips coffee.</div>
+      <div class="script-character">RILEY</div>
+      <div class="script-dialogue">Our landlord called. He smelled ambition and burnt sesame seeds.</div>
+      <div class="script-transition">MAIN TITLES.</div>
+      <div class="script-scene-heading">INT. DOWNTOWN DESIGN AGENCY - DAY (ACT I)</div>
+      <div class="script-action">A sleek glass office. Riley rehearses her pitch to an empty conference table.</div>
+    `;
+    fountainText = `INT. COZY APARTMENT KITCHEN - MORNING (COLD OPEN)\n\nSmoke BILLOWS from the toaster. SAM (28) stands frozen with an oven mitt on one hand and a fire extinguisher in the other.\n\nSAM\nRemain calm. The bagels are merely... caramelizing.\n\nRILEY (29) enters in professional attire, sees the inferno, and calmly sips coffee.\n\nRILEY\nOur landlord called. He smelled ambition and burnt sesame seeds.\n\nMAIN TITLES.\n\nINT. DOWNTOWN DESIGN AGENCY - DAY (ACT I)\n\nA sleek glass office. Riley rehearses her pitch to an empty conference table.`;
   } else if (template === 'short') {
+    draftLabel = 'Festival Submission Draft';
     scriptHtml = `
       <div class="script-scene-heading">EXT. LONELY HIGHWAY - TWILIGHT</div>
-      <div class="script-action">Headlights cut a solitary cone of light through gathering fog.</div>
+      <div class="script-action">Headlights cut a solitary cone of light through gathering fog. An antique station wagon hums down empty asphalt.</div>
       <div class="script-character">STRANGER</div>
-      <div class="script-parenthetical">(into radio)</div>
-      <div class="script-dialogue">Package is en route. Ensure the dock is clear.</div>
+      <div class="script-parenthetical">(into shortwave radio)</div>
+      <div class="script-dialogue">Package is en route. Ensure the lighthouse dock is cleared.</div>
+      <div class="script-scene-heading">INT. ROADSIDE DINER - NIGHT</div>
+      <div class="script-action">Neon sign BUZZES outside: 'LAST CHANCE COFFEE'. The stranger takes a stool. The elderly waitress slides a handwritten napkin forward.</div>
     `;
-    fountainText = `EXT. LONELY HIGHWAY - TWILIGHT\n\nHeadlights cut a solitary cone of light through gathering fog.\n\nSTRANGER\n(into radio)\nPackage is en route. Ensure the dock is clear.`;
+    fountainText = `EXT. LONELY HIGHWAY - TWILIGHT\n\nHeadlights cut a solitary cone of light through gathering fog. An antique station wagon hums down empty asphalt.\n\nSTRANGER\n(into shortwave radio)\nPackage is en route. Ensure the lighthouse dock is cleared.\n\nINT. ROADSIDE DINER - NIGHT\n\nNeon sign BUZZES outside: 'LAST CHANCE COFFEE'. The stranger takes a stool. The elderly waitress slides a handwritten napkin forward.`;
+  } else {
+    // Blank Screenplay
+    draftLabel = 'First Draft';
+    scriptHtml = `
+      <div class="script-scene-heading">INT. COFFEE SHOP - DAY</div>
+      <div class="script-action">Rain drums steadily against tall glass windows. A hot cup of espresso cools on the counter.</div>
+      <div class="script-character">WRITER</div>
+      <div class="script-dialogue">Every great screenplay begins with a single line.</div>
+    `;
+    fountainText = `INT. COFFEE SHOP - DAY\n\nRain drums steadily against tall glass windows. A hot cup of espresso cools on the counter.\n\nWRITER\nEvery great screenplay begins with a single line.`;
   }
+
+  const scenes = (fountainText.match(/^(INT\.|EXT\.|INT\/EXT\.|I\/E\.)/gim) || []).length;
 
   const newProject: ScreenplayProject = {
     id,
     title: title.trim() || 'Untitled Screenplay',
     author: author.trim() || 'Author Name',
     credit: 'written by',
-    draftLabel: 'First Draft',
+    draftLabel,
     draftColor: 'white',
     scriptHtml,
     fountainText,
-    sceneCount: 1,
+    sceneCount: Math.max(1, scenes),
     wordCount: fountainText.split(/\s+/).filter(Boolean).length,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),

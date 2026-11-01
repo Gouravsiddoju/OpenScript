@@ -55,10 +55,10 @@
   margin: 0;
 }
 
-/* Print Mode for Studio PDF Export */
+/* Print Mode for Studio PDF Export (margin 0 eliminates browser URL/date header/footers) */
 @page {
   size: letter portrait;
-  margin: 0.5in;
+  margin: 0;
 }
 
 @media print {
@@ -81,17 +81,18 @@
     box-shadow: none !important;
     margin: 0 auto !important;
     width: 8.5in !important;
-    max-width: 100% !important;
-    min-height: auto !important;
+    max-width: 8.5in !important;
+    min-height: 11.0in !important;
     overflow: visible !important;
-    padding: 0.5in 0.5in 0.5in 1.0in !important;
+    padding: 1.0in 1.0in 1.0in 1.5in !important;
     background: white !important;
     color: black !important;
   }
 
   .screenplay-title-page {
-    padding: 1.0in 1.0in 1.0in 1.0in !important;
-    min-height: 9.5in !important;
+    padding: 1.0in !important;
+    min-height: 11.0in !important;
+    height: 11.0in !important;
     page-break-after: always !important;
     break-after: page !important;
   }
