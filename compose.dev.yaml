@@ -70,5 +70,6 @@ services:
 
 volumes:
   pgdata_dev:
+  openscript_dev_data:
   caddy_data_dev:
   caddy_config_dev:
