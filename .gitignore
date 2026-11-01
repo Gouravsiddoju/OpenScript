@@ -36,3 +36,4 @@ coverage/
 apps/api/backups/
 backups/
 *.openscript
+.neon

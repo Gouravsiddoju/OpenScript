@@ -1,4 +1,4 @@
-﻿import React, { useState } from 'react';
+import React, { useState } from 'react';
 import { 
   X, 
   LogIn, 
@@ -322,7 +322,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     required
                     value={displayName}
                     onChange={(e) => setDisplayName(e.target.value)}
-                    placeholder="e.g. Gourav Siddoju"
+                    placeholder="e.g. Alex Morgan"
                     className="w-full bg-[#13161f]/90 border border-white/10 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 rounded-xl pl-10 pr-3.5 py-2.5 text-xs text-gray-100 placeholder-gray-600 focus:outline-none transition-all"
                   />
                 </div>
@@ -338,7 +338,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="name@ssnpictures.in"
+                  placeholder="screenwriter@studio.com"
                   className="w-full bg-[#13161f]/90 border border-white/10 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 rounded-xl pl-10 pr-3.5 py-2.5 text-xs text-gray-100 placeholder-gray-600 focus:outline-none transition-all"
                 />
               </div>

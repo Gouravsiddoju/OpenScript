@@ -95,7 +95,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({
               <div className="flex flex-col sm:flex-row gap-2">
                 <input
                   type="email"
-                  placeholder="colleague@ssnpictures.in"
+                  placeholder="colleague@studio.com"
                   value={inviteEmail}
                   onChange={(e) => setInviteEmail(e.target.value)}
                   className="flex-1 px-3 py-2 bg-[#0e1014] border border-[#2b303e] rounded-lg text-xs text-white placeholder-gray-500 focus:outline-none focus:border-amber-500/50"

@@ -15,6 +15,7 @@ export interface ScreenplayProject {
   createdAt: string;
   updatedAt: string;
   isLocked?: boolean;
+  contact?: string;
   sceneTakes?: any[];
   notes?: any[];
   metadata?: Record<string, any>;

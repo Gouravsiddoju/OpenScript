@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import { screenplayNodes, ScreenplayKeymap, ScreenplayUppercase, paginateScreenplay } from '@openscript/editor';
@@ -632,7 +632,7 @@ export const ScreenplayEditor: React.FC<ScreenplayEditorProps> = ({
   // Extract known characters in the script for autocomplete
   const knownCharacters = useMemo(() => {
     if (!editor) return initialKnownChars;
-    const characters = new Set<string>(['MAYA', 'GOURAV']);
+    const characters = new Set<string>(initialKnownChars);
     editor.state.doc.descendants((node) => {
       if (node.type.name === 'character') {
         const text = node.textContent.trim().toUpperCase().replace(/\s*\(.*\)$/, '');

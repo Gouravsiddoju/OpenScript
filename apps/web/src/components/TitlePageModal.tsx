@@ -92,7 +92,7 @@ export const TitlePageModal: React.FC<TitlePageModalProps> = ({
                 type="text"
                 value={metadata.author}
                 onChange={(e) => onChange({ ...metadata, author: e.target.value })}
-                placeholder="Gourav Siddoju"
+                placeholder="Screenwriter Name"
                 className="w-full px-3 py-2 bg-[#0c0d0f] border border-[#262933] rounded-lg text-white font-screenplay focus:outline-none focus:border-amber-500/50"
               />
             </div>
@@ -147,7 +147,7 @@ export const TitlePageModal: React.FC<TitlePageModalProps> = ({
               rows={2}
               value={metadata.contact}
               onChange={(e) => onChange({ ...metadata, contact: e.target.value })}
-              placeholder="Contact: contact@ssnpictures.in&#10;SSN Pictures"
+              placeholder="Contact: yourname@email.com&#10;Studio Name"
               className="w-full px-3 py-2 bg-[#0c0d0f] border border-[#262933] rounded-lg text-gray-200 font-screenplay focus:outline-none focus:border-amber-500/50 resize-none"
             />
           </div>
