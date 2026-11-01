@@ -225,7 +225,9 @@ export default function App() {
   const [isShortcutsModalOpen, setIsShortcutsModalOpen] = useState(false);
   // Smart Auto-revealing Header on Scroll & Studio Guide State
   const [isHeaderVisible, setIsHeaderVisible] = useState(true);
-  const [isGuideModalOpen, setIsGuideModalOpen] = useState(false);
+  const [isGuideModalOpen, setIsGuideModalOpen] = useState(() => {
+    return localStorage.getItem('openscript_seen_guide_tour') !== 'true';
+  });
   const lastScrollTopRef = useRef(0);
 
   const handleWorkspaceScroll = (e: React.UIEvent<HTMLDivElement>) => {
@@ -2217,7 +2219,10 @@ Neon reflections shimmer in deep puddles. Sirens echo in the far distance.`;
             {/* Interactive Studio Tour & Feature Guide Modal */}
       <StudioGuideModal
         isOpen={isGuideModalOpen}
-        onClose={() => setIsGuideModalOpen(false)}
+        onClose={() => {
+          setIsGuideModalOpen(false);
+          localStorage.setItem('openscript_seen_guide_tour', 'true');
+        }}
       />
 
       {/* Cloud Storage & Automated Snapshots Modal */}
