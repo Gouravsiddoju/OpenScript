@@ -711,6 +711,7 @@ export const ScreenplayEditor: React.FC<ScreenplayEditorProps> = ({
       {/* 1. Sleek Floating Island / Pill Ribbon (Fixed to Viewport, always accessible) */}
       {canEditScreenplay(currentUserRole) && (
       <div 
+        data-tour="format-bar"
         style={{
           position: 'fixed',
           left: '50%',
@@ -939,6 +940,7 @@ export const ScreenplayEditor: React.FC<ScreenplayEditorProps> = ({
           backgroundColor: '#ffffff',
           color: '#000000',
         }}
+        data-tour="paper-canvas"
         className={`screenplay-page font-screenplay select-text relative shrink-0 shadow-2xl ${isolatedCharacter ? 'isolating-active' : ''} ${selectedActId ? 'act-filter-active' : ''}`}
       >
         {(metadata?.showWatermark && metadata?.watermarkText) ? (
