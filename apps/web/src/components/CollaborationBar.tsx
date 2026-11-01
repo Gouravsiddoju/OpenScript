@@ -104,11 +104,11 @@ export const CollaborationBar: React.FC<CollaborationBarProps> = ({
           className="w-6 h-6 rounded-lg flex items-center justify-center text-xs font-bold text-white shadow-sm ring-1 ring-black/40 group-hover:scale-105 transition-transform"
           style={{ backgroundColor: currentUser?.color || '#f59e0b' }}
         >
-          {currentUser?.displayName?.charAt(0).toUpperCase() || 'G'}
+          {currentUser?.displayName?.charAt(0).toUpperCase() || 'S'}
         </span>
         <div className="flex flex-col leading-tight hidden xl:flex">
           <span className="text-xs font-semibold text-gray-200 group-hover:text-amber-300 transition-colors truncate max-w-[120px]">
-            {currentUser?.displayName || 'Gourav (SSN)'}
+            {currentUser?.displayName || 'Screenwriter'}
           </span>
           <span className="text-[9px] font-mono text-gray-500 capitalize">
             {currentUser?.role || currentUserRole}

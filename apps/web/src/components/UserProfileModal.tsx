@@ -29,7 +29,6 @@ interface UserProfileModalProps {
   onClose: () => void;
   user: UserProfileData;
   onUpdateDisplayName?: (newName: string) => Promise<void>;
-  onChangeRolePreview?: (newRole: CollaboratorRole) => void;
   onLogout: () => void;
   onOpenLogin: () => void;
 }
@@ -39,7 +38,6 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
   onClose,
   user,
   onUpdateDisplayName,
-  onChangeRolePreview,
   onLogout,
   onOpenLogin,
 }) => {
@@ -216,33 +214,6 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
               </span>
             </div>
           </div>
-
-          {/* Persona / Role Quick Switcher (Testing & Preview) */}
-          {onChangeRolePreview && (
-            <div className="p-3 rounded-xl bg-[#161821] border border-[#262936] space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-[11px] font-mono font-semibold text-gray-300 flex items-center gap-1.5">
-                  <Key className="w-3.5 h-3.5 text-amber-400" /> Switch Role Persona (Preview):
-                </span>
-                <span className="text-[10px] text-gray-500 font-mono">Simulate RBAC Permissions</span>
-              </div>
-              <div className="grid grid-cols-4 gap-1.5">
-                {(['owner', 'co-writer', 'guest', 'reader'] as CollaboratorRole[]).map((r) => (
-                  <button
-                    key={r}
-                    onClick={() => onChangeRolePreview(r)}
-                    className={`py-1.5 px-2 rounded-lg text-[11px] font-mono capitalize transition-all border ${
-                      user.role === r
-                        ? 'bg-amber-500 text-black font-bold border-amber-500 shadow-sm'
-                        : 'bg-[#1b1e28] text-gray-400 hover:text-white border-[#2b2f3d]'
-                    }`}
-                  >
-                    {r}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
 
           {/* Action Buttons */}
           <div className="pt-2 border-t border-[#22252f] flex items-center justify-between">

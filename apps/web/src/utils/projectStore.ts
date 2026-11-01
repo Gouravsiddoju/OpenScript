@@ -23,67 +23,68 @@ export interface ScreenplayProject {
 const STORAGE_PROJECTS_KEY = 'openscript_studio_projects';
 const STORAGE_ACTIVE_PROJECT_ID_KEY = 'openscript_active_project_id';
 
-const DEFAULT_SAMPLE_PROJECT: ScreenplayProject = {
-  id: '00000000-0000-0000-0000-000000000001',
-  title: 'THE NEON DRIFT',
-  author: 'Gourav (SSN)',
-  credit: 'written by',
-  draftLabel: 'Blue Production Draft',
-  draftColor: 'blue',
-  scriptHtml: `
-    <div class="script-scene-heading">INT. COFFEE SHOP - DAY</div>
-    <div class="script-action">Rain drums against the tall glass windows. A steaming cup of espresso rests on the counter.</div>
-    <div class="script-character">MAYA</div>
-    <div class="script-parenthetical">(checking her watch)</div>
-    <div class="script-dialogue">He should have been here twenty minutes ago. We don't have all day.</div>
-    <div class="script-action">The front door chimes. A soaked figure in a black trench coat steps inside.</div>
-    <div class="script-transition">CUT TO:</div>
-    <div class="script-scene-heading">EXT. ALLEYWAY - CONTINUOUS</div>
-    <div class="script-action">Neon reflections shimmer in deep puddles. Sirens echo in the far distance.</div>
-  `,
-  fountainText: `Title: THE NEON DRIFT
-Author: Gourav (SSN)
-Draft date: Blue Production Draft
+export function createDefaultStartingProject(authorName: string = 'Screenwriter'): ScreenplayProject {
+  const scriptHtml = `
+    <div class="script-scene-heading">EXT. CITY STREET - DAY</div>
+    <div class="script-action">A quiet morning. Sunlight filters through the skyscrapers as the city begins to move.</div>
+    <div class="script-character">WRITER</div>
+    <div class="script-dialogue">Every story begins with a blank page.</div>
+  `;
 
-INT. COFFEE SHOP - DAY
+  const fountainText = `Title: UNTITLED SCREENPLAY
+Author: ${authorName}
+Draft date: First Draft
 
-Rain drums against the tall glass windows. A steaming cup of espresso rests on the counter.
+EXT. CITY STREET - DAY
 
-MAYA
-(checking her watch)
-He should have been here twenty minutes ago. We don't have all day.
+A quiet morning. Sunlight filters through the skyscrapers as the city begins to move.
 
-The front door chimes. A soaked figure in a black trench coat steps inside.
+WRITER
+Every story begins with a blank page.`;
 
-CUT TO:
-
-EXT. ALLEYWAY - CONTINUOUS
-
-Neon reflections shimmer in deep puddles. Sirens echo in the far distance.`,
-  sceneCount: 2,
-  wordCount: 56,
-  createdAt: '2026-10-15T10:00:00.000Z',
-  updatedAt: new Date().toISOString(),
-  isLocked: false,
-};
+  return {
+    id: typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : 'project-default-001',
+    title: 'UNTITLED SCREENPLAY',
+    author: authorName,
+    credit: 'written by',
+    draftLabel: 'First Draft',
+    draftColor: 'white',
+    scriptHtml,
+    fountainText,
+    sceneCount: 1,
+    wordCount: 22,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    isLocked: false,
+    sceneTakes: [],
+    notes: [],
+  };
+}
 
 export function listProjects(): ScreenplayProject[] {
   try {
     const raw = localStorage.getItem(STORAGE_PROJECTS_KEY);
     if (!raw) {
-      const initial = [DEFAULT_SAMPLE_PROJECT];
+      const initial = [createDefaultStartingProject()];
       localStorage.setItem(STORAGE_PROJECTS_KEY, JSON.stringify(initial));
       return initial;
     }
     const parsed = JSON.parse(raw);
-    if (Array.isArray(parsed) && parsed.length > 0) {
-      return parsed;
+    if (Array.isArray(parsed)) {
+      // Purge legacy test sample projects
+      const clean = parsed.filter((p) => p.title !== 'THE NEON DRIFT' && p.title !== 'THE GLASS COUNTER');
+      if (clean.length > 0) {
+        if (clean.length !== parsed.length) {
+          localStorage.setItem(STORAGE_PROJECTS_KEY, JSON.stringify(clean));
+        }
+        return clean;
+      }
     }
-    const initial = [DEFAULT_SAMPLE_PROJECT];
+    const initial = [createDefaultStartingProject()];
     localStorage.setItem(STORAGE_PROJECTS_KEY, JSON.stringify(initial));
     return initial;
   } catch {
-    return [DEFAULT_SAMPLE_PROJECT];
+    return [createDefaultStartingProject()];
   }
 }
 
@@ -110,7 +111,7 @@ export function saveProject(project: ScreenplayProject): void {
 }
 
 export function getActiveProjectId(): string {
-  return localStorage.getItem(STORAGE_ACTIVE_PROJECT_ID_KEY) || DEFAULT_SAMPLE_PROJECT.id;
+  const active = localStorage.getItem(STORAGE_ACTIVE_PROJECT_ID_KEY); if (active) return active; const projects = listProjects(); return projects[0]?.id || "project-default-001";
 }
 
 export function setActiveProjectId(id: string): void {
@@ -226,7 +227,7 @@ export function createProject(
 }
 
 export function duplicateProject(id: string): ScreenplayProject {
-  const original = getProject(id) || DEFAULT_SAMPLE_PROJECT;
+  const original = getProject(id) || listProjects()[0] || createDefaultStartingProject();
   const newId = crypto.randomUUID();
   const copy: ScreenplayProject = {
     ...original,

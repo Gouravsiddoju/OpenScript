@@ -23,7 +23,6 @@ interface ShareModalProps {
   onUpdateRole: (userId: string, role: CollaboratorRole) => void;
   onRemoveCollaborator: (userId: string) => void;
   currentUserRole: CollaboratorRole;
-  onChangeUserRolePreview: (role: CollaboratorRole) => void;
   documentTitle: string;
 }
 
@@ -43,7 +42,6 @@ export const ShareModal: React.FC<ShareModalProps> = ({
   onUpdateRole,
   onRemoveCollaborator,
   currentUserRole,
-  onChangeUserRolePreview,
   documentTitle,
 }) => {
   const [inviteEmail, setInviteEmail] = useState('');
@@ -213,32 +211,6 @@ export const ShareModal: React.FC<ShareModalProps> = ({
             </div>
           </div>
 
-          {/* Test Permission Simulator */}
-          <div className="p-3.5 rounded-xl bg-[#171a22] border border-[#282d3b] space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-gray-300">Live Role Simulator (Test Studio Permissions)</span>
-              <span className="text-[10px] font-mono text-amber-400">Active: {currentUserRole}</span>
-            </div>
-            <p className="text-[11px] text-gray-400">
-              Preview how OpenScript behaves under different production permissions:
-            </p>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 pt-1">
-              {(['owner', 'co-writer', 'guest', 'reader'] as CollaboratorRole[]).map((role) => (
-                <button
-                  key={role}
-                  type="button"
-                  onClick={() => onChangeUserRolePreview(role)}
-                  className={`py-1.5 px-2 rounded-lg text-xs font-mono border transition-all capitalize ${
-                    currentUserRole === role
-                      ? 'bg-amber-500 text-black font-bold border-amber-400 shadow-sm'
-                      : 'bg-[#101216] text-gray-300 hover:bg-[#20242e] border-[#292e3c]'
-                  }`}
-                >
-                  {role}
-                </button>
-              ))}
-            </div>
-          </div>
         </div>
 
         {/* Footer */}
