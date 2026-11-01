@@ -16,7 +16,7 @@ function createMockFile(content: string, name: string): File {
 }
 
 // Helper to generate a minimal valid PDF 1.4 buffer with text positioning
-function createVectorScreenplayPdf(lines: { text: string; x: number; y: number }[]): File {
+function createVectorScreenplayPdf(lines: { text: string; x: number; y: number }[], fileName: string = 'sample_screenplay.pdf'): File {
   const streamLines = lines
     .map((l) => `1 0 0 1 ${l.x} ${l.y} Tm (${l.text.replace(/([()\\])/g, '\\$1')}) Tj`)
     .join('\n');
@@ -56,7 +56,7 @@ startxref
 450
 %%EOF`;
 
-  return new File([Buffer.from(pdf)], 'sample_screenplay.pdf', { type: 'application/pdf' });
+  return new File([Buffer.from(pdf)], fileName, { type: 'application/pdf' });
 }
 
 describe('Universal Screenplay Importer', () => {
@@ -396,5 +396,53 @@ CourierPrime;
     expect(cleaned).toContain('DETECTIVE');
     expect(cleaned).toContain('EXT. RAIN SCENE - MINUTES LATER');
     expect(cleaned).toContain('INT. DETECTIVE OFFICE - MORNING');
+  });
+  it('parses super titles and numbered headings as scene headings from vector PDF', async () => {
+    const pdfFile = createVectorScreenplayPdf([
+      { text: 'SUPER TITLE: "3. THE CASE"', x: 72, y: 700 },
+      { text: 'Vasudev inspects the crime scene.', x: 72, y: 660 },
+      { text: '4. THE DEATH', x: 72, y: 620 },
+      { text: 'A shadow moves silently.', x: 72, y: 580 },
+    ]);
+
+    const result = await importScreenplayFile(pdfFile);
+    expect(result.fountainText).toContain('SUPER TITLE: "3. THE CASE"');
+    expect(result.fountainText).toContain('4. THE DEATH');
+    expect(result.scriptHtml).toContain('script-scene-heading');
+  });
+
+  it('filters out temporal cues, camera shots, and end markers from becoming characters', async () => {
+    const pdfFile = createVectorScreenplayPdf([
+      { text: 'INT. POLICE STATION - DAY', x: 72, y: 700 },
+      { text: 'THE NEXT DAY', x: 260, y: 660 },
+      { text: 'Papers are scattered everywhere.', x: 72, y: 620 },
+      { text: 'ZOOM OUT SLOWLY', x: 260, y: 580 },
+      { text: 'IN THE NIGHT', x: 260, y: 540 },
+      { text: 'AFTER FEW MONTHS', x: 260, y: 500 },
+      { text: 'THE END', x: 260, y: 460 },
+    ]);
+
+    const result = await importScreenplayFile(pdfFile);
+    // Ensure none of the non-character lines were wrapped in script-character
+    expect(result.scriptHtml).not.toContain('<div class="script-character">THE NEXT DAY</div>');
+    expect(result.scriptHtml).not.toContain('<div class="script-character">ZOOM OUT SLOWLY</div>');
+    expect(result.scriptHtml).not.toContain('<div class="script-character">IN THE NIGHT</div>');
+    expect(result.scriptHtml).not.toContain('<div class="script-character">AFTER FEW MONTHS</div>');
+    expect(result.scriptHtml).not.toContain('<div class="script-character">THE END</div>');
+  });
+
+  it('rejects date/timestamp header from PDF title and falls back cleanly to file name', async () => {
+    const pdfFile = createVectorScreenplayPdf([
+      { text: '31 DECEMBER 2025 AT 14:30', x: 200, y: 700 },
+      { text: 'written by', x: 260, y: 640 },
+      { text: 'Gourav Siddarth Siddoju', x: 220, y: 600 },
+      { text: 'Blue Production Draft', x: 380, y: 120 },
+      { text: 'November 1, 2026', x: 380, y: 100 },
+    ], 'The_Last_Download.pdf');
+
+    const result = await importScreenplayFile(pdfFile);
+    expect(result.title).toBe('The Last Download');
+    expect(result.author).toBe('Gourav Siddarth Siddoju');
+    expect(result.title).not.toContain('31 DECEMBER 2025');
   });
 });

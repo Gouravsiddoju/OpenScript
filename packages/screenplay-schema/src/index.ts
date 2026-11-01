@@ -3,3 +3,4 @@ export * from './document';
 export * from './revisions';
 export * from './notes';
 export * from './collaboration';
+export * from './classification';

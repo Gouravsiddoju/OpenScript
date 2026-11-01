@@ -28,6 +28,7 @@ import {
   Cloud,
   BookOpen,
 } from 'lucide-react';
+import { isNonCharacterCue, isSceneHeadingCandidate } from '@openscript/screenplay-schema';
 import { StudioGuideModal } from './components/StudioGuideModal';
 import { ScreenplayEditor } from './components/ScreenplayEditor';
 import { FountainView } from './components/FountainView';
@@ -119,7 +120,9 @@ function extractScenes(html: string): SceneItem[] {
       const isExt = !isIntExt && /^EXT(\.|\s|$)/i.test(upper);
       const setting: 'INT' | 'EXT' | 'INT/EXT' = isIntExt ? 'INT/EXT' : isInt ? 'INT' : isExt ? 'EXT' : 'INT';
       
-      const withoutPrefix = upper.replace(/^(INT\.|EXT\.|INT\/EXT\.|I\/E\.)\s*/i, '');
+      const withoutPrefix = upper
+        .replace(/^(INT\.|EXT\.|INT\/EXT\.|I\/E\.|EST\.|SUPER\s*TITLE:\s*|SUPER:\s*|TITLE\s*CARD:\s*|TITLE:\s*)\s*/i, '')
+        .replace(/["']/g, '');
       const parts = withoutPrefix.split(/\s*-\s*/);
       const location = parts[0]?.trim() || upper;
       const timeOfDay = parts[1]?.trim() || 'DAY';
@@ -159,7 +162,7 @@ function extractScenes(html: string): SceneItem[] {
         currentFountainPieces.push(text + asteriskSuffix + '\n\n');
       } else if (el.classList.contains('script-character')) {
         const charName = text.replace(/\s*\(.*\)$/, '').trim().toUpperCase();
-        if (charName && !currentScene.characters.includes(charName)) {
+        if (charName && !isNonCharacterCue(charName) && !currentScene.characters.includes(charName)) {
           currentScene.characters.push(charName);
         }
         // In Fountain spec: Character cue MUST be followed immediately by parenthetical or dialogue with \n (single newline)
@@ -175,7 +178,7 @@ function extractScenes(html: string): SceneItem[] {
       } else if (el.classList.contains('script-dual-dialogue')) {
         el.querySelectorAll('.script-character').forEach((c) => {
           const name = c.textContent?.replace(/\s*\(.*\)$/, '').trim().toUpperCase();
-          if (name && currentScene && !currentScene.characters.includes(name)) {
+          if (name && !isNonCharacterCue(name) && currentScene && !currentScene.characters.includes(name)) {
             currentScene.characters.push(name);
           }
         });

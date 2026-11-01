@@ -1,5 +1,6 @@
 import './pdfPolyfill';
 import { parseFdx } from '@openscript/fdx';
+import { isNonCharacterCue, isSceneHeadingCandidate, isDateOrDraftStamp } from '@openscript/screenplay-schema';
 import { fountainToHtml, blocksToHtml } from '@openscript/fountain';
 import JSZip from 'jszip';
 import * as pdfjsLib from 'pdfjs-dist';
@@ -732,7 +733,7 @@ function detectTitlePage(page1Lines: PdfTextLine[]): { isTitlePage: boolean; met
   if (!page1Lines || page1Lines.length === 0) return { isTitlePage: false, metadata };
 
   // If Page 1 contains standard scene headings, it is NOT a cover page (script starts on Page 1)
-  const hasSceneHeading = page1Lines.some((l) => /^(?:INT\.|EXT\.|INT\/EXT\.|I\/E\.)/i.test(l.text.trim()));
+  const hasSceneHeading = page1Lines.some((l) => isSceneHeadingCandidate(l.text.trim()));
   if (hasSceneHeading) {
     return { isTitlePage: false, metadata };
   }
@@ -750,8 +751,12 @@ function detectTitlePage(page1Lines: PdfTextLine[]): { isTitlePage: boolean; met
     const line = page1Lines[i];
     const text = line.text;
 
-    // Detect Title: first prominent line before "written by"
-    if (!metadata.title && text.length > 1 && !/^(?:written by|by|draft|revision|contact|address)/i.test(text)) {
+    // Detect Title: first prominent line before "written by", excluding date/draft stamps
+    if (isDateOrDraftStamp(text)) {
+      if (!metadata.draftDate && (/draft|revised|revision|dated?|\b(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*/i.test(text) || /\d{1,2}:\d{2}/.test(text))) {
+        metadata.draftDate = text;
+      }
+    } else if (!metadata.title && text.length > 1 && !/^(?:written by|by|draft|revision|contact|address)/i.test(text)) {
       metadata.title = text.replace(/['"]+/g, '');
       continue;
     }
@@ -842,7 +847,7 @@ export async function parseScreenplayPdf(file: File): Promise<ImportedScreenplay
   if (pages.length > 0) {
     const { isTitlePage, metadata } = detectTitlePage(pages[0]);
     if (isTitlePage) {
-      if (metadata.title) detectedTitle = metadata.title;
+      if (metadata.title && !isDateOrDraftStamp(metadata.title)) detectedTitle = metadata.title;
       if (metadata.author) detectedAuthor = metadata.author;
       if (metadata.draftDate) detectedDraftDate = metadata.draftDate;
       if (metadata.contact) detectedContact = metadata.contact;
@@ -865,12 +870,10 @@ export async function parseScreenplayPdf(file: File): Promise<ImportedScreenplay
       const prevBlock = blocks[blocks.length - 1];
       const prevLine = i > 0 ? pageLines[i - 1] : null;
 
-      // 2a. Scene Heading (slugline)
+      // 2a. Scene Heading (slugline, super title, numbered sequence heading)
       const isSlugline =
-        line.x < 155 &&
-        (/^(?:INT\.|EXT\.|INT\/EXT\.|I\/E\.|EST\.)/i.test(trimmed) ||
-         /^(?:INT|EXT|INT\/EXT|I\/E)\s+[A-Z0-9]/i.test(trimmed) ||
-         /^\.[A-Z0-9]/.test(trimmed));
+        (line.x < 180 || /^(?:SUPER\s*TITLE|SUPER|TITLE\s*CARD|TITLE|INTERTITLE)[\s:.-]/i.test(trimmed)) &&
+        isSceneHeadingCandidate(trimmed);
 
       if (isSlugline) {
         blocks.push({
@@ -880,10 +883,10 @@ export async function parseScreenplayPdf(file: File): Promise<ImportedScreenplay
         continue;
       }
 
-      // 2b. Transition (flush right or ends with TO:)
+      // 2b. Transition (flush right or ends with TO:, or standard end/transition marker)
       const isTransition =
         (line.x >= 350 && /TO:$/i.test(trimmed)) ||
-        /^(?:FADE IN:|FADE OUT\.|CUT TO:|DISSOLVE TO:|MATCH CUT:|SMASH CUT:|FLASH CUT:)$/i.test(trimmed);
+        /^(?:FADE\s+IN:|FADE\s+OUT\.?|CUT\s+TO:|DISSOLVE\s+TO:|MATCH\s+CUT:|SMASH\s+CUT:|FLASH\s+CUT:|FADE\s+TO\s+BLACK\.?|CUT\s+TO\s+BLACK\.?|THE\s+END|FIN)$/i.test(trimmed);
 
       if (isTransition) {
         blocks.push({
@@ -893,14 +896,15 @@ export async function parseScreenplayPdf(file: File): Promise<ImportedScreenplay
         continue;
       }
 
-      // 2c. Character Cue
+      // 2c. Character Cue (must NOT be a non-character time marker or camera direction)
       const isCharacter =
         line.x >= 195 &&
         line.x <= 350 &&
-        trimmed.length <= 45 &&
+        trimmed.length <= 40 &&
         !trimmed.startsWith('(') &&
         !trimmed.endsWith(':') &&
-        !/[a-z]/.test(trimmed.replace(/\([^)]*\)/g, ''));
+        !/[a-z]/.test(trimmed.replace(/\([^)]*\)/g, '')) &&
+        !isNonCharacterCue(trimmed);
 
       if (isCharacter) {
         blocks.push({
