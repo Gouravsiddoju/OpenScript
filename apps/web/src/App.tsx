@@ -234,14 +234,14 @@ export default function App() {
     const currentScrollTop = e.currentTarget.scrollTop;
     const delta = currentScrollTop - lastScrollTopRef.current;
 
-    if (currentScrollTop <= 35) {
-      // Near top: always keep header visible
+    if (currentScrollTop <= 45) {
+      // Near top: always keep header and toolbar visible
       setIsHeaderVisible(true);
-    } else if (delta > 8) {
-      // Scrolling down: hide header smoothly
+    } else if (delta > 6) {
+      // Scrolling down: hide header and toolbar smoothly
       setIsHeaderVisible(false);
-    } else if (delta < -5) {
-      // Small scroll up: immediately show header!
+    } else if (delta < -2) {
+      // Sensitive upward scroll: immediately restore header and floating format bar anywhere in document!
       setIsHeaderVisible(true);
     }
 
@@ -590,7 +590,7 @@ export default function App() {
     setScriptHtml(result.scriptHtml);
     setFountainText(result.fountainText);
     if (editorInstance) {
-      editorInstance.commands.setContent(result.scriptHtml);
+      editorInstance.commands.setContent(result.scriptHtml, { emitUpdate: true });
     }
     if (result.title || result.author || result.fullMetadata) {
       setTitleMetadata((prev) => ({
@@ -2040,7 +2040,7 @@ Neon reflections shimmer in deep puddles. Sirens echo in the far distance.`;
         <div 
           onScroll={handleWorkspaceScroll} 
           onMouseMove={(e) => {
-            if (e.clientY < 60 && !isHeaderVisible) {
+            if (e.clientY < 75 && !isHeaderVisible) {
               setIsHeaderVisible(true);
             }
           }}
@@ -2070,6 +2070,8 @@ Neon reflections shimmer in deep puddles. Sirens echo in the far distance.`;
               folders={sceneFolders}
               onClearActFilter={() => setSelectedActId(null)}
               isToolbarVisible={isHeaderVisible}
+              isHeaderVisible={isHeaderVisible}
+              onShowHeader={() => setIsHeaderVisible(true)}
             />
           )}
 

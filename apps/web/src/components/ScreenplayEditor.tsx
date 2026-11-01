@@ -28,6 +28,8 @@ interface ScreenplayEditorProps {
   folders?: { id: string; name: string; color: string }[];
   onClearActFilter?: () => void;
   isToolbarVisible?: boolean;
+  isHeaderVisible?: boolean;
+  onShowHeader?: () => void;
 }
 
 const DEFAULT_SCRIPT_HTML = `
@@ -64,6 +66,8 @@ export const ScreenplayEditor: React.FC<ScreenplayEditorProps> = ({
   folders = [],
   onClearActFilter,
   isToolbarVisible = true,
+  isHeaderVisible = true,
+  onShowHeader,
 }) => {
   const initialKnownChars = useMemo(() => {
     const chars = new Set<string>(['MAYA', 'GOURAV']);
@@ -523,6 +527,9 @@ export const ScreenplayEditor: React.FC<ScreenplayEditorProps> = ({
     const scrollBasedPages = Math.ceil(realScrollHeight / pxPerPage);
     const calculatedTotal = Math.max(pageBreakCount, scrollBasedPages);
     setTotalPages(calculatedTotal);
+    if (onPageChange) {
+      onPageChange(currentPage, calculatedTotal);
+    }
   };
 
   useEffect(() => {
@@ -578,9 +585,24 @@ export const ScreenplayEditor: React.FC<ScreenplayEditorProps> = ({
       }
     };
 
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    return () => window.removeEventListener('scroll', handleScroll);
+    const scrollContainer = paperContainerRef.current?.closest('.overflow-y-auto') || window;
+    scrollContainer.addEventListener('scroll', handleScroll, { passive: true });
+    return () => scrollContainer.removeEventListener('scroll', handleScroll);
   }, [totalPages, onPageChange]);
+
+  // Font loading & resize pagination triggers
+  useEffect(() => {
+    if (typeof document !== 'undefined' && 'fonts' in document) {
+      document.fonts.ready.then(() => {
+        updatePagination();
+      });
+    }
+    const handleResize = () => {
+      updatePagination();
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
 
 
@@ -686,16 +708,24 @@ export const ScreenplayEditor: React.FC<ScreenplayEditorProps> = ({
         `}</style>
       )}
 
-      {/* 1. Sleek Floating Island / Pill Ribbon (Sticky, elevated, beautifully formatted) */}
+      {/* 1. Sleek Floating Island / Pill Ribbon (Fixed to Viewport, always accessible) */}
       {canEditScreenplay(currentUserRole) && (
-      <div className={`no-print sticky top-2 z-30 mb-8 mt-1 flex justify-center w-full select-none transition-all duration-300 ease-in-out ${
-        isToolbarVisible
-          ? 'translate-y-0 opacity-100 pointer-events-auto'
-          : '-translate-y-16 opacity-0 pointer-events-none'
-      }`}>
-        <div className={`pointer-events-auto bg-[#13151b]/95 backdrop-blur-md border border-[#272b38] rounded-2xl p-1.5 shadow-2xl shadow-black/70 flex items-center gap-1 transition-all duration-300 ${
-          isToolbarVisible ? 'scale-100' : 'scale-95'
-        }`}>
+      <div 
+        style={{
+          position: 'fixed',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          zIndex: 40,
+        }}
+        className={`no-print select-none transition-all duration-200 ease-out ${
+          isToolbarVisible
+            ? isHeaderVisible
+              ? 'top-[60px] opacity-100 pointer-events-auto scale-100'
+              : 'top-3.5 opacity-100 pointer-events-auto scale-100'
+            : '-top-16 opacity-0 pointer-events-none scale-95'
+        }`}
+      >
+        <div className="pointer-events-auto bg-[#13151b]/95 backdrop-blur-md border border-[#272b38] rounded-2xl p-1.5 shadow-2xl shadow-black/80 flex items-center gap-1">
           {[
             { type: 'sceneHeading', label: 'Scene Heading', shortcut: '1' },
             { type: 'action', label: 'Action', shortcut: '2' },
