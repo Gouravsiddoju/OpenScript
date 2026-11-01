@@ -167,7 +167,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({
                 Import Existing Screenplay Project
               </h2>
               <p className="text-xs text-gray-400 font-mono">
-                Load scripts from Final Draft, Scrivener, Highland, Fountain, RTF, or Celtx
+                Load scripts from PDF, Final Draft, Scrivener, Highland, Fountain, RTF, or Celtx
               </p>
             </div>
           </div>
@@ -188,7 +188,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({
           <input
             ref={fileInputRef}
             type="file"
-            accept=".fdx,.fountain,.spmd,.scrivx,.scriv,.zip,.rtf,.html,.htm,.txt,.json,.openscript"
+            accept=".fdx,.fountain,.spmd,.scrivx,.scriv,.zip,.rtf,.html,.htm,.txt,.json,.openscript,.pdf,application/pdf"
             onChange={handleFileChange}
             className="hidden"
           />
@@ -214,7 +214,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({
                 Drag & drop your screenplay file or folder here
               </h3>
               <p className="text-xs text-gray-400 max-w-sm mb-4">
-                or click to browse. Drop .scriv folder, .zip, .fdx, .fountain, or .rtf files.
+                or click to browse. Drop .pdf, .scriv folder, .zip, .fdx, .fountain, or .rtf files.
               </p>
 
               <button
@@ -321,9 +321,17 @@ export const ImportModal: React.FC<ImportModalProps> = ({
           {/* Supported Apps Matrix */}
           <div className="p-4 rounded-xl bg-[#14161f] border border-[#222633] space-y-2.5">
             <span className="text-[11px] font-mono font-semibold text-gray-400 uppercase tracking-wider block">
-              Supported Formats (Screenplay Content Only):
+              Supported Formats (Dissected into Screenplay Blocks):
             </span>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs font-mono">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 text-xs font-mono">
+              <div className="p-2 rounded-lg bg-[#0e1015] border border-[#232733] flex items-center gap-1.5">
+                <span className="text-rose-400">📑</span>
+                <div>
+                  <span className="text-gray-200 block text-[11px] font-bold">PDF Script</span>
+                  <span className="text-[10px] text-gray-500">.pdf</span>
+                </div>
+              </div>
+
               <div className="p-2 rounded-lg bg-[#0e1015] border border-[#232733] flex items-center gap-1.5">
                 <span className="text-amber-400">🎬</span>
                 <div>
@@ -336,7 +344,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({
                 <span className="text-blue-400">🖋️</span>
                 <div>
                   <span className="text-gray-200 block text-[11px] font-bold">Scrivener</span>
-                  <span className="text-[10px] text-gray-500">.scriv folder, .zip, .rtf</span>
+                  <span className="text-[10px] text-gray-500">.scriv, .zip, .rtf</span>
                 </div>
               </div>
 
@@ -365,7 +373,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({
               </div>
 
               <div className="p-2 rounded-lg bg-[#0e1015] border border-[#232733] flex items-center gap-1.5">
-                <span className="text-rose-400">💾</span>
+                <span className="text-amber-500">💾</span>
                 <div>
                   <span className="text-gray-200 block text-[11px] font-bold">OpenScript</span>
                   <span className="text-[10px] text-gray-500">.openscript, .json</span>
@@ -373,7 +381,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({
               </div>
             </div>
             <p className="text-[10px] text-gray-500 italic pt-1">
-              * Note: Scrivener scripts can be imported by dropping the entire <code className="text-gray-400 font-mono">.scriv</code> folder, a <code className="text-gray-400 font-mono">.zip</code> of it, or an exported <code className="text-gray-400 font-mono">.rtf</code> / <code className="text-gray-400 font-mono">.fountain</code>.
+              * Note: Screenplays can be imported from vector PDF files, Scrivener (<code className="text-gray-400 font-mono">.scriv</code> folders or <code className="text-gray-400 font-mono">.zip</code>), Final Draft (<code className="text-gray-400 font-mono">.fdx</code>), Fountain, and RTF.
             </p>
           </div>
 

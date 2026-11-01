@@ -17,6 +17,7 @@
     "@tiptap/starter-kit": "^2.10.3",
     "jszip": "^3.10.2",
     "lucide-react": "^0.468.0",
+    "pdfjs-dist": "^6.4.299",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
   },

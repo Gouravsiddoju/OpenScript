@@ -1,13 +1,35 @@
+import './pdfPolyfill';
 import { parseFdx } from '@openscript/fdx';
 import { fountainToHtml, blocksToHtml } from '@openscript/fountain';
 import JSZip from 'jszip';
+import * as pdfjsLib from 'pdfjs-dist';
+
+// Configure PDF.js worker for Vite / browser environments
+if (typeof window !== 'undefined' && (pdfjsLib as any).GlobalWorkerOptions) {
+  try {
+    (pdfjsLib as any).GlobalWorkerOptions.workerSrc = new URL(
+      'pdfjs-dist/build/pdf.worker.min.mjs',
+      import.meta.url
+    ).toString();
+  } catch {
+    // Falls back to main-thread processing if URL resolution fails
+  }
+}
 
 export interface ImportedScreenplayResult {
   title?: string;
   author?: string;
   scriptHtml: string;
   fountainText: string;
-  sourceApp: 'Final Draft' | 'Scrivener' | 'Fountain / Highland' | 'Plain Screenplay Text' | 'HTML Screenplay' | 'OpenScript JSON' | 'Rich Text Format (RTF)';
+  sourceApp:
+    | 'Final Draft'
+    | 'Scrivener'
+    | 'Fountain / Highland'
+    | 'Plain Screenplay Text'
+    | 'HTML Screenplay'
+    | 'OpenScript JSON'
+    | 'Rich Text Format (RTF)'
+    | 'PDF Screenplay';
   sceneCount: number;
   wordCount: number;
   warnings?: string[];
@@ -36,7 +58,6 @@ function extractFountainMetadata(fountainText: string): { title?: string; author
     if (inHeader) {
       if (!line.trim()) {
         bodyStartIndex = i + 1;
-        inHeader = false;
         continue;
       }
       const match = line.match(/^([A-Za-z\s]+):\s*(.*)$/);
@@ -57,9 +78,28 @@ function extractFountainMetadata(fountainText: string): { title?: string; author
 }
 
 /**
- * Fast & Robust RTF (Rich Text Format) to Plain Text / Fountain Converter.
- * Unpacks font/color tables, handles unicode/hex escapes, and formats line breaks.
+ * Detects whether a snippet of text is Scrivener template instruction boilerplate
+ * (such as the default novel/screenplay instruction manual sheets), preventing it
+ * from being imported into the screenplay canvas.
  */
+export function isScrivenerTemplateBoilerplate(text: string): boolean {
+  if (!text) return false;
+  const lower = text.toLowerCase();
+  return (
+    lower.includes('sketch sheets have been provided') ||
+    lower.includes('documents > change icon') ||
+    lower.includes('template sheets') ||
+    lower.includes('information about locations can be stored in the "places"') ||
+    lower.includes('information about characters can be stored') ||
+    lower.includes('sample document <$scr') ||
+    lower.includes('see the <$sample script>') ||
+    lower.includes('folder, and information about locations') ||
+    lower.includes('a note on paper and/or fonts') ||
+    lower.includes('scrivener uses the "courier prime" font') ||
+    (lower.includes('screenplay format') && (lower.includes('binder') || lower.includes('scrivener') || lower.includes('template')))
+  );
+}
+
 /**
  * Fast & Robust RTF (Rich Text Format) & Scrivener Markup to Clean Screenplay Fountain Converter.
  * Safely strips RTF control codes, unpacks font/color tables, handles unicode/hex escapes,
@@ -155,29 +195,72 @@ export function rtfToText(rtf: string): string {
   // 10. Strip any leftover XML/Scrivener tags
   text = text.replace(/<\/?[a-zA-Z0-9_\$#:-]+[^>]*>/g, '');
 
-  // 10. Unescape escaped characters \{, \}, \\
+  // 11. Unescape escaped characters \{, \}, \\
   text = text.replace(/\\([{}\\])/g, '$1');
   text = text.replace(/[{}]/g, '');
   text = text.replace(/\\/g, '');
 
-  // 11. Normalize newlines
+  // 12. Normalize newlines
   return text.replace(/\r\n/g, '\n').replace(/[ \t]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim();
+}
+
+/**
+ * Isolates the Draft / Screenplay folder subtree from Scrivener project.scrivx XML.
+ * Scrivener stores non-manuscript items (Template Sheets, Research, Characters, Places, Trash)
+ * outside the DraftFolder. We strictly extract only the draft manuscript items.
+ */
+function extractDraftFolderXml(xml: string): string | null {
+  // 1. Look for BinderItem with Type="DraftFolder" or Type="Draft"
+  const draftTypeMatch = /<BinderItem\s+[^>]*Type=["'](?:DraftFolder|Draft)["'][^>]*>/i.exec(xml);
+  let startIndex = -1;
+  if (draftTypeMatch) {
+    startIndex = draftTypeMatch.index;
+  } else {
+    // 2. Look for BinderItem whose immediate Title is Screenplay, Draft, or Manuscript
+    const candidateRegex = /<BinderItem\s+[^>]*>[\s\r\n]*<Title>(?:Screenplay|Draft|Manuscript)<\/Title>/gi;
+    const match = candidateRegex.exec(xml);
+    if (match) {
+      startIndex = match.index;
+    }
+  }
+
+  if (startIndex === -1) return null;
+
+  // Track depth to find the matching </BinderItem> for the draft container
+  let depth = 0;
+  const tagRegex = /<(\/)?BinderItem\b[^>]*>/gi;
+  tagRegex.lastIndex = startIndex;
+  let tagMatch: RegExpExecArray | null;
+  while ((tagMatch = tagRegex.exec(xml)) !== null) {
+    const isClosing = tagMatch[1] === '/';
+    const isSelfClosing = tagMatch[0].endsWith('/>');
+    if (!isClosing) {
+      if (!isSelfClosing) depth++;
+    } else {
+      depth--;
+      if (depth === 0) {
+        return xml.substring(startIndex, tagMatch.index + tagMatch[0].length);
+      }
+    }
+  }
+  return null;
 }
 
 export function extractScrivenerBinderItems(xmlContent: string): { id: string; title: string; synopsis?: string }[] {
   const items: { id: string; title: string; synopsis?: string }[] = [];
 
-  // Match all <BinderItem ...> tags
-  // Scrivener 3: <BinderItem UUID="99C0D304-4B29-4786-9A15-081B1556C47C" Type="Text" ...>
-  // Scrivener 1/2: <BinderItem ID="10" Type="Text" ...>
+  // 1. Target the DraftFolder exclusively if present
+  const targetXml = extractDraftFolderXml(xmlContent) || xmlContent;
+
+  // 2. Parse BinderItems
   const itemTagRegex = /<BinderItem\s+([^>]*?)>([\s\S]*?)(?=<BinderItem|<\/Binder>|$)/gi;
   let match;
 
-  while ((match = itemTagRegex.exec(xmlContent)) !== null) {
+  while ((match = itemTagRegex.exec(targetXml)) !== null) {
     const attrs = match[1];
     const inner = match[2];
 
-    const typeMatch = attrs.match(/Type="(Text|Folder)"/i);
+    const typeMatch = attrs.match(/Type="([^"]*)"/i);
     const idMatch = attrs.match(/(?:UUID|ID|Id)="([^"]*)"/i);
     if (!idMatch) continue;
 
@@ -189,6 +272,15 @@ export function extractScrivenerBinderItems(xmlContent: string): { id: string; t
 
     const title = titleMatch ? titleMatch[1].trim() : '';
     const synopsis = synopsisMatch ? synopsisMatch[1].trim() : undefined;
+
+    // Filter out root containers or non-screenplay folders
+    const isRootDraftContainer = /^(SCREENPLAY|MANUSCRIPT|DRAFT)$/i.test(title) && (type === 'draftfolder' || type === 'draft' || type === 'folder');
+    if (isRootDraftContainer) continue;
+
+    // Discard any template sheets, research, trash, characters, places
+    const isTemplateOrTrash = /^(template sheets|templates?|research|trash|characters|places|notes)$/i.test(title);
+    if (isTemplateOrTrash) continue;
+    if (isScrivenerTemplateBoilerplate(title)) continue;
 
     // Only process text items or folders explicitly named as scene headings
     const isHeading = /^(INT|EXT|INT\/EXT|I\/E)[.\s]/i.test(title);
@@ -257,11 +349,16 @@ export async function parseScrivenerFolderEntries(entries: FileEntry[], projectN
       sceneBody = entry.path.toLowerCase().endsWith('.rtf') ? rtfToText(rawText) : rawText.trim();
     }
 
+    // Skip template instruction boilerplate text
+    if (isScrivenerTemplateBoilerplate(sceneBody) || isScrivenerTemplateBoilerplate(item.title)) {
+      continue;
+    }
+
     if (!item.title && !sceneBody) continue;
 
     const titleUpper = item.title.toUpperCase().trim();
     const isHeading = /^(INT|EXT|INT\/EXT|I\/E)[.\s]/i.test(titleUpper);
-    const isGenericFolder = /^(SCREENPLAY FORMAT|SCREENPLAY|MANUSCRIPT|DRAFT|PROJECT|SCENES|CHAPTERS?|BINDER|RESEARCH|TRASH)$/i.test(titleUpper);
+    const isGenericFolder = /^(SCREENPLAY FORMAT|SCREENPLAY|MANUSCRIPT|DRAFT|PROJECT|SCENES|CHAPTERS?|BINDER|RESEARCH|TRASH|TEMPLATE SHEETS)$/i.test(titleUpper);
 
     // If sceneBody already starts with a scene heading, don't double-add
     const bodyStartsWithHeading = /^(INT|EXT|INT\/EXT|I\/E)[.\s]/i.test(sceneBody.trim());
@@ -275,10 +372,7 @@ export async function parseScrivenerFolderEntries(entries: FileEntry[], projectN
     }
 
     if (sceneBody) {
-      const isTemplateInstruction = isGenericFolder && /scrivener|template|binder/i.test(sceneBody);
-      if (!isTemplateInstruction) {
-        fullFountainParts.push(`${sceneBody}\n`);
-      }
+      fullFountainParts.push(`${sceneBody}\n`);
     } else if (item.synopsis && !isGenericFolder) {
       fullFountainParts.push(`${item.synopsis}\n`);
     }
@@ -292,7 +386,7 @@ export async function parseScrivenerFolderEntries(entries: FileEntry[], projectN
     for (const entry of contentEntries) {
       const rawText = await entry.file.text();
       const text = entry.path.toLowerCase().endsWith('.rtf') ? rtfToText(rawText) : rawText.trim();
-      if (!text) continue;
+      if (!text || isScrivenerTemplateBoilerplate(text)) continue;
 
       const startsWithHeading = /^(INT|EXT|INT\/EXT|I\/E)[.\s]/i.test(text.trim());
       if (!startsWithHeading) {
@@ -329,7 +423,7 @@ function parseScrivenerXml(xmlString: string, fileName: string): ImportedScreenp
                      xmlString.match(/<Title[^>]*>(.*?)<\/Title>/i);
   const projectTitle = titleMatch ? titleMatch[1].trim() : fileName.replace(/\.scrivx$/i, '').replace(/\.scriv$/i, '');
 
-  const binderItems = extractScrivenerBinderItems(xmlContentOrXml(xmlString));
+  const binderItems = extractScrivenerBinderItems(xmlString);
   const fountainLines: string[] = [];
 
   if (projectTitle) {
@@ -340,16 +434,20 @@ function parseScrivenerXml(xmlString: string, fileName: string): ImportedScreenp
   let sceneNum = 1;
   for (const item of binderItems) {
     if (!item.title && !item.synopsis) continue;
+    if (isScrivenerTemplateBoilerplate(item.title) || (item.synopsis && isScrivenerTemplateBoilerplate(item.synopsis))) continue;
 
-    const isHeading = /^(INT|EXT|INT\/EXT|I\/E)[.\s]/i.test(item.title);
+    const titleUpper = item.title.toUpperCase().trim();
+    const isHeading = /^(INT|EXT|INT\/EXT|I\/E)[.\s]/i.test(titleUpper);
+    const isGenericFolder = /^(SCREENPLAY FORMAT|SCREENPLAY|MANUSCRIPT|DRAFT|PROJECT|SCENES|CHAPTERS?|BINDER|RESEARCH|TRASH|TEMPLATE SHEETS)$/i.test(titleUpper);
+
     if (isHeading) {
-      fountainLines.push(`\n${item.title.toUpperCase()}\n`);
-    } else if (item.title) {
-      fountainLines.push(`\nINT. SCENE ${sceneNum} - ${item.title.toUpperCase()} - DAY\n`);
+      fountainLines.push(`\n${titleUpper}\n`);
+    } else if (item.title && !isGenericFolder) {
+      fountainLines.push(`\nINT. SCENE ${sceneNum} - ${titleUpper} - DAY\n`);
       sceneNum++;
     }
 
-    if (item.synopsis) {
+    if (item.synopsis && !isGenericFolder) {
       fountainLines.push(`${item.synopsis}\n`);
     }
   }
@@ -372,10 +470,6 @@ function parseScrivenerXml(xmlString: string, fileName: string): ImportedScreenp
       '💡 To import your complete screenplay: Drop the entire .scriv folder (or a .zip of it), or in Scrivener select File > Export / Compile as Final Draft (.fdx), Fountain (.fountain), or Rich Text (.rtf).'
     ],
   };
-}
-
-function xmlContentOrXml(xml: string): string {
-  return xml;
 }
 
 /**
@@ -484,6 +578,413 @@ function parseScreenplayHtml(html: string, fileName: string): ImportedScreenplay
   };
 }
 
+// ==========================================
+// PDF SCREENPLAY DISSECTION & PARSING ENGINE
+// ==========================================
+
+export interface PdfTextLine {
+  text: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  pageNum: number;
+}
+
+export type ScreenplayBlockType =
+  | 'sceneHeading'
+  | 'action'
+  | 'character'
+  | 'parenthetical'
+  | 'dialogue'
+  | 'transition';
+
+export interface ScreenplayDissectedBlock {
+  type: ScreenplayBlockType;
+  text: string;
+}
+
+/**
+ * Extracts and reconstructs horizontal text lines with spatial coordinates from each page of a PDF.
+ */
+export async function extractLinesFromPdf(file: File): Promise<{ pages: PdfTextLine[][]; totalTextItems: number }> {
+  const arrayBuffer = await file.arrayBuffer();
+  const pdfDoc = await pdfjsLib.getDocument({
+    data: new Uint8Array(arrayBuffer),
+    useSystemFonts: true,
+  } as any).promise;
+
+  const pages: PdfTextLine[][] = [];
+  let totalTextItems = 0;
+
+  for (let pageNum = 1; pageNum <= pdfDoc.numPages; pageNum++) {
+    const page = await pdfDoc.getPage(pageNum);
+    const textContent = await page.getTextContent();
+    const rawItems: { str: string; x: number; y: number; width: number; height: number }[] = [];
+
+    for (const item of textContent.items as any[]) {
+      if (!item.str || !item.str.trim()) continue;
+      totalTextItems++;
+      const x = item.transform ? item.transform[4] : item.x || 0;
+      const y = item.transform ? item.transform[5] : item.y || 0;
+      rawItems.push({
+        str: item.str,
+        x,
+        y,
+        width: item.width || 0,
+        height: item.height || 0,
+      });
+    }
+
+    if (rawItems.length === 0) {
+      pages.push([]);
+      continue;
+    }
+
+    // Sort by vertical position (Y descending from top of page), then X ascending (left to right)
+    rawItems.sort((a, b) => b.y - a.y || a.x - b.x);
+
+    const lines: PdfTextLine[] = [];
+    let currentLine: { items: typeof rawItems; y: number } | null = null;
+
+    for (const item of rawItems) {
+      if (!currentLine) {
+        currentLine = { items: [item], y: item.y };
+      } else if (Math.abs(item.y - currentLine.y) <= 3.5) {
+        currentLine.items.push(item);
+      } else {
+        lines.push(finalizeLine(currentLine.items, currentLine.y, pageNum));
+        currentLine = { items: [item], y: item.y };
+      }
+    }
+    if (currentLine) {
+      lines.push(finalizeLine(currentLine.items, currentLine.y, pageNum));
+    }
+
+    pages.push(lines);
+  }
+
+  return { pages, totalTextItems };
+}
+
+function finalizeLine(
+  items: { str: string; x: number; y: number; width: number; height: number }[],
+  y: number,
+  pageNum: number
+): PdfTextLine {
+  items.sort((a, b) => a.x - b.x);
+  let text = '';
+  const startX = items[0].x;
+  let totalWidth = 0;
+  const maxHeight = Math.max(...items.map((i) => i.height || 0));
+
+  for (let i = 0; i < items.length; i++) {
+    const item = items[i];
+    if (i > 0) {
+      const prev = items[i - 1];
+      const gap = item.x - (prev.x + prev.width);
+      if (gap > 2 && !text.endsWith(' ') && !item.str.startsWith(' ')) {
+        text += ' ';
+      }
+    }
+    text += item.str;
+    totalWidth = item.x + item.width - startX;
+  }
+
+  return {
+    text: text.trim(),
+    x: startX,
+    y,
+    width: totalWidth,
+    height: maxHeight,
+    pageNum,
+  };
+}
+
+/**
+ * Filters out running headers and page numbers so they don't pollute the script blocks.
+ */
+function isPageHeaderOrNumber(line: PdfTextLine, _pageLines: PdfTextLine[]): boolean {
+  const isTop = line.y > 700;
+  const isBottom = line.y < 50;
+
+  if (isTop || isBottom) {
+    // Lone page numbers: "1.", "1", "PAGE 1", "12."
+    if (/^(?:page\s*)?\d+\.?$/i.test(line.text)) return true;
+    // Running header like "SCRIPT TITLE   1." or "EPISODE 1 - 2."
+    if (line.x > 380 && /\d+\.?$/.test(line.text)) return true;
+  }
+  return false;
+}
+
+interface ExtractedTitlePage {
+  title?: string;
+  author?: string;
+  draftDate?: string;
+  contact?: string;
+}
+
+/**
+ * Detects whether Page 1 of the PDF is a Cover / Title Page and extracts metadata.
+ */
+function detectTitlePage(page1Lines: PdfTextLine[]): { isTitlePage: boolean; metadata: ExtractedTitlePage } {
+  const metadata: ExtractedTitlePage = {};
+  if (!page1Lines || page1Lines.length === 0) return { isTitlePage: false, metadata };
+
+  // If Page 1 contains standard scene headings, it is NOT a cover page (script starts on Page 1)
+  const hasSceneHeading = page1Lines.some((l) => /^(?:INT\.|EXT\.|INT\/EXT\.|I\/E\.)/i.test(l.text.trim()));
+  if (hasSceneHeading) {
+    return { isTitlePage: false, metadata };
+  }
+
+  const fullText = page1Lines.map((l) => l.text).join('\n');
+  const hasWrittenBy = /written\s+by|screenplay\s+by|\bby\b/i.test(fullText);
+  const hasContactOrDraft = /draft|revision|contact|@|copyright|all rights reserved/i.test(fullText);
+
+  // If it doesn't look like a title page and has many lines, treat as normal page
+  if (!hasWrittenBy && !hasContactOrDraft && page1Lines.length > 25) {
+    return { isTitlePage: false, metadata };
+  }
+
+  for (let i = 0; i < page1Lines.length; i++) {
+    const line = page1Lines[i];
+    const text = line.text;
+
+    // Detect Title: first prominent line before "written by"
+    if (!metadata.title && text.length > 1 && !/^(?:written by|by|draft|revision|contact|address)/i.test(text)) {
+      metadata.title = text.replace(/['"]+/g, '');
+      continue;
+    }
+
+    // Detect Author: follows "written by" or "by"
+    if (/^(?:written\s+by|screenplay\s+by|by)$/i.test(text)) {
+      if (i + 1 < page1Lines.length) {
+        metadata.author = page1Lines[i + 1].text;
+        i++;
+      }
+      continue;
+    }
+    const inlineWritten = text.match(/^(?:written\s+by|screenplay\s+by|by)\s*:\s*(.+)$/i);
+    if (inlineWritten && !metadata.author) {
+      metadata.author = inlineWritten[1].trim();
+      continue;
+    }
+
+    // Detect Draft Date
+    if (/draft|revised|revision|dated?|\b(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\s+\d{1,2},?\s+\d{4}\b/i.test(text)) {
+      if (!metadata.draftDate) {
+        metadata.draftDate = text;
+      }
+    }
+
+    // Detect Contact Info
+    if (/@|\b(?:phone|tel|email|contact|agent)\b/i.test(text)) {
+      metadata.contact = metadata.contact ? `${metadata.contact}\n${text}` : text;
+    }
+  }
+
+  return { isTitlePage: true, metadata };
+}
+
+/**
+ * Converts dissected screenplay blocks into standard Fountain text.
+ */
+function blocksToFountain(blocks: ScreenplayDissectedBlock[]): string {
+  const lines: string[] = [];
+  for (const block of blocks) {
+    switch (block.type) {
+      case 'sceneHeading':
+        lines.push(`\n${block.text}\n`);
+        break;
+      case 'character':
+        lines.push(`\n${block.text}`);
+        break;
+      case 'parenthetical':
+        lines.push(block.text);
+        break;
+      case 'dialogue':
+        lines.push(`${block.text}\n`);
+        break;
+      case 'transition':
+        lines.push(`\n> ${block.text}\n`);
+        break;
+      case 'action':
+      default:
+        lines.push(`\n${block.text}\n`);
+        break;
+    }
+  }
+  return lines.join('\n').replace(/\n{3,}/g, '\n\n').trim();
+}
+
+/**
+ * Dissects and parses a vector PDF screenplay into structured screenplay blocks.
+ * Extracts Title Page metadata from Page 1 (if present), categorizes lines by
+ * horizontal coordinates (X indentation) and text semantics into:
+ * sceneHeading, character, parenthetical, dialogue, transition, and action.
+ */
+export async function parseScreenplayPdf(file: File): Promise<ImportedScreenplayResult> {
+  const { pages, totalTextItems } = await extractLinesFromPdf(file);
+
+  if (totalTextItems === 0) {
+    throw new Error(
+      'This PDF contains no extractable text elements (scanned/raster image PDF). Please provide a standard vector PDF exported from screenwriting software (Final Draft, Scrivener, Highland, WriterDuet, Fade In).'
+    );
+  }
+
+  // 1. Detect if Page 1 is a Cover / Title Page
+  let scriptPages = pages;
+  let detectedTitle = file.name.replace(/\.pdf$/i, '').replace(/[_-]+/g, ' ');
+  let detectedAuthor = 'Screenplay Author';
+  let detectedDraftDate: string | undefined;
+  let detectedContact: string | undefined;
+
+  if (pages.length > 0) {
+    const { isTitlePage, metadata } = detectTitlePage(pages[0]);
+    if (isTitlePage) {
+      if (metadata.title) detectedTitle = metadata.title;
+      if (metadata.author) detectedAuthor = metadata.author;
+      if (metadata.draftDate) detectedDraftDate = metadata.draftDate;
+      if (metadata.contact) detectedContact = metadata.contact;
+      // Skip page 1 from the script body so it cleanly starts with Scene 1
+      scriptPages = pages.slice(1);
+    }
+  }
+
+  // 2. Dissect screenplay script pages into structured blocks
+  const blocks: ScreenplayDissectedBlock[] = [];
+
+  for (const pageLines of scriptPages) {
+    for (let i = 0; i < pageLines.length; i++) {
+      const line = pageLines[i];
+      if (isPageHeaderOrNumber(line, pageLines)) continue;
+
+      const trimmed = line.text.trim();
+      if (!trimmed) continue;
+
+      const prevBlock = blocks[blocks.length - 1];
+      const prevLine = i > 0 ? pageLines[i - 1] : null;
+
+      // 2a. Scene Heading (slugline)
+      const isSlugline =
+        line.x < 155 &&
+        (/^(?:INT\.|EXT\.|INT\/EXT\.|I\/E\.|EST\.)/i.test(trimmed) ||
+         /^(?:INT|EXT|INT\/EXT|I\/E)\s+[A-Z0-9]/i.test(trimmed) ||
+         /^\.[A-Z0-9]/.test(trimmed));
+
+      if (isSlugline) {
+        blocks.push({
+          type: 'sceneHeading',
+          text: trimmed.replace(/^\./, '').toUpperCase(),
+        });
+        continue;
+      }
+
+      // 2b. Transition (flush right or ends with TO:)
+      const isTransition =
+        (line.x >= 350 && /TO:$/i.test(trimmed)) ||
+        /^(?:FADE IN:|FADE OUT\.|CUT TO:|DISSOLVE TO:|MATCH CUT:|SMASH CUT:|FLASH CUT:)$/i.test(trimmed);
+
+      if (isTransition) {
+        blocks.push({
+          type: 'transition',
+          text: trimmed.toUpperCase(),
+        });
+        continue;
+      }
+
+      // 2c. Character Cue
+      const isCharacter =
+        line.x >= 195 &&
+        line.x <= 350 &&
+        trimmed.length <= 45 &&
+        !trimmed.startsWith('(') &&
+        !trimmed.endsWith(':') &&
+        !/[a-z]/.test(trimmed.replace(/\([^)]*\)/g, ''));
+
+      if (isCharacter) {
+        blocks.push({
+          type: 'character',
+          text: trimmed.toUpperCase(),
+        });
+        continue;
+      }
+
+      // 2d. Parenthetical
+      const isParenthetical =
+        line.x >= 160 &&
+        line.x <= 320 &&
+        (trimmed.startsWith('(') || trimmed.endsWith(')') ||
+         (prevBlock && (prevBlock.type === 'character' || prevBlock.type === 'parenthetical')));
+
+      if (isParenthetical && (trimmed.startsWith('(') || (prevBlock && prevBlock.type === 'character'))) {
+        const formatted = trimmed.startsWith('(') ? trimmed : `(${trimmed})`;
+        blocks.push({
+          type: 'parenthetical',
+          text: formatted,
+        });
+        continue;
+      }
+
+      // 2e. Dialogue
+      const isDialogueAfterSpeaker =
+        prevBlock &&
+        (prevBlock.type === 'character' || prevBlock.type === 'parenthetical' || prevBlock.type === 'dialogue') &&
+        line.x >= 130 &&
+        line.x <= 280;
+
+      if (isDialogueAfterSpeaker) {
+        if (prevBlock.type === 'dialogue') {
+          prevBlock.text += ' ' + trimmed;
+        } else {
+          blocks.push({
+            type: 'dialogue',
+            text: trimmed,
+          });
+        }
+        continue;
+      }
+
+      // 2f. Action / Description (Default fallback for left-aligned body text)
+      if (prevBlock && prevBlock.type === 'action' && prevLine) {
+        const lineDelta = Math.abs(prevLine.y - line.y);
+        // If lines are closely spaced vertically (< 18pt), merge into the same action paragraph
+        if (lineDelta < 18) {
+          prevBlock.text += ' ' + trimmed;
+          continue;
+        }
+      }
+
+      blocks.push({
+        type: 'action',
+        text: trimmed,
+      });
+    }
+  }
+
+  // 3. Format into standard Fountain & HTML
+  const fountainText = blocksToFountain(blocks);
+  const scriptHtml = fountainToHtml(fountainText);
+  const words = fountainText.split(/\s+/).filter(Boolean).length;
+  const scenes = (fountainText.match(/^(INT\.|EXT\.|INT\/EXT\.|I\/E\.)/gim) || []).length;
+
+  return {
+    title: detectedTitle,
+    author: detectedAuthor,
+    scriptHtml,
+    fountainText,
+    sourceApp: 'PDF Screenplay',
+    sceneCount: Math.max(1, scenes),
+    wordCount: words,
+    fullMetadata: {
+      title: detectedTitle,
+      author: detectedAuthor,
+      draftDate: detectedDraftDate,
+      contact: detectedContact,
+    },
+  };
+}
+
 /**
  * Universal Screenplay File Importer
  */
@@ -520,7 +1021,12 @@ export async function importScreenplayFile(file: File): Promise<ImportedScreenpl
     };
   }
 
-  // 2. Scrivener Project Zip Archive (.zip, .scriv.zip)
+  // 2. Vector PDF Screenplay (.pdf)
+  if (name.endsWith('.pdf')) {
+    return await parseScreenplayPdf(file);
+  }
+
+  // 3. Scrivener Project Zip Archive (.zip, .scriv.zip)
   if (name.endsWith('.zip') || name.endsWith('.scriv')) {
     try {
       return await parseScrivenerZip(file);
@@ -529,13 +1035,13 @@ export async function importScreenplayFile(file: File): Promise<ImportedScreenpl
     }
   }
 
-  // 3. Standalone Scrivener XML (.scrivx)
+  // 4. Standalone Scrivener XML (.scrivx)
   if (name.endsWith('.scrivx')) {
     const xml = await file.text();
     return parseScrivenerXml(xml, file.name);
   }
 
-  // 4. Standalone Rich Text Format (.rtf) - common Scrivener export
+  // 5. Standalone Rich Text Format (.rtf) - common Scrivener export
   if (name.endsWith('.rtf')) {
     const rtf = await file.text();
     const cleanText = rtfToText(rtf);
@@ -555,13 +1061,13 @@ export async function importScreenplayFile(file: File): Promise<ImportedScreenpl
     };
   }
 
-  // 5. HTML Screenplay (.html, .htm)
+  // 6. HTML Screenplay (.html, .htm)
   if (name.endsWith('.html') || name.endsWith('.htm')) {
     const html = await file.text();
     return parseScreenplayHtml(html, file.name);
   }
 
-  // 6. OpenScript JSON (.json, .openscript)
+  // 7. OpenScript JSON (.json, .openscript)
   if (name.endsWith('.json') || name.endsWith('.openscript')) {
     const jsonStr = await file.text();
     try {
@@ -595,7 +1101,7 @@ export async function importScreenplayFile(file: File): Promise<ImportedScreenpl
     } catch {}
   }
 
-  // 7. Fountain, Highland, WriterDuet, Plain Text (.fountain, .spmd, .txt, .text)
+  // 8. Fountain, Highland, WriterDuet, Plain Text (.fountain, .spmd, .txt, .text)
   const rawText = await file.text();
   const { title, author, body } = extractFountainMetadata(rawText);
   const scriptHtml = fountainToHtml(body);
