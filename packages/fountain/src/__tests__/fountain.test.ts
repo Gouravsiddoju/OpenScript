@@ -16,6 +16,18 @@ describe('Fountain Parser & Serializer', () => {
     expect(blocks[1].text).toBe('A barista steams milk behind the counter.');
   });
 
+  it('parses super titles and numbered headings as scene headings', () => {
+    const text = `SUPER TITLE: "3. THE CASE"\n\nVasudev inspects the crime scene.\n\n4. THE DEATH\n\nA shadow moves along the wall.`;
+    const blocks = parseFountain(text);
+
+    expect(blocks[0].type).toBe('sceneHeading');
+    expect(blocks[0].text).toBe('SUPER TITLE: "3. THE CASE"');
+    expect(blocks[1].type).toBe('action');
+    expect(blocks[2].type).toBe('sceneHeading');
+    expect(blocks[2].text).toBe('4. THE DEATH');
+    expect(blocks[3].type).toBe('action');
+  });
+
   it('parses character cue and dialogue sequence', () => {
     const text = `JOHN\n(quietly)\nWe cannot stay here any longer.`;
     const blocks = parseFountain(text);
@@ -27,6 +39,17 @@ describe('Fountain Parser & Serializer', () => {
     expect(blocks[1].text).toBe('(quietly)');
     expect(blocks[2].type).toBe('dialogue');
     expect(blocks[2].text).toBe('We cannot stay here any longer.');
+  });
+
+  it('filters out non-character cues from becoming characters', () => {
+    const text = `THE NEXT DAY\n\nRain drums against the glass.\n\nZOOM OUT SLOWLY\n\nIN THE NIGHT\n\nAFTER FEW MONTHS\n\nTHE END`;
+    const blocks = parseFountain(text);
+
+    const characterBlocks = blocks.filter((b) => b.type === 'character');
+    expect(characterBlocks.length).toBe(0);
+
+    expect(blocks.some((b) => b.type === 'action' && b.text.includes('THE NEXT DAY'))).toBe(true);
+    expect(blocks.some((b) => (b.type === 'action' || b.type === 'transition') && b.text.includes('THE END'))).toBe(true);
   });
 
   it('parses transitions correctly', () => {
@@ -118,4 +141,3 @@ describe('Fountain Parser & Serializer', () => {
     expect(html).toContain('<div class="script-transition">FADE OUT.</div>');
   });
 });
-

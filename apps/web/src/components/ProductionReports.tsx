@@ -1,3 +1,4 @@
+import { isNonCharacterCue } from '@openscript/screenplay-schema';
 import React, { useState } from 'react';
 import { Users, MapPin, Film, Clock, BarChart3, Calendar, PieChart } from 'lucide-react';
 
@@ -33,7 +34,11 @@ export const ProductionReports: React.FC<ProductionReportsProps> = ({ contentHtm
       const isInt = !isIntExt && /^INT(\.|\s|$)/i.test(upper);
       const isExt = !isIntExt && /^EXT(\.|\s|$)/i.test(upper);
       const setting = isIntExt ? 'INT/EXT' : isInt ? 'INT' : isExt ? 'EXT' : 'INT';
-      const location = upper.replace(/^(INT\.|EXT\.|INT\/EXT\.|I\/E\.)\s*/i, '').replace(/\s*-\s*.*$/, '').trim();
+      const location = upper
+        .replace(/^(INT\.|EXT\.|INT\/EXT\.|I\/E\.|EST\.|SUPER\s*TITLE:\s*|SUPER:\s*|TITLE\s*CARD:\s*|TITLE:\s*)\s*/i, '')
+        .replace(/["']/g, '')
+        .replace(/\s*-\s*.*$/, '')
+        .trim();
       sceneHeadings.push({ 
         id: currentSceneIdx, 
         text: upper, 
@@ -46,13 +51,28 @@ export const ProductionReports: React.FC<ProductionReportsProps> = ({ contentHtm
       actionWords += words;
       totalWords += words;
     } else if (el.classList.contains('script-character')) {
-      currentCharacter = text.replace(/\s*\(.*\)$/, '').trim().toUpperCase();
+      const candidate = text.replace(/\s*\(.*\)$/, '').trim().toUpperCase();
+      if (!candidate || isNonCharacterCue(candidate)) {
+        currentCharacter = '';
+        return;
+      }
+      currentCharacter = candidate;
       if (!characterStats[currentCharacter]) {
         characterStats[currentCharacter] = { lines: 0, words: 0, scenes: new Set() };
       }
       if (currentSceneIdx > 0) {
         characterStats[currentCharacter].scenes.add(currentSceneIdx);
         sceneHeadings[currentSceneIdx - 1]?.characters.add(currentCharacter);
+      }
+    } else if (el.classList.contains('script-parenthetical') && currentCharacter) {
+      const words = text.replace(/[\(\)]/g, '').split(/\s+/).filter(Boolean).length;
+      if (characterStats[currentCharacter]) {
+        characterStats[currentCharacter].words += words;
+        if (characterStats[currentCharacter].lines === 0) {
+          characterStats[currentCharacter].lines = 1;
+        }
+        dialogueWords += words;
+        totalWords += words;
       }
     } else if (el.classList.contains('script-dialogue') && currentCharacter) {
       const words = text.split(/\s+/).filter(Boolean).length;
@@ -63,9 +83,9 @@ export const ProductionReports: React.FC<ProductionReportsProps> = ({ contentHtm
     }
   });
 
-  const sortedCharacters = Object.entries(characterStats).sort(
-    (a, b) => b[1].words - a[1].words
-  );
+  const sortedCharacters = Object.entries(characterStats)
+    .filter(([name, stats]) => stats.words > 0 && !isNonCharacterCue(name))
+    .sort((a, b) => b[1].words - a[1].words);
 
   // Group scenes by unique location
   const locationGroups: Record<string, typeof sceneHeadings> = {};

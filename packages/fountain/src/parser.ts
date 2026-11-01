@@ -1,4 +1,9 @@
-import { ScreenplayBlock, createScreenplayBlock } from '@openscript/screenplay-schema';
+import {
+  ScreenplayBlock,
+  createScreenplayBlock,
+  isNonCharacterCue,
+  isSceneHeadingCandidate,
+} from '@openscript/screenplay-schema';
 
 export function parseFountain(fountainText: string): ScreenplayBlock[] {
   const lines = fountainText.split('\n');
@@ -8,8 +13,8 @@ export function parseFountain(fountainText: string): ScreenplayBlock[] {
     const line = lines[i].trim();
     if (!line) continue;
 
-    // Scene Heading: INT., EXT., INT/EXT, or forced with '.'
-    if (/^(\.(?![.\s])|INT\.|EXT\.|INT\/EXT\.|I\/E\.)/i.test(line)) {
+    // 1. Scene Heading: standard sluglines, forced '.', super titles, or sequence headings
+    if (isSceneHeadingCandidate(line)) {
       blocks.push(createScreenplayBlock({
         id: crypto.randomUUID(),
         type: 'sceneHeading',
@@ -18,8 +23,8 @@ export function parseFountain(fountainText: string): ScreenplayBlock[] {
       continue;
     }
 
-    // Transition: ends with 'TO:' or forced with '>'
-    if (/( TO:$|^>[^<]*$)/.test(line)) {
+    // 2. Transition: ends with 'TO:', forced with '>', or standard transition/end markers
+    if (/( TO:$|^>[^<]*$)/.test(line) || /^(?:THE\s+END|FIN|FADE\s+OUT\.?|FADE\s+TO\s+BLACK\.?|CUT\s+TO\s+BLACK\.?)$/i.test(line)) {
       blocks.push(createScreenplayBlock({
         id: crypto.randomUUID(),
         type: 'transition',
@@ -28,8 +33,8 @@ export function parseFountain(fountainText: string): ScreenplayBlock[] {
       continue;
     }
 
-    // Character: uppercase, no lowercase letters, < 35 chars
-    if (/^([A-Z0-9\s_\-']+(\s*\(.*\))?)$/.test(line) && !line.endsWith(':') && line.length < 35) {
+    // 3. Character: uppercase, < 40 chars, NOT a non-character cue (time lapse, camera shot, etc.)
+    if (!isNonCharacterCue(line) && /^([A-Z0-9\s_\-']+(\s*\(.*\))?)$/.test(line) && !line.endsWith(':') && line.length < 40) {
       blocks.push(createScreenplayBlock({
         id: crypto.randomUUID(),
         type: 'character',
@@ -46,7 +51,7 @@ export function parseFountain(fountainText: string): ScreenplayBlock[] {
         }
 
         // Check if next line is a new scene heading or transition
-        if (/^(\.(?![.\s])|INT\.|EXT\.|INT\/EXT\.|I\/E\.)/i.test(nextLine) || /( TO:$|^>[^<]*$)/.test(nextLine)) {
+        if (isSceneHeadingCandidate(nextLine) || /( TO:$|^>[^<]*$)/.test(nextLine)) {
           break;
         }
 
@@ -61,7 +66,7 @@ export function parseFountain(fountainText: string): ScreenplayBlock[] {
       continue;
     }
 
-    // Default to Action
+    // 4. Default to Action
     blocks.push(createScreenplayBlock({
       id: crypto.randomUUID(),
       type: 'action',
