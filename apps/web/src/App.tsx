@@ -226,21 +226,10 @@ export default function App() {
   const lastScrollTopRef = useRef(0);
 
   const handleWorkspaceScroll = (e: React.UIEvent<HTMLDivElement>) => {
-    const currentScrollTop = e.currentTarget.scrollTop;
-    const delta = currentScrollTop - lastScrollTopRef.current;
-
-    if (currentScrollTop <= 45) {
-      // Near top: always keep header and toolbar visible
-      setIsHeaderVisible(true);
-    } else if (delta > 6) {
-      // Scrolling down: hide header and toolbar smoothly
-      setIsHeaderVisible(false);
-    } else if (delta < -2) {
-      // Sensitive upward scroll: immediately restore header and floating format bar anywhere in document!
+    // Keep header & formatting bar docked and visible permanently across all pages
+    if (!isHeaderVisible) {
       setIsHeaderVisible(true);
     }
-
-    lastScrollTopRef.current = currentScrollTop;
   };
 
 
@@ -592,6 +581,7 @@ export default function App() {
         ...prev,
         title: result.title || prev.title,
         author: result.author || prev.author,
+        showTitlePage: result.hasTitlePage !== undefined ? result.hasTitlePage : (result.fullMetadata?.showTitlePage ?? prev.showTitlePage),
         ...(result.fullMetadata || {}),
       }));
     }
