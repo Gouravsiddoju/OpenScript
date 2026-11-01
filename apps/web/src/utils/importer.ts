@@ -191,11 +191,6 @@ export async function parseScrivenerFolderEntries(entries: FileEntry[], projectN
   });
 
   const fullFountainParts: string[] = [];
-  if (projectTitle) {
-    fullFountainParts.push(`Title: ${projectTitle.toUpperCase()}`);
-    fullFountainParts.push(`Author: Scrivener Project\n\n`);
-  }
-
   let sceneNum = 1;
   const processedItemIds = new Set<string>();
 
@@ -230,6 +225,7 @@ export async function parseScrivenerFolderEntries(entries: FileEntry[], projectN
 
     const titleUpper = item.title.toUpperCase().trim();
     const isHeading = /^(INT|EXT|INT\/EXT|I\/E)[.\s]/i.test(titleUpper);
+    const isGenericFolder = /^(SCREENPLAY FORMAT|SCREENPLAY|MANUSCRIPT|DRAFT|PROJECT|SCENES|CHAPTERS?|BINDER|RESEARCH|TRASH)$/i.test(titleUpper);
 
     // If sceneBody already starts with a scene heading, don't double-add
     const bodyStartsWithHeading = /^(INT|EXT|INT\/EXT|I\/E)[.\s]/i.test(sceneBody.trim());
@@ -237,20 +233,23 @@ export async function parseScrivenerFolderEntries(entries: FileEntry[], projectN
     if (isHeading) {
       fullFountainParts.push(`\n${titleUpper}\n`);
       sceneNum++;
-    } else if (!bodyStartsWithHeading && item.title) {
+    } else if (!bodyStartsWithHeading && item.title && !isGenericFolder) {
       fullFountainParts.push(`\nINT. SCENE ${sceneNum} - ${titleUpper} - DAY\n`);
       sceneNum++;
     }
 
     if (sceneBody) {
-      fullFountainParts.push(`${sceneBody}\n`);
-    } else if (item.synopsis) {
+      const isTemplateInstruction = isGenericFolder && /scrivener|template|binder/i.test(sceneBody);
+      if (!isTemplateInstruction) {
+        fullFountainParts.push(`${sceneBody}\n`);
+      }
+    } else if (item.synopsis && !isGenericFolder) {
       fullFountainParts.push(`${item.synopsis}\n`);
     }
   }
 
   // 4. Fallback: If no binder items matched, or if there are unprocessed content.rtf files
-  if (fullFountainParts.length <= 2 && contentEntries.length > 0) {
+  if (fullFountainParts.length === 0 && contentEntries.length > 0) {
     // Sort content entries by directory path
     contentEntries.sort((a, b) => a.path.localeCompare(b.path, undefined, { numeric: true, sensitivity: 'base' }));
 
@@ -277,7 +276,7 @@ export async function parseScrivenerFolderEntries(entries: FileEntry[], projectN
 
   return {
     title: projectTitle,
-    author: 'Scrivener Project',
+    author: 'Author Name',
     scriptHtml,
     fountainText: finalFountain,
     sourceApp: 'Scrivener',

@@ -718,8 +718,8 @@ export const ScreenplayEditor: React.FC<ScreenplayEditorProps> = ({
           {metadata.showWatermark && metadata.watermarkText && (
             <div className="screenplay-watermark">{metadata.watermarkText}</div>
           )}
-          <div className="mt-[3.0in] flex flex-col items-center gap-6 text-center w-full">
-            <h1 className="text-xl font-bold uppercase underline tracking-wider font-screenplay text-black">
+          <div className="mt-[3.5in] flex flex-col items-center gap-6 text-center w-full">
+            <h1 className="text-xl font-bold uppercase tracking-wider font-screenplay text-black">
               {metadata.title || 'UNTITLED SCREENPLAY'}
             </h1>
             <div className="text-sm italic text-gray-700">
@@ -735,7 +735,7 @@ export const ScreenplayEditor: React.FC<ScreenplayEditorProps> = ({
             )}
           </div>
 
-          <div className="mt-auto w-full flex justify-between items-end text-[10pt] text-gray-700 pb-4 border-t border-gray-100 pt-4">
+          <div className="mt-auto w-full flex justify-between items-end text-[10pt] text-gray-700 pb-4 pt-4">
             <div className="whitespace-pre-line text-left leading-relaxed">
               {metadata.contact || 'SSN Pictures\ncontact@ssnpictures.in'}
             </div>
