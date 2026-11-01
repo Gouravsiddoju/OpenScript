@@ -545,7 +545,7 @@ function parseScreenplayHtml(html: string, fileName: string): ImportedScreenplay
 
     if (classNames.includes('scene-heading') || classNames.includes('script-scene-heading')) {
       fountainLines.push(`\n${text.toUpperCase()}\n`);
-    } else if (classNames.includes('character') || classNames.includes('script-character')) {
+    } else if ((classNames.includes('character') || classNames.includes('script-character')) && !isNonCharacterCue(text)) {
       fountainLines.push(`\n${text.toUpperCase()}`);
     } else if (classNames.includes('parenthetical') || classNames.includes('script-parenthetical')) {
       fountainLines.push(text.startsWith('(') ? text : `(${text})`);

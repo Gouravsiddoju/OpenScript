@@ -6,14 +6,18 @@ interface ProductionReportsProps {
   contentHtml: string;
 }
 
-export const ProductionReports: React.FC<ProductionReportsProps> = ({ contentHtml }) => {
-  const [activeReportTab, setActiveReportTab] = useState<'cast' | 'locations' | 'dood' | 'pacing'>('cast');
+export interface ProductionReportData {
+  sceneHeadings: Array<{ id: number; text: string; setting: string; location: string; characters: Set<string> }>;
+  sortedCharacters: Array<[string, { lines: number; words: number; scenes: Set<number> }]>;
+  sortedLocations: Array<[string, Array<{ id: number; text: string; setting: string; location: string; characters: Set<string> }>]>;
+  totalWords: number;
+  actionWords: number;
+  dialogueWords: number;
+  dialogueRatio: number;
+  actionRatio: number;
+}
 
-  // Parse blocks from HTML
-  const parser = new DOMParser();
-  const doc = parser.parseFromString(contentHtml, 'text/html');
-
-  // 1. Extract Characters & Dialogues
+export function computeProductionReportData(contentHtml: string): ProductionReportData {
   const characterStats: Record<string, { lines: number; words: number; scenes: Set<number> }> = {};
   let currentCharacter = '';
   let totalWords = 0;
@@ -23,11 +27,10 @@ export const ProductionReports: React.FC<ProductionReportsProps> = ({ contentHtm
   const sceneHeadings: Array<{ id: number; text: string; setting: string; location: string; characters: Set<string> }> = [];
   let currentSceneIdx = 0;
 
-  Array.from(doc.body.children).forEach((el) => {
-    const text = el.textContent?.trim() || '';
+  const handleElement = (classNames: string, text: string) => {
     if (!text) return;
 
-    if (el.classList.contains('script-scene-heading')) {
+    if (classNames.includes('script-scene-heading') || classNames.includes('scene-heading')) {
       currentSceneIdx++;
       const upper = text.toUpperCase();
       const isIntExt = /^(INT\/EXT|INT\.\/EXT\.|I\/E)(\.|\s|$)/i.test(upper);
@@ -39,18 +42,18 @@ export const ProductionReports: React.FC<ProductionReportsProps> = ({ contentHtm
         .replace(/["']/g, '')
         .replace(/\s*-\s*.*$/, '')
         .trim();
-      sceneHeadings.push({ 
-        id: currentSceneIdx, 
-        text: upper, 
-        setting, 
-        location: location || upper, 
-        characters: new Set() 
+      sceneHeadings.push({
+        id: currentSceneIdx,
+        text: upper,
+        setting,
+        location: location || upper,
+        characters: new Set(),
       });
-    } else if (el.classList.contains('script-action')) {
+    } else if (classNames.includes('script-action') || classNames.includes('action')) {
       const words = text.split(/\s+/).filter(Boolean).length;
       actionWords += words;
       totalWords += words;
-    } else if (el.classList.contains('script-character')) {
+    } else if (classNames.includes('script-character') || classNames.includes('character')) {
       const candidate = text.replace(/\s*\(.*\)$/, '').trim().toUpperCase();
       if (!candidate || isNonCharacterCue(candidate)) {
         currentCharacter = '';
@@ -64,30 +67,50 @@ export const ProductionReports: React.FC<ProductionReportsProps> = ({ contentHtm
         characterStats[currentCharacter].scenes.add(currentSceneIdx);
         sceneHeadings[currentSceneIdx - 1]?.characters.add(currentCharacter);
       }
-    } else if (el.classList.contains('script-parenthetical') && currentCharacter) {
-      const words = text.replace(/[\(\)]/g, '').split(/\s+/).filter(Boolean).length;
-      if (characterStats[currentCharacter]) {
-        characterStats[currentCharacter].words += words;
-        if (characterStats[currentCharacter].lines === 0) {
-          characterStats[currentCharacter].lines = 1;
+    } else if (classNames.includes('script-parenthetical') || classNames.includes('parenthetical')) {
+      if (currentCharacter) {
+        const words = text.replace(/[\(\)]/g, '').split(/\s+/).filter(Boolean).length;
+        if (characterStats[currentCharacter]) {
+          characterStats[currentCharacter].words += words;
+          if (characterStats[currentCharacter].lines === 0) {
+            characterStats[currentCharacter].lines = 1;
+          }
+          dialogueWords += words;
+          totalWords += words;
         }
+      }
+    } else if (classNames.includes('script-dialogue') || classNames.includes('dialogue')) {
+      if (currentCharacter) {
+        const words = text.split(/\s+/).filter(Boolean).length;
+        characterStats[currentCharacter].lines += 1;
+        characterStats[currentCharacter].words += words;
         dialogueWords += words;
         totalWords += words;
       }
-    } else if (el.classList.contains('script-dialogue') && currentCharacter) {
-      const words = text.split(/\s+/).filter(Boolean).length;
-      characterStats[currentCharacter].lines += 1;
-      characterStats[currentCharacter].words += words;
-      dialogueWords += words;
-      totalWords += words;
     }
-  });
+  };
+
+  if (typeof DOMParser !== 'undefined') {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(contentHtml, 'text/html');
+    Array.from(doc.body.children).forEach((el) => {
+      handleElement(el.className || '', el.textContent?.trim() || '');
+    });
+  } else {
+    const tagRegex = /<([a-z0-9]+)\s+class="([^"]*)"[^>]*>([\s\S]*?)<\/\1>/gi;
+    let match;
+    while ((match = tagRegex.exec(contentHtml)) !== null) {
+      const classNames = match[2];
+      const rawContent = match[3];
+      const text = rawContent.replace(/<[^>]+>/g, '').trim();
+      handleElement(classNames, text);
+    }
+  }
 
   const sortedCharacters = Object.entries(characterStats)
     .filter(([name, stats]) => stats.words > 0 && !isNonCharacterCue(name))
     .sort((a, b) => b[1].words - a[1].words);
 
-  // Group scenes by unique location
   const locationGroups: Record<string, typeof sceneHeadings> = {};
   sceneHeadings.forEach((s) => {
     if (!locationGroups[s.location]) locationGroups[s.location] = [];
@@ -97,6 +120,32 @@ export const ProductionReports: React.FC<ProductionReportsProps> = ({ contentHtm
 
   const dialogueRatio = totalWords > 0 ? Math.round((dialogueWords / totalWords) * 100) : 50;
   const actionRatio = totalWords > 0 ? 100 - dialogueRatio : 50;
+
+  return {
+    sceneHeadings,
+    sortedCharacters,
+    sortedLocations,
+    totalWords,
+    actionWords,
+    dialogueWords,
+    dialogueRatio,
+    actionRatio,
+  };
+}
+
+export const ProductionReports: React.FC<ProductionReportsProps> = ({ contentHtml }) => {
+  const [activeReportTab, setActiveReportTab] = useState<'cast' | 'locations' | 'dood' | 'pacing'>('cast');
+
+  const {
+    sceneHeadings,
+    sortedCharacters,
+    sortedLocations,
+    totalWords,
+    actionWords,
+    dialogueWords,
+    dialogueRatio,
+    actionRatio,
+  } = computeProductionReportData(contentHtml);
 
   return (
     <div className="w-full max-w-5xl mx-auto p-6 space-y-6 font-sans">
