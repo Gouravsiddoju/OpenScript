@@ -439,7 +439,7 @@ export const ProjectDashboard: React.FC<ProjectDashboardProps> = ({
                 </label>
                 <input
                   type="text"
-                  placeholder="e.g. THE NEON DRIFT"
+                  placeholder="e.g. THE FINAL ODYSSEY"
                   value={newTitle}
                   onChange={(e) => setNewTitle(e.target.value)}
                   autoFocus

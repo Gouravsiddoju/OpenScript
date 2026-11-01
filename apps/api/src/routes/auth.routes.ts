@@ -79,13 +79,8 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(401).send({ error: 'Invalid email or password' });
     }
 
-    // Verify password (or allow demo credentials for seeded accounts)
-    let isValid = false;
-    if (user.passwordHash === 'demo') {
-      isValid = true;
-    } else {
-      isValid = await AuthService.verifyPassword(password, user.passwordHash);
-    }
+    // Verify password securely with bcrypt
+    const isValid = await AuthService.verifyPassword(password, user.passwordHash);
 
     if (!isValid) {
       return reply.status(401).send({ error: 'Invalid email or password' });
