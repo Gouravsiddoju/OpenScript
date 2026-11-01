@@ -2115,7 +2115,7 @@ Neon reflections shimmer in deep puddles. Sirens echo in the far distance.`;
               sceneFolderMap={sceneFolderMap}
               folders={sceneFolders}
               onClearActFilter={() => setSelectedActId(null)}
-              isToolbarVisible={isHeaderVisible}
+              isToolbarVisible={true}
               isHeaderVisible={isHeaderVisible}
               onShowHeader={() => setIsHeaderVisible(true)}
             />

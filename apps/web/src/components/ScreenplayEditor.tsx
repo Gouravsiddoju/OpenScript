@@ -523,6 +523,36 @@ export const ScreenplayEditor: React.FC<ScreenplayEditorProps> = ({
       }
     }
 
+    // Synchronize pageBreak and actBreak attributes into ProseMirror state
+    if (editor && !editor.isDestroyed) {
+      let tr = editor.state.tr;
+      let docModified = false;
+      let nodeIdx = 0;
+
+      editor.state.doc.forEach((node, offset) => {
+        if (nodeIdx < domChildren.length) {
+          const domChild = domChildren[nodeIdx];
+          const targetBreak = domChild.getAttribute('data-page-break') || null;
+          const targetActBreak = domChild.getAttribute('data-act-break') || null;
+
+          if (node.attrs.pageBreak !== targetBreak || node.attrs.actBreak !== targetActBreak) {
+            tr = tr.setNodeMarkup(offset, undefined, {
+              ...node.attrs,
+              pageBreak: targetBreak,
+              actBreak: targetActBreak,
+            });
+            docModified = true;
+          }
+        }
+        nodeIdx++;
+      });
+
+      if (docModified) {
+        tr.setMeta('addToHistory', false);
+        editor.view.dispatch(tr);
+      }
+    }
+
     const pageBreakCount = Math.max(1, pageNum - 1);
     const realScrollHeight = container.scrollHeight || 0;
     const pxPerPage = 11.0 * 96; // 1056px per physical 11" page
@@ -578,6 +608,17 @@ export const ScreenplayEditor: React.FC<ScreenplayEditorProps> = ({
           if (num > activePage) {
             activePage = num;
           }
+        }
+      }
+
+      // Height-based scroll fallback for rock-solid page tracking
+      const containerRect = paperContainerRef.current.getBoundingClientRect();
+      const scrollOffset = scrollThreshold - containerRect.top;
+      if (scrollOffset > 0) {
+        const pxPerPage = 11.0 * 96;
+        const estimated = Math.min(totalPages, Math.floor(scrollOffset / pxPerPage) + 1);
+        if (estimated > activePage) {
+          activePage = estimated;
         }
       }
 

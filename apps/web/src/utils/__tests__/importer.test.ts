@@ -1,4 +1,4 @@
-﻿import '../pdfPolyfill';
+import '../pdfPolyfill';
 import { describe, it, expect } from 'vitest';
 import {
   importScreenplayFile,
@@ -488,5 +488,38 @@ CourierPrime;
     expect(result.scriptHtml).toContain('<div class="script-shot">A CLOSE UP ON DETECTIVE FACE.</div>');
     expect(result.scriptHtml).toContain('<div class="script-shot">ANGLE ON THE BOARD</div>');
     expect(result.scriptHtml).toContain('<div class="script-action">Then assistant proceeds to asks questions.</div>');
+  });
+
+  it('never turns spoken dialogue into parentheticals or wraps them in parentheses during PDF import', async () => {
+    const pdfFile = createVectorScreenplayPdf([
+      { text: 'INT. POLICE LAB - NIGHT', x: 72, y: 700 },
+      { text: 'ASSISTANT', x: 250, y: 660 },
+      { text: 'What do you think sir?', x: 180, y: 640 },
+      { text: 'DETECTIVE', x: 250, y: 600 },
+      { text: 'There are no suspects?', x: 180, y: 580 },
+      { text: 'ASSISTANT', x: 250, y: 540 },
+      { text: 'No sir not at present.', x: 180, y: 520 },
+      { text: 'DETECTIVE', x: 250, y: 480 },
+      { text: '(with sigh)', x: 210, y: 460 },
+      { text: 'The suspect is girlfriend or wife.', x: 180, y: 440 },
+      { text: 'ASSISTANT', x: 250, y: 400 },
+      { text: 'There is no record of it in his files.', x: 180, y: 380 },
+    ]);
+
+    const result = await importScreenplayFile(pdfFile);
+
+    // Spoken dialogue must be pure dialogue without added parentheses
+    expect(result.scriptHtml).toContain('<div class="script-dialogue">What do you think sir?</div>');
+    expect(result.scriptHtml).toContain('<div class="script-dialogue">There are no suspects?</div>');
+    expect(result.scriptHtml).toContain('<div class="script-dialogue">No sir not at present.</div>');
+    expect(result.scriptHtml).toContain('<div class="script-parenthetical">(with sigh)</div>');
+    expect(result.scriptHtml).toContain('<div class="script-dialogue">The suspect is girlfriend or wife.</div>');
+    expect(result.scriptHtml).toContain('<div class="script-dialogue">There is no record of it in his files.</div>');
+
+    // Never wrapped into parentheticals
+    expect(result.scriptHtml).not.toContain('(What do you think sir?)');
+    expect(result.scriptHtml).not.toContain('(There are no suspects?)');
+    expect(result.scriptHtml).not.toContain('(No sir not at present.)');
+    expect(result.scriptHtml).not.toContain('(The suspect is girlfriend or wife.)');
   });
 });
