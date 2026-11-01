@@ -11,8 +11,12 @@ import { reportRoutes } from './routes/reports.routes';
 import { collaboratorRoutes } from './routes/collaborators.routes';
 import { noteRoutes } from './routes/notes.routes';
 import { collaborationRoutes } from './routes/collaboration.routes';
+import { storageRoutes } from './routes/storage.routes';
+import { CloudStorageService } from './services/cloudStorage.service';
 
 export function buildServer() {
+  CloudStorageService.initialize();
+
   const server = Fastify({
     logger: true,
   });
@@ -108,6 +112,7 @@ export function buildServer() {
     return {
       status: 'ok',
       service: 'openscript-api',
+      storage: CloudStorageService.getStatus(),
       timestamp: new Date().toISOString(),
     };
   });
@@ -120,6 +125,7 @@ export function buildServer() {
   server.register(collaboratorRoutes);
   server.register(noteRoutes);
   server.register(collaborationRoutes);
+  server.register(storageRoutes);
 
   return server;
 }

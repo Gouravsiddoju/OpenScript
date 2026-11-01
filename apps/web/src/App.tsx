@@ -24,7 +24,8 @@ import {
   AlertCircle,
   Zap,
   Radio,
-  Keyboard
+  Keyboard,
+  Cloud,
 } from 'lucide-react';
 import { ScreenplayEditor } from './components/ScreenplayEditor';
 import { FountainView } from './components/FountainView';
@@ -43,6 +44,7 @@ import { AuthModal } from './components/AuthModal';
 import { SceneTakesModal } from './components/SceneTakesModal';
 import { ImportModal } from './components/ImportModal';
 import { ExportModal } from './components/ExportModal';
+import { CloudStorageModal } from './components/CloudStorageModal';
 import { ProjectDashboard } from './components/ProjectDashboard';
 import { listProjects, getProject, saveProject, createProject, getActiveProjectId, setActiveProjectId } from './utils/projectStore';
 import { htmlToBlocks, exportScreenplayPdf } from './utils/exporter';
@@ -421,6 +423,7 @@ export default function App() {
   // Screenplay Project Importer State (Final Draft, Scrivener, Highland, Text)
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
+  const [isCloudStorageModalOpen, setIsCloudStorageModalOpen] = useState(false);
   const [isDashboardOpen, setIsDashboardOpen] = useState(false);
   const [droppedImportFile, setDroppedImportFile] = useState<File | null>(null);
   const [droppedFolderEntry, setDroppedFolderEntry] = useState<any>(null);
@@ -1912,6 +1915,16 @@ Neon reflections shimmer in deep puddles. Sirens echo in the far distance.`;
               </button>
             </div>
 
+            {/* Cloud Storage & Backup Snapshots */}
+            <button
+              onClick={() => setIsCloudStorageModalOpen(true)}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-[#14161d] hover:bg-[#1f222b] border border-[#242835] text-xs font-mono text-gray-300 hover:text-white transition-colors shadow-sm"
+              title="Cloud Storage & Backup Snapshots (S3 / Cloudflare R2 / Local)"
+            >
+              <Cloud className="w-3.5 h-3.5 text-blue-400" />
+              <span className="hidden sm:inline">Cloud</span>
+            </button>
+
             {/* 4. Single Definitive Keyboard Shortcuts Button */}
             <button
               onClick={() => setIsShortcutsModalOpen(true)}
@@ -2157,6 +2170,19 @@ Neon reflections shimmer in deep puddles. Sirens echo in the far distance.`;
         selectedActId={selectedActId}
         sceneFolderMap={sceneFolderMap}
         folders={sceneFolders}
+      />
+
+      {/* Cloud Storage & Automated Snapshots Modal */}
+      <CloudStorageModal
+        isOpen={isCloudStorageModalOpen}
+        onClose={() => setIsCloudStorageModalOpen(false)}
+        projectId={getActiveProjectId()}
+        blocks={htmlToBlocks(scriptHtml)}
+        metadata={titleMetadata}
+        sceneTakes={sceneTakes}
+        notes={notes}
+        revisionNumber={revisionNumber}
+        activeRevisionColor={activeRevisionColor}
       />
 
       {/* Scene Takes & Alternate Drafts Modal */}

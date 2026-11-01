@@ -2,6 +2,10 @@
 .screenplay-page {
   width: 8.5in;
   min-height: 11.0in;
+  height: auto !important;
+  background-color: #ffffff !important;
+  background: #ffffff !important;
+  color: #000000 !important;
   padding: 1.0in 1.0in 1.0in 1.5in;
   background: #ffffff;
   color: #000000;
@@ -269,4 +273,9 @@
     break-before: page !important;
     padding-top: 1.0in !important;
   }
+}
+
+
+.screenplay-page, .screenplay-page .ProseMirror, .screenplay-page [class*="script-"] {
+  color: #000000 !important;
 }

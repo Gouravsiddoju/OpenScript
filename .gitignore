@@ -31,3 +31,8 @@ Thumbs.db
 # Testing
 coverage/
 .playwright/
+
+# Local Cloud Storage & Backup snapshots
+apps/api/backups/
+backups/
+*.openscript
