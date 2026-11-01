@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { htmlToBlocks, blocksToFountainText } from '../exporter';
+import { htmlToBlocks, blocksToFountainText, generateScreenplayPdfDoc } from '../exporter';
 import { importScreenplayFile } from '../importer';
 import { ScreenplayBlock, createScreenplayBlock } from '@openscript/screenplay-schema';
 import { serializeFdx } from '@openscript/fdx';
@@ -139,4 +139,38 @@ describe('Universal Screenplay Exporter & Round-Trip', () => {
     expect(xml).toContain('<TitlePage>');
     expect(xml).toContain('<Text>THE MANOR SECRETS</Text>');
   });
+  it('generates professional industry-standard screenplay PDF with title page and multiple pages', () => {
+    const blocks: ScreenplayBlock[] = [];
+    // Generate 15 scenes with dialogue and action to test multi-page pagination & headers
+    for (let i = 1; i <= 15; i++) {
+      blocks.push(createScreenplayBlock({ id: crypto.randomUUID(), type: 'sceneHeading', text: `INT. SCENE ${i} - DAY`, sceneNumber: String(i) }));
+      blocks.push(createScreenplayBlock({ id: crypto.randomUUID(), type: 'action', text: `Action description for scene ${i}. Characters investigate the room and find clues.` }));
+      blocks.push(createScreenplayBlock({ id: crypto.randomUUID(), type: 'character', text: 'DETECTIVE' }));
+      blocks.push(createScreenplayBlock({ id: crypto.randomUUID(), type: 'parenthetical', text: '(looking at evidence)' }));
+      blocks.push(createScreenplayBlock({ id: crypto.randomUUID(), type: 'dialogue', text: `We have secured scene ${i}. Keep searching.` }));
+      blocks.push(createScreenplayBlock({ id: crypto.randomUUID(), type: 'transition', text: 'CUT TO:' }));
+    }
+
+    const doc = generateScreenplayPdfDoc({
+      blocks,
+      metadata: {
+        title: 'THE INVESTIGATION',
+        author: 'Detective Writer',
+        credit: 'written by',
+        draftLabel: 'Blue Production Draft',
+        showTitlePage: true,
+        showWatermark: true,
+        watermarkText: 'CONFIDENTIAL',
+      },
+    });
+
+    expect(doc).toBeDefined();
+    // Number of pages should be > 1
+    const totalPages = doc.getNumberOfPages();
+    expect(totalPages).toBeGreaterThanOrEqual(2);
+
+    const pdfBuffer = doc.output('arraybuffer');
+    expect(pdfBuffer.byteLength).toBeGreaterThan(5000);
+  });
+
 });

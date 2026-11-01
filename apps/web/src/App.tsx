@@ -45,7 +45,7 @@ import { ImportModal } from './components/ImportModal';
 import { ExportModal } from './components/ExportModal';
 import { ProjectDashboard } from './components/ProjectDashboard';
 import { listProjects, getProject, saveProject, createProject, getActiveProjectId, setActiveProjectId } from './utils/projectStore';
-import { htmlToBlocks } from './utils/exporter';
+import { htmlToBlocks, exportScreenplayPdf } from './utils/exporter';
 import { ImportedScreenplayResult } from './utils/importer';
 import { fountainToHtml, parseFountain, blocksToHtml } from '@openscript/fountain';
 import { parseFdx, serializeFdx } from '@openscript/fdx';
@@ -1334,6 +1334,21 @@ Neon reflections shimmer in deep puddles. Sirens echo in the far distance.`;
     URL.revokeObjectURL(url);
   };
 
+  const handleDownloadPdf = () => {
+    try {
+      const blocks = htmlToBlocks(scriptHtml);
+      exportScreenplayPdf({
+        blocks,
+        metadata: titleMetadata,
+        showWatermark: titleMetadata.showWatermark,
+        watermarkText: titleMetadata.watermarkText,
+      });
+    } catch (err) {
+      console.error('PDF Export Error:', err);
+      handlePrintPdf();
+    }
+  };
+
   const handlePrintPdf = () => {
     if (activeMode !== 'screenplay') {
       setActiveMode('screenplay');
@@ -1853,13 +1868,13 @@ Neon reflections shimmer in deep puddles. Sirens echo in the far distance.`;
                 <span>Export</span>
               </button>
 
-              {/* Primary PDF Print Button */}
+              {/* Primary PDF Export Button */}
               <button
-                onClick={handlePrintPdf}
+                onClick={handleDownloadPdf}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-xs font-bold text-black shadow-md shadow-amber-500/20 transition-all ml-0.5"
-                title="Print formatted script or save as PDF (Alt+P / Ctrl+P)"
+                title="Download formatted Screenplay PDF (.pdf)"
               >
-                <Printer className="w-3.5 h-3.5 text-black" />
+                <Download className="w-3.5 h-3.5 text-black" />
                 <span>PDF</span>
               </button>
             </div>
