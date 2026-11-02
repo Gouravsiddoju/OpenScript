@@ -893,32 +893,33 @@ export const ScreenplayEditor: React.FC<ScreenplayEditorProps> = ({
         }}
         className="no-print select-none"
       >
-        <div className="bg-[#13151b]/95 backdrop-blur-md border border-[#272b38] rounded-2xl p-1.5 shadow-2xl shadow-black/80 flex items-center gap-1">
+        <div className="bg-[#13151b]/95 backdrop-blur-md border border-[#272b38] rounded-2xl p-1 sm:p-1.5 shadow-2xl shadow-black/80 flex items-center gap-1 max-w-[96vw] overflow-x-auto scrollbar-none">
           {[
-            { type: 'sceneHeading', label: 'Scene Heading', shortcut: '1' },
-            { type: 'action', label: 'Action', shortcut: '2' },
-            { type: 'character', label: 'Character', shortcut: '3' },
-            { type: 'parenthetical', label: 'Parenthetical', shortcut: '4' },
-            { type: 'dialogue', label: 'Dialogue', shortcut: '5' },
-            { type: 'transition', label: 'Transition', shortcut: '6' },
-            { type: 'shot', label: 'Shot', shortcut: '7' },
-          ].map(({ type, label, shortcut }) => {
+            { type: 'sceneHeading', label: 'Scene Heading', short: 'Scene', shortcut: '1' },
+            { type: 'action', label: 'Action', short: 'Action', shortcut: '2' },
+            { type: 'character', label: 'Character', short: 'Char', shortcut: '3' },
+            { type: 'parenthetical', label: 'Parenthetical', short: 'Paren', shortcut: '4' },
+            { type: 'dialogue', label: 'Dialogue', short: 'Dial', shortcut: '5' },
+            { type: 'transition', label: 'Transition', short: 'Trans', shortcut: '6' },
+            { type: 'shot', label: 'Shot', short: 'Shot', shortcut: '7' },
+          ].map(({ type, label, short, shortcut }) => {
             const isActive = activeNodeType === type;
             return (
               <button
                 key={type}
                 onClick={() => editor.chain().focus().setNode(type).run()}
                 title={`Switch to ${label} (Ctrl+${shortcut} / Alt+${shortcut} or Tab)`}
-                className={`px-3 py-1.5 rounded-xl text-xs font-mono transition-all flex items-center gap-1.5 whitespace-nowrap ${
+                className={`px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-mono transition-all flex items-center gap-1 sm:gap-1.5 shrink-0 whitespace-nowrap cursor-pointer active:scale-95 ${
                   isActive
                     ? 'bg-amber-500/20 text-amber-300 font-bold border border-amber-500/50 shadow-sm'
                     : 'text-gray-400 hover:text-white hover:bg-[#1a1d26]'
                 }`}
               >
                 <span className={isActive ? 'text-amber-400 font-semibold' : 'text-gray-300'}>
-                  {label}
+                  <span className="hidden sm:inline">{label}</span>
+                  <span className="sm:hidden">{short}</span>
                 </span>
-                <span className="text-[10px] text-gray-500 font-sans opacity-70">
+                <span className="hidden sm:inline text-[10px] text-gray-500 font-sans opacity-70">
                   ⌘{shortcut}
                 </span>
               </button>

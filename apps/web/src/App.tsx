@@ -28,6 +28,7 @@ import {
   Keyboard,
   Cloud,
   BookOpen,
+  SlidersHorizontal,
 } from 'lucide-react';
 import { isNonCharacterCue, isSceneHeadingCandidate } from '@openscript/screenplay-schema';
 import { InteractiveTour } from './components/InteractiveTour';
@@ -244,6 +245,7 @@ export default function App() {
   const [isHeaderVisible, setIsHeaderVisible] = useState(true);
   const [isToolbarVisible, setIsToolbarVisible] = useState(true);
   const [isTourOpen, setIsTourOpen] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const lastScrollTopRef = useRef(0);
 
   const handleWorkspaceScroll = (e: React.UIEvent<HTMLDivElement>) => {
@@ -1990,6 +1992,9 @@ export default function App() {
     if (activeMode !== 'screenplay') {
       setActiveMode('screenplay');
     }
+    if (typeof window !== 'undefined' && window.innerWidth < 1024) {
+      setSidebarOpen(false);
+    }
     setTimeout(() => {
       const elements = document.querySelectorAll('.script-scene-heading');
       if (elements[index]) {
@@ -2072,11 +2077,19 @@ export default function App() {
         className="hidden"
       />
 
+      {/* Mobile Sidebar Backdrop Overlay */}
+      {effectiveSidebarOpen && (
+        <div
+          onClick={() => setSidebarOpen(false)}
+          className="fixed inset-0 bg-black/60 backdrop-blur-xs z-40 lg:hidden transition-opacity"
+        />
+      )}
+
       {/* 1. Left Sidebar / Final Draft Outliner & Scene Navigator */}
       <aside
         data-tour="sidebar"
-        className={`no-print border-r border-[#1e2025] bg-[#090a0c] flex flex-col justify-between transition-all duration-300 z-20 ${
-          effectiveSidebarOpen ? 'w-80' : 'w-0 -translate-x-full overflow-hidden'
+        className={`no-print border-r border-[#1e2025] bg-[#090a0c] flex flex-col justify-between transition-all duration-300 fixed inset-y-0 left-0 z-50 lg:static lg:z-20 ${
+          effectiveSidebarOpen ? 'w-80 max-w-[85vw] translate-x-0 shadow-2xl' : 'w-0 -translate-x-full overflow-hidden'
         }`}
       >
         <div className="flex flex-col h-full">
@@ -2221,189 +2234,214 @@ export default function App() {
           </div>
 
           {/* Studio Header Toolbar & Action Clusters */}
-          <div className="flex items-center gap-2">
-            {/* 1. Writing Ergonomics Cluster */}
-            <div className="hidden lg:flex items-center bg-[#14161d] border border-[#242835] rounded-xl p-0.5 shadow-sm">
-              <button
-                onClick={() => setIsSprintWidgetOpen(!isSprintWidgetOpen)}
-                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-mono transition-all ${
-                  isSprintWidgetOpen
-                    ? 'bg-amber-500/20 text-amber-300 font-semibold'
-                    : 'text-gray-400 hover:text-white hover:bg-[#1f222b]'
-                }`}
-                title="Writing Sprint Stopwatch & Goals (Alt+W)"
-              >
-                <Zap className="w-3.5 h-3.5 text-amber-400" />
-                <span>Sprint</span>
-              </button>
-
-              <button
-                onClick={() => setIsTypewriterMode(!isTypewriterMode)}
-                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-mono transition-all ${
-                  isTypewriterMode
-                    ? 'bg-amber-500/20 text-amber-300 font-semibold'
-                    : 'text-gray-400 hover:text-white hover:bg-[#1f222b]'
-                }`}
-                title="Typewriter Scrolling: Keep cursor vertically centered"
-              >
-                <span>Typewriter</span>
-              </button>
-
-              {allScriptCharacters.length > 0 && (
-                <select
-                  value={isolatedCharacter || ''}
-                  onChange={(e) => setIsolatedCharacter(e.target.value || null)}
-                  className="px-2 py-1 bg-transparent text-gray-300 text-xs font-mono focus:outline-none cursor-pointer border-l border-[#242835] ml-0.5 pl-2"
-                  title="Dialogue Voice Isolator: Highlight a single character's dialogue"
-                >
-                  <option value="" className="bg-[#14161d]">Voice: All</option>
-                  {allScriptCharacters.map((c) => (
-                    <option key={c} value={c} className="bg-[#14161d]">{c}</option>
-                  ))}
-                </select>
-              )}
-            </div>
-
-            {/* 2. Production Revision & Lock Cluster */}
-            <div className="flex items-center bg-[#14161d] border border-[#242835] rounded-xl p-0.5 shadow-sm">
-              {/* Revision Draft Dropdown */}
-              <div className="relative">
+          <div className="flex items-center gap-1.5 sm:gap-2">
+            {/* Desktop Action Clusters (Hidden on mobile < md) */}
+            <div className="hidden md:flex items-center gap-2">
+              {/* 1. Writing Ergonomics Cluster */}
+              <div className="hidden lg:flex items-center bg-[#14161d] border border-[#242835] rounded-xl p-0.5 shadow-sm">
                 <button
-                  onClick={() => setIsRevisionMenuOpen(!isRevisionMenuOpen)}
-                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg hover:bg-[#1f222b] text-xs font-mono transition-colors"
-                  title="Select Revision Draft Color"
+                  onClick={() => setIsSprintWidgetOpen(!isSprintWidgetOpen)}
+                  className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-mono transition-all ${
+                    isSprintWidgetOpen
+                      ? 'bg-amber-500/20 text-amber-300 font-semibold'
+                      : 'text-gray-400 hover:text-white hover:bg-[#1f222b]'
+                  }`}
+                  title="Writing Sprint Stopwatch & Goals (Alt+W)"
                 >
-                  <span
-                    className="w-2.5 h-2.5 rounded-full border border-black/40"
-                    style={{ backgroundColor: currentRevDraft.hex }}
-                  />
-                  <span className="hidden sm:inline text-gray-300">{currentRevDraft.name.split(' (')[0]}</span>
-                  <ChevronDown className="w-3 h-3 text-gray-400" />
+                  <Zap className="w-3.5 h-3.5 text-amber-400" />
+                  <span>Sprint</span>
                 </button>
 
-                {isRevisionMenuOpen && (
-                  <div className="absolute right-0 mt-1 w-56 bg-[#16181f] border border-[#2b2f3a] rounded-xl shadow-2xl p-1.5 z-50">
-                    <div className="px-2 py-1 text-[10px] font-mono text-gray-400 uppercase tracking-wider">
-                      Production Revision Sequence
-                    </div>
-                    {PRODUCTION_REVISION_SEQUENCE.map((rev) => (
-                      <button
-                        key={rev.color}
-                        onClick={() => handleSelectRevision(rev)}
-                        className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs font-mono text-left transition-colors ${
-                          activeRevisionColor === rev.color
-                            ? 'bg-amber-500/20 text-amber-300 font-semibold'
-                            : 'text-gray-300 hover:bg-[#21242d]'
-                        }`}
-                      >
-                        <span
-                          className="w-2.5 h-2.5 rounded-full border border-black/40 shrink-0"
-                          style={{ backgroundColor: rev.hex }}
-                        />
-                        <span className="truncate">{rev.name}</span>
-                      </button>
+                <button
+                  onClick={() => setIsTypewriterMode(!isTypewriterMode)}
+                  className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-mono transition-all ${
+                    isTypewriterMode
+                      ? 'bg-amber-500/20 text-amber-300 font-semibold'
+                      : 'text-gray-400 hover:text-white hover:bg-[#1f222b]'
+                  }`}
+                  title="Typewriter Scrolling: Keep cursor vertically centered"
+                >
+                  <span>Typewriter</span>
+                </button>
+
+                {allScriptCharacters.length > 0 && (
+                  <select
+                    value={isolatedCharacter || ''}
+                    onChange={(e) => setIsolatedCharacter(e.target.value || null)}
+                    className="px-2 py-1 bg-transparent text-gray-300 text-xs font-mono focus:outline-none cursor-pointer border-l border-[#242835] ml-0.5 pl-2"
+                    title="Dialogue Voice Isolator: Highlight a single character's dialogue"
+                  >
+                    <option value="" className="bg-[#14161d]">Voice: All</option>
+                    {allScriptCharacters.map((c) => (
+                      <option key={c} value={c} className="bg-[#14161d]">{c}</option>
                     ))}
-                  </div>
+                  </select>
                 )}
               </div>
 
-              <div className="h-4 w-[1px] bg-[#242835] mx-0.5" />
+              {/* 2. Production Revision & Lock Cluster */}
+              <div className="flex items-center bg-[#14161d] border border-[#242835] rounded-xl p-0.5 shadow-sm">
+                {/* Revision Draft Dropdown */}
+                <div className="relative">
+                  <button
+                    onClick={() => setIsRevisionMenuOpen(!isRevisionMenuOpen)}
+                    className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg hover:bg-[#1f222b] text-xs font-mono transition-colors"
+                    title="Select Revision Draft Color"
+                  >
+                    <span
+                      className="w-2.5 h-2.5 rounded-full border border-black/40"
+                      style={{ backgroundColor: currentRevDraft.hex }}
+                    />
+                    <span className="hidden sm:inline text-gray-300">{currentRevDraft.name.split(' (')[0]}</span>
+                    <ChevronDown className="w-3 h-3 text-gray-400" />
+                  </button>
 
-              {/* Lock Script Mode Toggle */}
+                  {isRevisionMenuOpen && (
+                    <div className="absolute right-0 mt-1 w-56 bg-[#16181f] border border-[#2b2f3a] rounded-xl shadow-2xl p-1.5 z-50">
+                      <div className="px-2 py-1 text-[10px] font-mono text-gray-400 uppercase tracking-wider">
+                        Production Revision Sequence
+                      </div>
+                      {PRODUCTION_REVISION_SEQUENCE.map((rev) => (
+                        <button
+                          key={rev.color}
+                          onClick={() => handleSelectRevision(rev)}
+                          className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs font-mono text-left transition-colors ${
+                            activeRevisionColor === rev.color
+                              ? 'bg-amber-500/20 text-amber-300 font-semibold'
+                              : 'text-gray-300 hover:bg-[#21242d]'
+                          }`}
+                        >
+                          <span
+                            className="w-2.5 h-2.5 rounded-full border border-black/40 shrink-0"
+                            style={{ backgroundColor: rev.hex }}
+                          />
+                          <span className="truncate">{rev.name}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <div className="h-4 w-[1px] bg-[#242835] mx-0.5" />
+
+                {/* Lock Script Mode Toggle */}
+                <button
+                  onClick={() => setIsScriptLocked(!isScriptLocked)}
+                  className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-mono transition-all ${
+                    isScriptLocked
+                      ? 'bg-amber-500/20 text-amber-300 font-semibold border border-amber-500/40'
+                      : 'text-gray-400 hover:text-white hover:bg-[#1f222b]'
+                  }`}
+                  title={isScriptLocked ? 'Script is locked: Scene numbers are frozen (Alt+L)' : 'Lock Script: Freeze scene numbers (Alt+L)'}
+                >
+                  {isScriptLocked ? <Lock className="w-3.5 h-3.5 text-amber-400" /> : <Unlock className="w-3.5 h-3.5" />}
+                  <span className="hidden md:inline">{isScriptLocked ? 'Locked' : 'Lock'}</span>
+                </button>
+
+                {/* Track Revisions Toggle */}
+                <button
+                  onClick={() => setIsTrackingRevisions(!isTrackingRevisions)}
+                  className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-mono transition-all ${
+                    isTrackingRevisions
+                      ? 'bg-red-500/20 text-red-300 font-semibold border border-red-500/40'
+                      : 'text-gray-400 hover:text-white hover:bg-[#1f222b]'
+                  }`}
+                  title={isTrackingRevisions ? 'Auto-marking edits with right-margin revision asterisks (*) (Alt+T)' : 'Track Revisions: Auto-mark asterisks (Alt+T)'}
+                >
+                  <span className="text-red-400 font-bold leading-none text-base">*</span>
+                  <span className="hidden md:inline">{isTrackingRevisions ? 'Tracking' : 'Track'}</span>
+                </button>
+              </div>
+
+              {/* 3. Export & File Cluster */}
+              <div data-tour="header-actions" className="flex items-center bg-[#14161d] border border-[#242835] rounded-xl p-0.5 shadow-sm">
+                <button
+                  onClick={() => {
+                    setDroppedImportFile(null);
+                    setIsImportModalOpen(true);
+                  }}
+                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg hover:bg-[#1f222b] text-xs font-mono text-gray-300 transition-colors"
+                  title="Import screenplay from Final Draft, Scrivener, Highland, or text"
+                >
+                  <Upload className="w-3.5 h-3.5 text-amber-500" />
+                  <span>Import</span>
+                </button>
+
+                <button
+                  onClick={() => setIsExportModalOpen(true)}
+                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg hover:bg-[#1f222b] text-xs font-mono text-gray-300 hover:text-white transition-colors"
+                  title="Export screenplay (PDF, OpenScript, Final Draft .fdx, Fountain .fountain)"
+                >
+                  <Download className="w-3.5 h-3.5 text-amber-500" />
+                  <span>Export</span>
+                </button>
+
+                {/* Save to Local Disk (Chromium File System Access / Native Disk Save) */}
+                <button
+                  onClick={handleSaveToLocalDisk}
+                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg hover:bg-[#1f222b] text-xs font-mono text-gray-300 hover:text-white transition-colors"
+                  title="Save directly to Local Disk (Ctrl+S / Chromium File System Access)"
+                >
+                  <Save className="w-3.5 h-3.5 text-emerald-400" />
+                  <span className="hidden sm:inline">Save Disk</span>
+                </button>
+
+                {/* Primary PDF Export Button */}
+                <button
+                  onClick={handleDownloadPdf}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-xs font-bold text-black shadow-md shadow-amber-500/20 transition-all ml-0.5"
+                  title="Download formatted Screenplay PDF (.pdf)"
+                >
+                  <Download className="w-3.5 h-3.5 text-black" />
+                  <span>PDF</span>
+                </button>
+              </div>
+
+              {/* Cloud Storage & Backup Snapshots */}
               <button
-                onClick={() => setIsScriptLocked(!isScriptLocked)}
-                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-mono transition-all ${
-                  isScriptLocked
-                    ? 'bg-amber-500/20 text-amber-300 font-semibold border border-amber-500/40'
-                    : 'text-gray-400 hover:text-white hover:bg-[#1f222b]'
-                }`}
-                title={isScriptLocked ? 'Script is locked: Scene numbers are frozen (Alt+L)' : 'Lock Script: Freeze scene numbers (Alt+L)'}
+                onClick={() => setIsCloudStorageModalOpen(true)}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-[#14161d] hover:bg-[#1f222b] border border-[#242835] text-xs font-mono text-gray-300 hover:text-white transition-colors shadow-sm"
+                title="Cloud Storage & Backup Snapshots (S3 / Cloudflare R2 / Local)"
               >
-                {isScriptLocked ? <Lock className="w-3.5 h-3.5 text-amber-400" /> : <Unlock className="w-3.5 h-3.5" />}
-                <span className="hidden md:inline">{isScriptLocked ? 'Locked' : 'Lock'}</span>
+                <Cloud className="w-3.5 h-3.5 text-blue-400" />
+                <span className="hidden sm:inline">Cloud</span>
               </button>
 
-              {/* Track Revisions Toggle */}
+              {/* 4. Single Definitive Keyboard Shortcuts Button */}
               <button
-                onClick={() => setIsTrackingRevisions(!isTrackingRevisions)}
-                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-mono transition-all ${
-                  isTrackingRevisions
-                    ? 'bg-red-500/20 text-red-300 font-semibold border border-red-500/40'
-                    : 'text-gray-400 hover:text-white hover:bg-[#1f222b]'
-                }`}
-                title={isTrackingRevisions ? 'Auto-marking edits with right-margin revision asterisks (*) (Alt+T)' : 'Track Revisions: Auto-mark asterisks (Alt+T)'}
+                onClick={() => setIsShortcutsModalOpen(true)}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-[#14161d] hover:bg-[#1f222b] border border-[#242835] text-xs font-mono text-gray-300 hover:text-white transition-colors shadow-sm"
+                title="View Complete Keyboard Shortcuts Guide (? or Alt+/)"
               >
-                <span className="text-red-400 font-bold leading-none text-base">*</span>
-                <span className="hidden md:inline">{isTrackingRevisions ? 'Tracking' : 'Track'}</span>
+                <Keyboard className="w-3.5 h-3.5 text-amber-400" />
+                <span className="hidden xl:inline">Shortcuts</span>
+                <kbd className="text-[10px] bg-[#0c0d11] text-amber-300 px-1.5 py-0.5 rounded border border-[#2b2e3b] font-mono">?</kbd>
               </button>
             </div>
 
-            {/* 3. Export & File Cluster */}
-            <div data-tour="header-actions" className="flex items-center bg-[#14161d] border border-[#242835] rounded-xl p-0.5 shadow-sm">
-              <button
-                onClick={() => {
-                  setDroppedImportFile(null);
-                  setIsImportModalOpen(true);
-                }}
-                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg hover:bg-[#1f222b] text-xs font-mono text-gray-300 transition-colors"
-                title="Import screenplay from Final Draft, Scrivener, Highland, or text"
-              >
-                <Upload className="w-3.5 h-3.5 text-amber-500" />
-                <span>Import</span>
-              </button>
-
-              <button
-                onClick={() => setIsExportModalOpen(true)}
-                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg hover:bg-[#1f222b] text-xs font-mono text-gray-300 hover:text-white transition-colors"
-                title="Export screenplay (PDF, OpenScript, Final Draft .fdx, Fountain .fountain)"
-              >
-                <Download className="w-3.5 h-3.5 text-amber-500" />
-                <span>Export</span>
-              </button>
-
-              {/* Save to Local Disk (Chromium File System Access / Native Disk Save) */}
-              <button
-                onClick={handleSaveToLocalDisk}
-                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg hover:bg-[#1f222b] text-xs font-mono text-gray-300 hover:text-white transition-colors"
-                title="Save directly to Local Disk (Ctrl+S / Chromium File System Access)"
-              >
-                <Save className="w-3.5 h-3.5 text-emerald-400" />
-                <span className="hidden sm:inline">Save Disk</span>
-              </button>
-
-              {/* Primary PDF Export Button */}
+            {/* Mobile Actions Cluster (Visible strictly on screens < md) */}
+            <div className="flex md:hidden items-center gap-1.5">
               <button
                 onClick={handleDownloadPdf}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-xs font-bold text-black shadow-md shadow-amber-500/20 transition-all ml-0.5"
-                title="Download formatted Screenplay PDF (.pdf)"
+                className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-xs font-bold text-black shadow-sm transition-all"
+                title="Download formatted Screenplay PDF"
               >
-                <Download className="w-3.5 h-3.5 text-black" />
+                <Download className="w-3.5 h-3.5" />
                 <span>PDF</span>
               </button>
+
+              <button
+                onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+                className={`p-1.5 rounded-lg border text-xs transition-colors cursor-pointer ${
+                  isMobileMenuOpen 
+                    ? 'bg-amber-500/20 border-amber-500/50 text-amber-300' 
+                    : 'bg-[#14161d] border-[#242835] text-gray-300 hover:text-white'
+                }`}
+                title="Studio Tools & Settings"
+              >
+                <SlidersHorizontal className="w-4 h-4" />
+              </button>
             </div>
-
-            {/* Cloud Storage & Backup Snapshots */}
-            <button
-              onClick={() => setIsCloudStorageModalOpen(true)}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-[#14161d] hover:bg-[#1f222b] border border-[#242835] text-xs font-mono text-gray-300 hover:text-white transition-colors shadow-sm"
-              title="Cloud Storage & Backup Snapshots (S3 / Cloudflare R2 / Local)"
-            >
-              <Cloud className="w-3.5 h-3.5 text-blue-400" />
-              <span className="hidden sm:inline">Cloud</span>
-            </button>
-
-            
-
-            {/* 4. Single Definitive Keyboard Shortcuts Button */}
-            <button
-              onClick={() => setIsShortcutsModalOpen(true)}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-[#14161d] hover:bg-[#1f222b] border border-[#242835] text-xs font-mono text-gray-300 hover:text-white transition-colors shadow-sm"
-              title="View Complete Keyboard Shortcuts Guide (? or Alt+/)"
-            >
-              <Keyboard className="w-3.5 h-3.5 text-amber-400" />
-              <span className="hidden xl:inline">Shortcuts</span>
-              <kbd className="text-[10px] bg-[#0c0d11] text-amber-300 px-1.5 py-0.5 rounded border border-[#2b2e3b] font-mono">?</kbd>
-            </button>
 
             {/* 5. Phase 3 Collaboration & User Profile Bar */}
             <div className="pl-1 border-l border-[#242835] ml-0.5">
@@ -2436,6 +2474,122 @@ export default function App() {
           </div>
         </header>
 
+        {/* Mobile Studio Tools Drawer (Slide-down from header on phones/tablets) */}
+        {isMobileMenuOpen && (
+          <div className="md:hidden border-b border-[#242835] bg-[#0c0d10]/98 backdrop-blur-xl px-4 py-3 z-30 space-y-3 animate-in slide-in-from-top-2 duration-150 select-none shadow-2xl">
+            <div className="flex items-center justify-between text-xs font-mono text-gray-300">
+              <span className="text-[10px] text-gray-500 uppercase tracking-wider font-semibold">Studio Tools</span>
+              <button
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="text-gray-500 hover:text-white p-0.5"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              {/* Revision Draft Picker */}
+              <button
+                onClick={() => {
+                  setIsRevisionMenuOpen(!isRevisionMenuOpen);
+                }}
+                className="flex items-center gap-2 px-3 py-2 rounded-xl bg-[#14161f] border border-[#262b3a] text-xs font-mono text-gray-200"
+              >
+                <span
+                  className="w-2.5 h-2.5 rounded-full border border-black/40"
+                  style={{ backgroundColor: currentRevDraft.hex }}
+                />
+                <span className="truncate">{currentRevDraft.name.split(' (')[0]}</span>
+              </button>
+
+              {/* Lock Script Mode */}
+              <button
+                onClick={() => setIsScriptLocked(!isScriptLocked)}
+                className={`flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-mono border transition-all ${
+                  isScriptLocked
+                    ? 'bg-amber-500/20 text-amber-300 border-amber-500/50 font-bold'
+                    : 'bg-[#14161f] text-gray-300 border-[#262b3a]'
+                }`}
+              >
+                {isScriptLocked ? <Lock className="w-3.5 h-3.5 text-amber-400" /> : <Unlock className="w-3.5 h-3.5" />}
+                <span>{isScriptLocked ? 'Locked' : 'Lock Script'}</span>
+              </button>
+
+              {/* Track Edits */}
+              <button
+                onClick={() => setIsTrackingRevisions(!isTrackingRevisions)}
+                className={`flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-mono border transition-all ${
+                  isTrackingRevisions
+                    ? 'bg-red-500/20 text-red-300 border-red-500/50 font-bold'
+                    : 'bg-[#14161f] text-gray-300 border-[#262b3a]'
+                }`}
+              >
+                <span className="text-red-400 font-bold leading-none">*</span>
+                <span>Track Edits</span>
+              </button>
+
+              {/* Typewriter Scrolling */}
+              <button
+                onClick={() => setIsTypewriterMode(!isTypewriterMode)}
+                className={`flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-mono border transition-all ${
+                  isTypewriterMode
+                    ? 'bg-amber-500/20 text-amber-300 border-amber-500/50 font-bold'
+                    : 'bg-[#14161f] text-gray-300 border-[#262b3a]'
+                }`}
+              >
+                <span>Typewriter</span>
+              </button>
+            </div>
+
+            {/* Quick Actions Row */}
+            <div className="grid grid-cols-4 gap-2 pt-1 border-t border-[#1f2330]">
+              <button
+                onClick={() => {
+                  setIsImportModalOpen(true);
+                  setIsMobileMenuOpen(false);
+                }}
+                className="flex flex-col items-center justify-center gap-1 p-2 rounded-xl bg-[#14161f] border border-[#262b3a] text-xs font-mono text-gray-300"
+              >
+                <Upload className="w-3.5 h-3.5 text-amber-400" />
+                <span className="text-[11px]">Import</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  setIsExportModalOpen(true);
+                  setIsMobileMenuOpen(false);
+                }}
+                className="flex flex-col items-center justify-center gap-1 p-2 rounded-xl bg-[#14161f] border border-[#262b3a] text-xs font-mono text-gray-300"
+              >
+                <Download className="w-3.5 h-3.5 text-amber-400" />
+                <span className="text-[11px]">Export</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  handleSaveToLocalDisk();
+                  setIsMobileMenuOpen(false);
+                }}
+                className="flex flex-col items-center justify-center gap-1 p-2 rounded-xl bg-[#14161f] border border-[#262b3a] text-xs font-mono text-gray-300"
+              >
+                <Save className="w-3.5 h-3.5 text-emerald-400" />
+                <span className="text-[11px]">Save Disk</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  setIsCloudStorageModalOpen(true);
+                  setIsMobileMenuOpen(false);
+                }}
+                className="flex flex-col items-center justify-center gap-1 p-2 rounded-xl bg-[#14161f] border border-[#262b3a] text-xs font-mono text-gray-300"
+              >
+                <Cloud className="w-3.5 h-3.5 text-blue-400" />
+                <span className="text-[11px]">Backups</span>
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Workspace Canvas Area */}
         <div 
           onScroll={handleWorkspaceScroll} 
@@ -2445,7 +2599,7 @@ export default function App() {
               setIsToolbarVisible(true);
             }
           }}
-          className="flex-1 overflow-y-auto p-4 sm:p-8 flex justify-center bg-[#0d0e11]"
+          className="flex-1 overflow-y-auto p-2 sm:p-8 flex justify-center bg-[#0d0e11]"
         >
           {activeMode === 'screenplay' && (
             <ScreenplayEditor
@@ -2508,17 +2662,17 @@ export default function App() {
         </div>
 
         {/* Studio Status Bar (Lovable-calibrated metrics footer) */}
-        <footer className="no-print h-8 shrink-0 border-t border-[#1c1e24] bg-[#0c0d0f] px-4 flex items-center justify-between text-[11px] font-mono text-gray-400 select-none">
-          <div className="flex items-center gap-3">
-            <span className="text-gray-200 font-semibold">Page {currentPage} of {documentTotalPages || metrics.estimatedPages}</span>
+        <footer className="no-print h-8 shrink-0 border-t border-[#1c1e24] bg-[#0c0d0f] px-3 sm:px-4 flex items-center justify-between text-[10px] sm:text-[11px] font-mono text-gray-400 select-none overflow-x-auto scrollbar-none">
+          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+            <span className="text-gray-200 font-semibold whitespace-nowrap">Page {currentPage} of {documentTotalPages || metrics.estimatedPages}</span>
             <span className="text-gray-600">·</span>
-            <span>{scenes.length} {scenes.length === 1 ? 'scene' : 'scenes'}</span>
-            <span className="text-gray-600">·</span>
-            <span>{metrics.words} words</span>
-            <span className="text-gray-600">·</span>
-            <span className="text-amber-400/90 flex items-center gap-1">
+            <span className="whitespace-nowrap">{scenes.length} {scenes.length === 1 ? 'scene' : 'scenes'}</span>
+            <span className="text-gray-600 hidden sm:inline">·</span>
+            <span className="hidden sm:inline whitespace-nowrap">{metrics.words} words</span>
+            <span className="text-gray-600 hidden md:inline">·</span>
+            <span className="text-amber-400/90 hidden md:flex items-center gap-1 whitespace-nowrap">
               <Clock className="w-3 h-3" />
-              <span>≈ {metrics.estimatedPages} min screen time</span>
+              <span>≈ {metrics.estimatedPages} min</span>
             </span>
             {isScriptLocked && (
               <>

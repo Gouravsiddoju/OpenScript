@@ -301,3 +301,80 @@
 .screenplay-page, .screenplay-page .ProseMirror, .screenplay-page [class*="script-"] {
   color: #000000 !important;
 }
+
+
+/* Mobile & Touch Responsive Screenplay Paper Formatting (Phones & Small Tablets) */
+@media screen and (max-width: 768px) {
+  .screenplay-page {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    min-height: auto !important;
+    padding: 1.25rem 0.85rem !important;
+    margin: 8px 0 !important;
+    border-radius: 8px;
+    font-size: 11pt !important;
+    line-height: 1.2 !important;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.35) !important;
+    box-sizing: border-box !important;
+  }
+
+  .screenplay-title-page {
+    padding: 2rem 1rem !important;
+  }
+
+  .screenplay-title-page .mt-\[3\.5in\] {
+    margin-top: 2rem !important;
+  }
+
+  .script-action,
+  .script-shot,
+  .script-scene-heading {
+    width: 100% !important;
+    margin-left: 0 !important;
+  }
+
+  .script-character {
+    margin-left: 22% !important;
+    width: 78% !important;
+  }
+
+  .script-parenthetical {
+    margin-left: 15% !important;
+    width: 72% !important;
+  }
+
+  .script-dialogue {
+    margin-left: 8% !important;
+    width: 90% !important;
+  }
+
+  .script-transition {
+    margin-left: auto !important;
+    text-align: right !important;
+    width: 100% !important;
+  }
+
+  [data-page-break]::before {
+    left: -0.85rem !important;
+    width: calc(100% + 1.7rem) !important;
+  }
+
+  [data-page-break]::after {
+    left: auto !important;
+    right: 0.5rem !important;
+    transform: none !important;
+  }
+
+  .script-scene-heading[data-scene-number]::before {
+    left: 0;
+    position: relative;
+    display: inline;
+  }
+
+  .script-scene-heading[data-scene-number]::after {
+    right: 0;
+    position: relative;
+    display: inline;
+  }
+}

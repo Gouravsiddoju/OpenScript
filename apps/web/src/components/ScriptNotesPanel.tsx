@@ -94,7 +94,7 @@ export const ScriptNotesPanel: React.FC<ScriptNotesPanelProps> = ({
   };
 
   return (
-    <aside className="no-print fixed top-14 right-0 bottom-0 w-96 bg-[#111317] border-l border-[#21242d] shadow-2xl flex flex-col z-40 animate-in slide-in-from-right duration-200">
+    <aside className="no-print fixed top-14 right-0 bottom-0 w-full sm:w-96 max-w-full sm:max-w-md bg-[#111317] border-l border-[#21242d] shadow-2xl flex flex-col z-40 animate-in slide-in-from-right duration-200">
       {/* Panel Header */}
       <div className="p-4 border-b border-[#21242d] flex items-center justify-between bg-[#15181e]">
         <div className="flex items-center gap-2">
