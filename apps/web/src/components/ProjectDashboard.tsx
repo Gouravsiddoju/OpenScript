@@ -1,3 +1,4 @@
+import { HoldButton } from './HoldButton';
 import React, { useState } from 'react';
 import {
   Film,
@@ -391,13 +392,17 @@ export const ProjectDashboard: React.FC<ProjectDashboardProps> = ({
                       >
                         <Copy className="w-3.5 h-3.5" />
                       </button>
-                      <button
-                        onClick={(e) => handleDelete(project.id, project.title, e)}
+                      <HoldButton
+                        onHold={() => {
+                          deleteProject(project.id);
+                          refreshProjects();
+                        }}
+                        holdTime={1200}
+                        title="Hold to Delete Project"
                         className="p-1.5 rounded-lg hover:bg-red-500/20 text-gray-400 hover:text-red-400 transition-colors"
-                        title="Delete Project"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
-                      </button>
+                      </HoldButton>
                       <div className="w-7 h-7 rounded-lg bg-amber-500/10 group-hover:bg-amber-500 flex items-center justify-center text-amber-400 group-hover:text-black transition-all ml-1">
                         <ChevronRight className="w-4 h-4" />
                       </div>

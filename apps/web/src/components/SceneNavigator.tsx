@@ -1,3 +1,4 @@
+import { HoldButton } from './HoldButton';
 import React, { useState, useMemo } from 'react';
 import { CollaboratorRole, canReorderScenes } from '@openscript/screenplay-schema';
 import { 
@@ -1022,34 +1023,14 @@ const SceneCardItem: React.FC<SceneCardItemProps> = ({
           </button>
         )}
         {canDelete && (
-          confirmingDelete ? (
-            <div className="flex items-center gap-1 bg-red-950/90 border border-red-500/60 rounded px-1.5 py-0.5 z-10 shadow-lg">
-              <span className="text-[9px] text-red-300 font-mono">Delete?</span>
-              <button
-                type="button"
-                onClick={onConfirmDelete}
-                className="px-1.5 py-0.5 bg-red-600 hover:bg-red-500 text-white rounded text-[9px] font-bold shadow-sm"
-              >
-                Yes
-              </button>
-              <button
-                type="button"
-                onClick={onCancelDelete}
-                className="px-1 py-0.5 text-gray-400 hover:text-white text-[9px]"
-              >
-                Cancel
-              </button>
-            </div>
-          ) : (
-            <button
-              type="button"
-              onClick={onRequestDelete}
-              className="opacity-0 group-hover:opacity-100 transition-opacity p-1 text-gray-500 hover:text-red-400 hover:bg-red-500/10 rounded"
-              title="Delete this scene"
-            >
-              <Trash2 className="w-3.5 h-3.5" />
-            </button>
-          )
+          <HoldButton
+            onHold={onConfirmDelete}
+            holdTime={1000}
+            title="Hold to Delete Scene"
+            className="opacity-0 group-hover:opacity-100 transition-opacity p-1 text-gray-500 hover:text-red-400 hover:bg-red-500/10 rounded"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+          </HoldButton>
         )}
       </div>
     </div>

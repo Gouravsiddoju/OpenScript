@@ -1,3 +1,4 @@
+import { HoldButton } from './HoldButton';
 import React, { useState } from 'react';
 import { 
   X, 
@@ -280,13 +281,14 @@ export const ScriptNotesPanel: React.FC<ScriptNotesPanelProps> = ({
 
                     {/* Delete Note */}
                     {canEdit && (
-                      <button
-                        onClick={() => onDeleteNote(note.id)}
-                        className="p-1 rounded text-gray-500 hover:text-red-400 hover:bg-[#20242e] transition-colors"
-                        title="Delete note"
+                      <HoldButton
+                        onHold={() => onDeleteNote(note.id)}
+                        holdTime={800}
+                        title="Hold to Delete Note"
+                        className="p-1 rounded text-gray-500 hover:text-red-400 hover:bg-red-500/10 transition-colors"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
-                      </button>
+                      </HoldButton>
                     )}
                   </div>
                 </div>
