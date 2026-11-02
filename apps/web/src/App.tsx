@@ -222,14 +222,29 @@ export default function App() {
   const [isShortcutsModalOpen, setIsShortcutsModalOpen] = useState(false);
   // Smart Auto-revealing Header on Scroll & Studio Guide State
   const [isHeaderVisible, setIsHeaderVisible] = useState(true);
+  const [isToolbarVisible, setIsToolbarVisible] = useState(true);
   const [isTourOpen, setIsTourOpen] = useState(false);
   const lastScrollTopRef = useRef(0);
 
   const handleWorkspaceScroll = (e: React.UIEvent<HTMLDivElement>) => {
-    // Keep header & formatting bar docked and visible permanently across all pages
-    if (!isHeaderVisible) {
+    const currentScrollTop = e.currentTarget.scrollTop;
+    const delta = currentScrollTop - lastScrollTopRef.current;
+
+    if (currentScrollTop <= 35) {
+      // Near top of document: always keep header & format bar visible
       setIsHeaderVisible(true);
+      setIsToolbarVisible(true);
+    } else if (delta > 8) {
+      // Scrolling down: smoothly hide to maximize script reading canvas
+      setIsHeaderVisible(false);
+      setIsToolbarVisible(false);
+    } else if (delta < -4) {
+      // Scrolling up (towards top): immediately reveal both header and small format bar!
+      setIsHeaderVisible(true);
+      setIsToolbarVisible(true);
     }
+
+    lastScrollTopRef.current = currentScrollTop;
   };
 
 
@@ -2080,8 +2095,9 @@ export default function App() {
         <div 
           onScroll={handleWorkspaceScroll} 
           onMouseMove={(e) => {
-            if (e.clientY < 75 && !isHeaderVisible) {
+            if (e.clientY < 85 && (!isHeaderVisible || !isToolbarVisible)) {
               setIsHeaderVisible(true);
+              setIsToolbarVisible(true);
             }
           }}
           className="flex-1 overflow-y-auto p-4 sm:p-8 flex justify-center bg-[#0d0e11]"
@@ -2109,9 +2125,13 @@ export default function App() {
               sceneFolderMap={sceneFolderMap}
               folders={sceneFolders}
               onClearActFilter={() => setSelectedActId(null)}
-              isToolbarVisible={true}
+              isToolbarVisible={isToolbarVisible}
               isHeaderVisible={isHeaderVisible}
-              onShowHeader={() => setIsHeaderVisible(true)}
+              isSidebarOpen={effectiveSidebarOpen}
+              onShowHeader={() => {
+                setIsHeaderVisible(true);
+                setIsToolbarVisible(true);
+              }}
             />
           )}
 
