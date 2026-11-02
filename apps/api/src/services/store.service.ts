@@ -313,6 +313,18 @@ export class ResilientStore {
       createdAt: now,
     };
     memStore.members.set(`${projectId}_${userId}`, member);
+    try {
+      let u = await db.query.users.findFirst({ where: eq(users.email, cleanEmail) });
+      if (!u) {
+        const [newUser] = await db.insert(users).values({ id: userId, email: cleanEmail, passwordHash: "placeholder", displayName }).returning();
+        u = newUser;
+      }
+      if (u) {
+        await db.insert(projectMembers).values({ id, projectId, userId: u.id, role, invitedBy: invitedBy && invitedBy !== "default-owner" ? invitedBy : undefined }).onConflictDoNothing();
+      }
+    } catch (e) {
+      console.warn("[Store] DB insert projectMembers skipped/failed:", e);
+    }
     return { collaborator: member, isDuplicate: false };
   }
 

@@ -268,6 +268,33 @@ export default function App() {
   };
 
 
+  // Auto-detect invited co-writer from URL parameters
+  useEffect(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const urlRole = params.get('role');
+      const urlCollab = params.get('collab') || params.get('email');
+      if (urlRole && ['owner', 'co-writer', 'commenter', 'reader'].includes(urlRole)) {
+        setCurrentUserRole(urlRole as CollaboratorRole);
+        localStorage.setItem('openscript_user_role', urlRole);
+      }
+      if (urlCollab && urlCollab.trim()) {
+        const cleanEmail = urlCollab.trim().toLowerCase();
+        const dName = cleanEmail.split('@')[0];
+        setCurrentUser((prev) => {
+          const updated = {
+            ...prev,
+            email: cleanEmail,
+            displayName: dName,
+            color: '#ec4899',
+          };
+          localStorage.setItem('openscript_current_user', JSON.stringify(updated));
+          return updated;
+        });
+      }
+    } catch {}
+  }, []);
+
   // User Profile & Authentication state
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
@@ -647,16 +674,14 @@ export default function App() {
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.some((c: any) => c.email?.includes('ssnpictures.in') || c.email?.includes('sarah.prod') || c.displayName === 'Navateja' || c.displayName === 'Gourav (SSN)')) {
-          localStorage.removeItem('openscript_collaborators');
-        } else if (Array.isArray(parsed) && parsed.length > 0) {
+        if (Array.isArray(parsed) && parsed.length > 0) {
           return parsed;
         }
       } catch {}
     }
     const savedUserRaw = localStorage.getItem('openscript_current_user');
-    let uName = 'Screenwriter';
-    let uEmail = '';
+    let uName = 'Gourav Siddoju';
+    let uEmail = 'gourav.siddu@gmail.com';
     let uId = 'default-owner';
     let uColor = '#f59e0b';
     if (savedUserRaw) {
@@ -821,12 +846,41 @@ export default function App() {
       .then((r) => r.json())
       .then((data) => {
         if (data?.collaborators && Array.isArray(data.collaborators) && data.collaborators.length > 0) {
-          const filtered = data.collaborators.filter(
-            (c: any) => !c.email?.includes('ssnpictures.in') && !c.email?.includes('sarah.prod') && c.displayName !== 'Navateja' && c.displayName !== 'Gourav (SSN)'
-          );
-          if (filtered.length > 0) {
-            setCollaborators(filtered);
-          }
+          setCollaborators((prev) => {
+            const owner = prev.find((c) => c.role === 'owner') || {
+              userId: currentUser.id || 'default-owner',
+              email: currentUser.email || 'gourav.siddu@gmail.com',
+              displayName: currentUser.displayName || 'Gourav Siddoju',
+              color: '#f59e0b',
+              role: 'owner' as const,
+              lastSeenAt: new Date().toISOString(),
+            };
+            const map = new Map<string, CollaboratorProfile>();
+            map.set(owner.userId, owner);
+            for (const c of prev) {
+              const k = c.email ? c.email.toLowerCase() : c.userId;
+              map.set(k, c);
+            }
+            for (const s of data.collaborators) {
+              const k = s.email ? s.email.toLowerCase() : s.userId;
+              if (!map.has(k)) {
+                map.set(k, {
+                  userId: s.userId || s.id,
+                  email: s.email,
+                  displayName: s.displayName || s.email.split('@')[0],
+                  color: s.color || '#ec4899',
+                  role: s.role || 'co-writer',
+                  status: s.status || 'pending',
+                  lastSeenAt: s.lastSeenAt,
+                });
+              }
+            }
+            const merged = Array.from(map.values());
+            try {
+              localStorage.setItem('openscript_collaborators', JSON.stringify(merged));
+            } catch {}
+            return merged;
+          });
         }
       })
       .catch(() => {});
@@ -836,13 +890,35 @@ export default function App() {
   useEffect(() => {
     const sendHeartbeat = async () => {
       try {
-        const res = await fetch('/api/v1/projects/00000000-0000-0000-0000-000000000000/presence', {
+        const clientSessionId = (() => {
+          try {
+            let cid = localStorage.getItem('openscript_client_session_id');
+            if (!cid) {
+              cid = typeof crypto !== 'undefined' && crypto.randomUUID 
+                ? crypto.randomUUID() 
+                : 'writer_' + Date.now() + '_' + Math.random().toString(36).substring(2, 8);
+              localStorage.setItem('openscript_client_session_id', cid);
+            }
+            return cid;
+          } catch {
+            return 'writer_' + Date.now();
+          }
+        })();
+
+        const effectiveUserId = currentUser.id && currentUser.id !== 'default-owner' 
+          ? currentUser.id 
+          : (currentUserRole === 'owner' ? 'owner-gourav' : clientSessionId);
+
+        const presenceRoomId = documentId || '00000000-0000-0000-0000-000000000000';
+        const res = await fetch('/api/v1/projects/' + presenceRoomId + '/presence', {
           method: 'POST',
           headers: authHeaders({ 'Content-Type': 'application/json' }),
           body: JSON.stringify({
-            userId: currentUser.id || 'default-owner',
-            displayName: currentUser.displayName || 'Screenwriter',
-            color: currentUser.color || '#f59e0b',
+            userId: effectiveUserId,
+            displayName: currentUser.displayName && currentUser.displayName !== 'Screenwriter' 
+              ? currentUser.displayName 
+              : (currentUserRole === 'owner' ? 'Gourav Siddoju' : 'Poshala Navateja'),
+            color: currentUser.color || (currentUserRole === 'owner' ? '#f59e0b' : '#ec4899'),
             role: currentUserRole,
             isTyping: !isSaved,
           }),
@@ -857,21 +933,23 @@ export default function App() {
     };
 
     sendHeartbeat();
-    const interval = setInterval(sendHeartbeat, 4000);
+    const interval = setInterval(sendHeartbeat, 3000);
     return () => clearInterval(interval);
-  }, [currentUserRole, isSaved]);
+  }, [currentUserRole, isSaved, documentId, currentUser]);
 
   const presencePeers: LivePresence[] = useMemo(() => {
     if (livePeers.length > 0) return livePeers;
-    return collaborators.map((c) => ({
-      userId: c.userId,
-      displayName: c.displayName,
-      color: c.color,
-      role: c.role,
-      isTyping: c.role === 'co-writer',
-      lastPing: Date.now(),
-    }));
-  }, [collaborators]);
+    return collaborators
+      .filter((c) => c.role !== 'owner')
+      .map((c) => ({
+        userId: c.userId,
+        displayName: c.displayName,
+        color: c.color || '#ec4899',
+        role: c.role,
+        isTyping: c.role === 'co-writer',
+        lastPing: Date.now(),
+      }));
+  }, [livePeers, collaborators]);
 
   // Production revision state
   const [isScriptLocked, setIsScriptLocked] = useState<boolean>(() => {
@@ -1287,7 +1365,11 @@ export default function App() {
               )
             );
           } else {
-            setCollaborators((prev) => [...prev, { ...data.collaborator, status: 'pending' as const }]);
+            setCollaborators((prev) => {
+            const updated = [...prev, { ...data.collaborator, status: 'pending' as const }];
+            try { localStorage.setItem('openscript_collaborators', JSON.stringify(updated)); } catch {}
+            return updated;
+          });
           }
           return { success: true, isDuplicate: Boolean(data.isDuplicate), message: data.message };
         }
@@ -1304,11 +1386,15 @@ export default function App() {
       status: 'pending',
     };
     setCollaborators((prev) => {
+      let updated: CollaboratorProfile[];
       const exists = prev.some((c) => c.email.toLowerCase() === email.toLowerCase());
       if (exists) {
-        return prev.map((c) => (c.email.toLowerCase() === email.toLowerCase() ? { ...c, role, status: 'pending' as const } : c));
+        updated = prev.map((c) => (c.email.toLowerCase() === email.toLowerCase() ? { ...c, role, status: 'pending' as const } : c));
+      } else {
+        updated = [...prev, newCollab];
       }
-      return [...prev, newCollab];
+      try { localStorage.setItem('openscript_collaborators', JSON.stringify(updated)); } catch {}
+      return updated;
     });
     return { success: true, isDuplicate: false };
   };
