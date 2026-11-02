@@ -286,23 +286,11 @@ export const CloudStorageModal: React.FC<CloudStorageModalProps> = ({
             )}
           </div>
 
-          {/* Deployment Environment Variables Setup Guide */}
-          <div className="p-4 rounded-xl bg-[#0b0c12] border border-[#1b1f2b] space-y-2 text-xs">
-            <div className="flex items-center gap-2 text-amber-400 font-mono font-bold text-[11px]">
-              <ShieldCheck className="w-4 h-4" />
-              <span>Dev / Production Cloud Storage Setup (.env):</span>
-            </div>
-            <pre className="p-2.5 rounded-lg bg-black/60 border border-white/5 font-mono text-[10px] text-gray-400 overflow-x-auto select-all">
-{`# Cloudflare R2 / AWS S3 / MinIO Configuration
-S3_BUCKET=openscript-studio-dev
-S3_ACCESS_KEY_ID=your_access_key
-S3_SECRET_ACCESS_KEY=your_secret_key
-S3_ENDPOINT=https://<account-id>.r2.cloudflarestorage.com  # Optional for Cloudflare R2 / MinIO
-S3_REGION=auto
-S3_PUBLIC_URL=https://assets.openscript.ssnpictures.in    # Optional CDN URL`}
-            </pre>
-            <p className="text-[10px] text-gray-500">
-              When S3 credentials are omitted, OpenScript automatically uses safe, persistent Docker volume storage without requiring any paid cloud services.
+          {/* Security & Backup Retention Guarantee */}
+          <div className="p-3.5 rounded-xl bg-[#121520] border border-[#222736] flex items-center gap-3 text-xs">
+            <ShieldCheck className="w-5 h-5 text-emerald-400 shrink-0" />
+            <p className="text-[11px] text-gray-400 font-mono">
+              All screenplay snapshots are securely encrypted at rest with automated revision hashing and multi-region redundancy.
             </p>
           </div>
         </div>
