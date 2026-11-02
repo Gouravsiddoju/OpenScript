@@ -39,8 +39,28 @@ const DEFAULT_SCRIPT_HTML = `
   <div class="script-dialogue">Every story begins with a blank page.</div>
 `;
 
-const STANDARD_TRANSITIONS = ['CUT TO:', 'FADE OUT.', 'DISSOLVE TO:', 'SMASH CUT TO:', 'MATCH CUT TO:'];
-const SLUGLINE_PREFIXES = ['INT. ', 'EXT. ', 'INT/EXT. '];
+const STANDARD_TRANSITIONS = [
+  'CUT TO:',
+  'FADE IN:',
+  'FADE OUT.',
+  'DISSOLVE TO:',
+  'SMASH CUT TO:',
+  'MATCH CUT TO:',
+  'JUMP CUT TO:',
+  'BACK TO:',
+];
+const STANDARD_SHOTS = [
+  'WIDE SHOT',
+  'CLOSE UP',
+  'EXTREME CLOSE UP',
+  'MEDIUM SHOT',
+  'POV',
+  'AERIAL SHOT',
+  'TRACKING SHOT',
+  'PAN TO',
+];
+const SLUGLINE_PREFIXES = ['INT. ', 'EXT. ', 'INT/EXT. ', 'I/E. '];
+const STANDARD_TIMES = ['DAY', 'NIGHT', 'DUSK', 'DAWN', 'CONTINUOUS', 'LATER', 'SAME TIME', 'MOMENTS LATER'];
 
 export const ScreenplayEditor: React.FC<ScreenplayEditorProps> = ({
   initialContent = DEFAULT_SCRIPT_HTML,
@@ -94,6 +114,8 @@ export const ScreenplayEditor: React.FC<ScreenplayEditorProps> = ({
   const [activeSuggestion, setActiveSuggestion] = useState<string | null>(null);
   const [matchedSuggestions, setMatchedSuggestions] = useState<string[]>([]);
   const [suggestionCoords, setSuggestionCoords] = useState<{ top: number; left: number } | null>(null);
+  const [selectedSuggestionIndex, setSelectedSuggestionIndex] = useState(0);
+  const [currentSuggestionType, setCurrentSuggestionType] = useState<string>('Character Match');
 
 
   // Floating Selection -> Comment trigger
@@ -160,6 +182,8 @@ export const ScreenplayEditor: React.FC<ScreenplayEditorProps> = ({
   };
 
 
+  const knownLocationsRef = useRef<string[]>([]);
+
   const checkSmartType = (currentEditor: any) => {
     if (!currentEditor || currentEditor.isDestroyed) return;
     const { state, view } = currentEditor;
@@ -175,6 +199,8 @@ export const ScreenplayEditor: React.FC<ScreenplayEditorProps> = ({
       if (matches.length > 0) {
         setMatchedSuggestions(matches);
         setActiveSuggestion(matches[0]);
+        setSelectedSuggestionIndex(0);
+        setCurrentSuggestionType('Character Match');
         try {
           const coords = view.coordsAtPos(selection.from);
           setSuggestionCoords({
@@ -193,6 +219,8 @@ export const ScreenplayEditor: React.FC<ScreenplayEditorProps> = ({
       if (matches.length > 0) {
         setMatchedSuggestions(matches);
         setActiveSuggestion(matches[0]);
+        setSelectedSuggestionIndex(0);
+        setCurrentSuggestionType('Transition Match');
         try {
           const coords = view.coordsAtPos(selection.from);
           setSuggestionCoords({
@@ -204,13 +232,15 @@ export const ScreenplayEditor: React.FC<ScreenplayEditorProps> = ({
         }
         return;
       }
-    } else if (blockType === 'sceneHeading' && text.length > 0 && !text.includes(' - ')) {
-      const matches = SLUGLINE_PREFIXES.filter((p) =>
-        p.toLowerCase().startsWith(text.toLowerCase()) && p.trim().toLowerCase() !== text.toLowerCase()
+    } else if (blockType === 'shot' && text.length > 0) {
+      const matches = STANDARD_SHOTS.filter((s) =>
+        s.toLowerCase().startsWith(text.toLowerCase()) && s.toLowerCase() !== text.toLowerCase()
       );
       if (matches.length > 0) {
         setMatchedSuggestions(matches);
         setActiveSuggestion(matches[0]);
+        setSelectedSuggestionIndex(0);
+        setCurrentSuggestionType('Shot Match');
         try {
           const coords = view.coordsAtPos(selection.from);
           setSuggestionCoords({
@@ -221,12 +251,86 @@ export const ScreenplayEditor: React.FC<ScreenplayEditorProps> = ({
           setSuggestionCoords(null);
         }
         return;
+      }
+    } else if (blockType === 'sceneHeading' && text.length > 0) {
+      const matchingPrefix = SLUGLINE_PREFIXES.find((p) => text.toUpperCase().startsWith(p.toUpperCase()));
+
+      if (!matchingPrefix) {
+        const prefixMatches = SLUGLINE_PREFIXES.filter((p) =>
+          p.toLowerCase().startsWith(text.toLowerCase()) && p.trim().toLowerCase() !== text.toLowerCase()
+        );
+        if (prefixMatches.length > 0) {
+          setMatchedSuggestions(prefixMatches);
+          setActiveSuggestion(prefixMatches[0]);
+          setSelectedSuggestionIndex(0);
+          setCurrentSuggestionType('Scene Heading Prefix');
+          try {
+            const coords = view.coordsAtPos(selection.from);
+            setSuggestionCoords({
+              top: coords.bottom + 6,
+              left: coords.left,
+            });
+          } catch {
+            setSuggestionCoords(null);
+          }
+          return;
+        }
+      } else {
+        const remainder = text.slice(matchingPrefix.length);
+        if (remainder.includes(' - ')) {
+          const dashIdx = remainder.indexOf(' - ');
+          const loc = remainder.slice(0, dashIdx).trim();
+          const timeQuery = remainder.slice(dashIdx + 3).trim();
+          const timeMatches = STANDARD_TIMES.filter((t) =>
+            t.toLowerCase().startsWith(timeQuery.toLowerCase()) && t.toLowerCase() !== timeQuery.toLowerCase()
+          ).map((t) => `${matchingPrefix}${loc} - ${t}`);
+
+          if (timeMatches.length > 0) {
+            setMatchedSuggestions(timeMatches);
+            setActiveSuggestion(timeMatches[0]);
+            setSelectedSuggestionIndex(0);
+            setCurrentSuggestionType('Time of Day');
+            try {
+              const coords = view.coordsAtPos(selection.from);
+              setSuggestionCoords({
+                top: coords.bottom + 6,
+                left: coords.left,
+              });
+            } catch {
+              setSuggestionCoords(null);
+            }
+            return;
+          }
+        } else if (remainder.trim().length > 0) {
+          const locQuery = remainder.trim();
+          const locMatches = knownLocationsRef.current
+            .filter((l) => l.toLowerCase().startsWith(locQuery.toLowerCase()) && l.toLowerCase() !== locQuery.toLowerCase())
+            .map((l) => `${matchingPrefix}${l} - `);
+
+          if (locMatches.length > 0) {
+            setMatchedSuggestions(locMatches);
+            setActiveSuggestion(locMatches[0]);
+            setSelectedSuggestionIndex(0);
+            setCurrentSuggestionType('Scene Location');
+            try {
+              const coords = view.coordsAtPos(selection.from);
+              setSuggestionCoords({
+                top: coords.bottom + 6,
+                left: coords.left,
+              });
+            } catch {
+              setSuggestionCoords(null);
+            }
+            return;
+          }
+        }
       }
     }
 
     setActiveSuggestion(null);
     setMatchedSuggestions([]);
     setSuggestionCoords(null);
+    setSelectedSuggestionIndex(0);
   };
 
   const editor = useEditor({
@@ -247,95 +351,88 @@ export const ScreenplayEditor: React.FC<ScreenplayEditorProps> = ({
           setActiveSuggestion(null);
           setMatchedSuggestions([]);
           setSuggestionCoords(null);
+          setSelectedSuggestionIndex(0);
           return false;
         }
 
-        // 2. Tab key completes character, transition, or scene heading
+        // Arrow navigation in suggestions
+        if (matchedSuggestions.length > 0 && (event.key === 'ArrowDown' || event.key === 'ArrowUp')) {
+          event.preventDefault();
+          if (event.key === 'ArrowDown') {
+            setSelectedSuggestionIndex((prev) => (prev + 1) % matchedSuggestions.length);
+          } else {
+            setSelectedSuggestionIndex((prev) => (prev - 1 + matchedSuggestions.length) % matchedSuggestions.length);
+          }
+          return true;
+        }
+
+        // 2. Tab key completes active suggestion
         if (event.key === 'Tab' && !event.shiftKey) {
-          const { state } = view;
-          const { selection } = state;
-          const block = selection.$from.parent;
-          const blockType = block.type.name;
-          const text = block.textContent.trim();
-
-          // Character autocomplete on Tab
-          if (blockType === 'character' && text.length > 0) {
-            const match = knownCharactersRef.current.find((c) =>
-              c.toLowerCase().startsWith(text.toLowerCase()) && c.toLowerCase() !== text.toLowerCase()
-            );
-            if (match) {
-              const from = selection.$from.start();
-              const to = selection.$from.end();
-              view.dispatch(state.tr.insertText(match, from, to));
-              setActiveSuggestion(null);
-              setMatchedSuggestions([]);
-              setSuggestionCoords(null);
-              return true;
-            }
-          }
-
-          // Transition autocomplete on Tab
-          if (blockType === 'transition' && text.length > 0) {
-            const match = STANDARD_TRANSITIONS.find((t) =>
-              t.toLowerCase().startsWith(text.toLowerCase()) && t.toLowerCase() !== text.toLowerCase()
-            );
-            if (match) {
-              const from = selection.$from.start();
-              const to = selection.$from.end();
-              view.dispatch(state.tr.insertText(match, from, to));
-              setActiveSuggestion(null);
-              setMatchedSuggestions([]);
-              setSuggestionCoords(null);
-              return true;
-            }
-          }
-
-          // Scene Heading prefix autocomplete on Tab
-          if (blockType === 'sceneHeading' && text.length > 0 && !text.includes(' - ')) {
-            const prefixMatch = SLUGLINE_PREFIXES.find((p) =>
-              p.toLowerCase().startsWith(text.toLowerCase()) && p.trim().toLowerCase() !== text.toLowerCase()
-            );
-            if (prefixMatch) {
-              const from = selection.$from.start();
-              const to = selection.$from.end();
-              view.dispatch(state.tr.insertText(prefixMatch, from, to));
-              setActiveSuggestion(null);
-              setMatchedSuggestions([]);
-              setSuggestionCoords(null);
-              return true;
-            }
+          if (matchedSuggestions.length > 0) {
+            event.preventDefault();
+            const chosen = matchedSuggestions[selectedSuggestionIndex] || activeSuggestion || '';
+            const { state } = view;
+            const { selection } = state;
+            const from = selection.$from.start();
+            const to = selection.$from.end();
+            view.dispatch(state.tr.insertText(chosen, from, to));
+            setActiveSuggestion(null);
+            setMatchedSuggestions([]);
+            setSuggestionCoords(null);
+            setSelectedSuggestionIndex(0);
+            return true;
           }
         }
 
-        // 3. Enter key completes character name and advances directly to Dialogue!
+        // 3. Enter key completes suggestion and advances appropriately
         if (event.key === 'Enter') {
-          const { state } = view;
-          const { selection } = state;
-          const block = selection.$from.parent;
-          const blockType = block.type.name;
-          const text = block.textContent.trim();
+          if (matchedSuggestions.length > 0) {
+            event.preventDefault();
+            const chosen = matchedSuggestions[selectedSuggestionIndex] || activeSuggestion || '';
+            const { state } = view;
+            const { selection } = state;
+            const block = selection.$from.parent;
+            const blockType = block?.type?.name;
+            const from = selection.$from.start();
+            const to = selection.$from.end();
+            view.dispatch(state.tr.insertText(chosen, from, to));
+            setActiveSuggestion(null);
+            setMatchedSuggestions([]);
+            setSuggestionCoords(null);
+            setSelectedSuggestionIndex(0);
 
-          if (blockType === 'character' && text.length > 0) {
-            const match = knownCharactersRef.current.find((c) =>
-              c.toLowerCase().startsWith(text.toLowerCase()) && c.toLowerCase() !== text.toLowerCase()
-            );
-            if (match) {
-              event.preventDefault();
-              const from = selection.$from.start();
-              const to = selection.$from.end();
-              view.dispatch(state.tr.insertText(match, from, to));
-              setActiveSuggestion(null);
-              setMatchedSuggestions([]);
-              setSuggestionCoords(null);
-
+            if (blockType === 'character') {
               setTimeout(() => {
                 if (editorRef.current) {
                   const currentSel = editorRef.current.state.selection;
                   editorRef.current.chain().insertContentAt(currentSel.$from.end(), { type: 'dialogue' }).focus().run();
                 }
               }, 10);
-              return true;
+            } else if (blockType === 'transition') {
+              setTimeout(() => {
+                if (editorRef.current) {
+                  const currentSel = editorRef.current.state.selection;
+                  editorRef.current.chain().insertContentAt(currentSel.$from.end(), { type: 'sceneHeading' }).focus().run();
+                }
+              }, 10);
+            } else if (blockType === 'shot') {
+              setTimeout(() => {
+                if (editorRef.current) {
+                  const currentSel = editorRef.current.state.selection;
+                  editorRef.current.chain().insertContentAt(currentSel.$from.end(), { type: 'action' }).focus().run();
+                }
+              }, 10);
+            } else if (blockType === 'sceneHeading') {
+              if (chosen.includes(' - ')) {
+                setTimeout(() => {
+                  if (editorRef.current) {
+                    const currentSel = editorRef.current.state.selection;
+                    editorRef.current.chain().insertContentAt(currentSel.$from.end(), { type: 'action' }).focus().run();
+                  }
+                }, 10);
+              }
             }
+            return true;
           }
         }
 
@@ -644,21 +741,61 @@ export const ScreenplayEditor: React.FC<ScreenplayEditorProps> = ({
     return list;
   }, [editor?.state.doc, initialKnownChars]);
 
-  const handleApplySuggestion = (suggestion: string, advanceToDialogue: boolean = false) => {
+  useMemo(() => {
+    if (!editor?.state?.doc) return [];
+    const locations = new Set<string>();
+    editor.state.doc.descendants((node: any) => {
+      if (node.type.name === 'sceneHeading') {
+        const text = node.textContent.trim();
+        const prefix = SLUGLINE_PREFIXES.find((p) => text.toUpperCase().startsWith(p.toUpperCase()));
+        if (prefix) {
+          const afterPrefix = text.slice(prefix.length).trim();
+          const dashIdx = afterPrefix.indexOf(' - ');
+          const loc = dashIdx !== -1 ? afterPrefix.slice(0, dashIdx).trim() : afterPrefix;
+          if (loc.length > 1) {
+            locations.add(loc.toUpperCase());
+          }
+        }
+      }
+    });
+    const list = Array.from(locations);
+    knownLocationsRef.current = list;
+    return list;
+  }, [editor?.state.doc]);
+
+  const handleApplySuggestion = (suggestion: string) => {
     if (!editor) return;
     const { state } = editor;
     const { selection } = state;
+    const block = selection.$from.parent;
+    const blockType = block?.type?.name;
     const from = selection.$from.start();
     const to = selection.$from.end();
     editor.view.dispatch(state.tr.insertText(suggestion, from, to));
     setActiveSuggestion(null);
     setMatchedSuggestions([]);
     setSuggestionCoords(null);
+    setSelectedSuggestionIndex(0);
 
-    if (advanceToDialogue) {
+    if (blockType === 'character') {
       setTimeout(() => {
         const currentSel = editor.state.selection;
         editor.chain().insertContentAt(currentSel.$from.end(), { type: 'dialogue' }).focus().run();
+      }, 10);
+    } else if (blockType === 'transition') {
+      setTimeout(() => {
+        const currentSel = editor.state.selection;
+        editor.chain().insertContentAt(currentSel.$from.end(), { type: 'sceneHeading' }).focus().run();
+      }, 10);
+    } else if (blockType === 'shot') {
+      setTimeout(() => {
+        const currentSel = editor.state.selection;
+        editor.chain().insertContentAt(currentSel.$from.end(), { type: 'action' }).focus().run();
+      }, 10);
+    } else if (blockType === 'sceneHeading' && suggestion.includes(' - ')) {
+      setTimeout(() => {
+        const currentSel = editor.state.selection;
+        editor.chain().insertContentAt(currentSel.$from.end(), { type: 'action' }).focus().run();
       }, 10);
     } else {
       editor.commands.focus();
@@ -809,7 +946,7 @@ export const ScreenplayEditor: React.FC<ScreenplayEditorProps> = ({
           <div className="bg-[#141720]/95 backdrop-blur-md border border-amber-500/50 rounded-xl shadow-2xl p-1.5 flex flex-col gap-1 min-w-[220px]">
             <div className="flex items-center justify-between px-2 py-0.5 border-b border-[#252836] text-[10px] font-mono text-gray-400">
               <span className="flex items-center gap-1 text-amber-400 font-semibold">
-                <Sparkles className="w-3 h-3 text-amber-400 animate-pulse" /> Character Match
+                <Sparkles className="w-3 h-3 text-amber-400 animate-pulse" /> {currentSuggestionType}
               </span>
               <div className="flex items-center gap-1">
                 <kbd className="px-1.5 py-0.5 bg-[#0d0e13] rounded border border-[#2e3342] text-amber-300 text-[9px] shadow-sm">Tab ⇥</kbd>
@@ -825,16 +962,16 @@ export const ScreenplayEditor: React.FC<ScreenplayEditorProps> = ({
                   type="button"
                   onMouseDown={(e) => {
                     e.preventDefault();
-                    handleApplySuggestion(suggestion, true);
+                    handleApplySuggestion(suggestion);
                   }}
                   className={`flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs font-mono transition-all text-left ${
-                    idx === 0
+                    idx === selectedSuggestionIndex
                       ? 'bg-amber-500/20 text-amber-300 font-bold border border-amber-500/40 shadow-sm'
                       : 'text-gray-300 hover:bg-[#1e222d] hover:text-white'
                   }`}
                 >
                   <span className="font-semibold">{suggestion}</span>
-                  {idx === 0 && (
+                  {idx === selectedSuggestionIndex && (
                     <span className="text-[10px] text-amber-400/90 font-sans">press Enter ⏎</span>
                   )}
                 </button>
