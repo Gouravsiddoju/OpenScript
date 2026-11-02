@@ -1007,6 +1007,32 @@ export default function App() {
               localStorage.setItem('openscript_draft_fountain', sFountain);
               localStorage.setItem('openscript_draft_html', newHtml);
               localStorage.setItem(`openscript_loaded_doc_${documentId}`, 'true');
+
+              // Automatically register in Projects Dashboard so it appears in the collaborator's projects list
+              try {
+                const docTitle = serverDoc.contentJson?.metadata?.title || serverDoc.title || 'Untitled Screenplay';
+                const docAuthor = Array.isArray(serverDoc.contentJson?.metadata?.authors)
+                  ? serverDoc.contentJson.metadata.authors.join(', ')
+                  : (serverDoc.contentJson?.metadata?.author || 'Author');
+
+                saveProject({
+                  id: documentId,
+                  title: docTitle,
+                  author: docAuthor,
+                  credit: serverDoc.contentJson?.metadata?.credit || 'written by',
+                  draftLabel: serverDoc.contentJson?.metadata?.draftLabel || 'First Draft',
+                  draftColor: 'white',
+                  scriptHtml: newHtml,
+                  fountainText: sFountain,
+                  sceneCount: (newHtml.match(/class="script-scene-heading"/g) || []).length || 1,
+                  wordCount: sFountain.trim().split(/\s+/).filter(Boolean).length,
+                  createdAt: serverDoc.createdAt || new Date().toISOString(),
+                  updatedAt: serverDoc.updatedAt || new Date().toISOString(),
+                });
+                setActiveProjectId(documentId);
+              } catch (e) {
+                console.warn('Failed to save project to local list:', e);
+              }
             } else if (serverRev > revisionNumber) {
               setServerContent(sFountain);
               setServerRevision(serverRev);

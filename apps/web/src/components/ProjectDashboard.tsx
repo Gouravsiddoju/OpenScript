@@ -1,5 +1,5 @@
 import { HoldButton } from './HoldButton';
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Film,
   Plus,
@@ -48,6 +48,10 @@ export const ProjectDashboard: React.FC<ProjectDashboardProps> = ({
   const refreshProjects = () => {
     setProjects(listProjects());
   };
+
+  useEffect(() => {
+    refreshProjects();
+  }, []);
 
   const filteredProjects = projects.filter((p) => {
     const q = searchQuery.toLowerCase();
@@ -515,3 +519,4 @@ export const ProjectDashboard: React.FC<ProjectDashboardProps> = ({
     </div>
   );
 };
+
