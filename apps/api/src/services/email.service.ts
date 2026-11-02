@@ -407,4 +407,161 @@ export class EmailService {
       return false;
     }
   }
+
+  /**
+   * Send Invitation Confirmation Email to the Inviter (Two-Way Notification)
+   */
+  static async sendInviteConfirmationEmail(
+    inviterEmail: string,
+    invitedEmail: string,
+    projectName: string,
+    role: string
+  ): Promise<boolean> {
+    const transporter = this.getTransporter();
+    if (!transporter) return false;
+
+    const appUrl = this.getAppUrl();
+    const cleanRole = role.toUpperCase();
+
+    const html = `
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en">
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="color-scheme" content="dark" />
+  <meta name="supported-color-schemes" content="dark" />
+  <title>Invitation Dispatched</title>
+</head>
+<body style="margin: 0; padding: 0; width: 100% !important; background-color: #080a0f; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; -webkit-font-smoothing: antialiased;">
+  <div style="display: none; font-size: 1px; color: #080a0f; line-height: 1px; max-height: 0px; max-width: 0px; opacity: 0; overflow: hidden;">
+    Your invitation to ${invitedEmail} for "${projectName}" has been delivered.
+  </div>
+
+  <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #080a0f; padding: 48px 16px 64px 16px;">
+    <tr>
+      <td align="center">
+        <table width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width: 560px; background-color: #11141c; border: 1px solid #1f2533; border-radius: 16px; overflow: hidden; box-shadow: 0 24px 60px rgba(0, 0, 0, 0.6);">
+          
+          <!-- Top Accent Line -->
+          <tr>
+            <td height="3" style="background: linear-gradient(90deg, #10b981 0%, #3b82f6 50%, #f59e0b 100%); line-height: 3px; font-size: 1px;">&nbsp;</td>
+          </tr>
+
+          <!-- Header -->
+          <tr>
+            <td align="center" style="padding: 36px 32px 28px 32px; background: radial-gradient(circle at 50% 0%, #1a2030 0%, #11141c 70%); border-bottom: 1px solid #1b212f;">
+              <div style="display: inline-block; background-color: #171b26; border: 1px solid #2b3347; border-radius: 9999px; padding: 6px 16px 6px 12px; margin-bottom: 20px;">
+                <table cellpadding="0" cellspacing="0" border="0">
+                  <tr>
+                    <td style="font-size: 14px; line-height: 1; padding-right: 8px;">📤</td>
+                    <td style="font-family: -apple-system, BlinkMacSystemFont, sans-serif; font-size: 12px; font-weight: 800; color: #10b981; letter-spacing: 1.5px; text-transform: uppercase;">
+                      INVITATION DISPATCHED
+                    </td>
+                    <td style="padding-left: 8px; border-left: 1px solid #2b3347; margin-left: 8px;">
+                      <span style="font-size: 10px; font-weight: 600; color: #94a3b8; letter-spacing: 0.8px; text-transform: uppercase;">SSN PICTURES</span>
+                    </td>
+                  </tr>
+                </table>
+              </div>
+              <h1 style="margin: 0; color: #ffffff; font-size: 24px; font-weight: 700; letter-spacing: -0.4px; line-height: 1.3;">
+                Collaborator Invite Sent
+              </h1>
+            </td>
+          </tr>
+
+          <!-- Body -->
+          <tr>
+            <td style="padding: 36px 36px 28px 36px;">
+              <p style="margin: 0 0 20px 0; color: #cbd5e1; font-size: 15px; line-height: 1.65;">
+                We've delivered an invitation to your team member to collaborate on your screenplay.
+              </p>
+
+              <!-- Details Box -->
+              <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #0a0c10; border: 1px solid #252b3b; border-radius: 12px; margin-bottom: 28px;">
+                <tr>
+                  <td style="padding: 20px;">
+                    <table width="100%" cellpadding="0" cellspacing="0" border="0" style="font-size: 13px; color: #94a3b8; line-height: 2;">
+                      <tr>
+                        <td width="130" style="color: #64748b; font-weight: 600;">Screenplay:</td>
+                        <td style="color: #ffffff; font-weight: 700;">"${projectName}"</td>
+                      </tr>
+                      <tr>
+                        <td style="color: #64748b; font-weight: 600;">Invited Person:</td>
+                        <td style="color: #f1f5f9; font-family: monospace;">${invitedEmail}</td>
+                      </tr>
+                      <tr>
+                        <td style="color: #64748b; font-weight: 600;">Assigned Role:</td>
+                        <td>
+                          <span style="color: #f59e0b; font-weight: 700; background: #261d08; padding: 2px 8px; border-radius: 4px; border: 1px solid #78350f;">
+                            ${cleanRole}
+                          </span>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td style="color: #64748b; font-weight: 600;">Current Status:</td>
+                        <td>
+                          <span style="color: #38bdf8; font-weight: 600;">
+                            ⏳ Pending Acceptance
+                          </span>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+
+              <p style="margin: 0 0 28px 0; color: #94a3b8; font-size: 14px; line-height: 1.65;">
+                A secure direct join link was sent to their email. When they accept and log in, their presence and typing indicators will appear live in your workspace.
+              </p>
+
+              <!-- Action Button -->
+              <table width="100%" cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                  <td align="center">
+                    <a href="${appUrl}" target="_blank" style="display: inline-block; padding: 13px 32px; font-family: -apple-system, BlinkMacSystemFont, sans-serif; font-size: 14px; font-weight: 700; color: #080a0f; background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); text-decoration: none; border-radius: 8px; letter-spacing: 0.3px; box-shadow: 0 4px 16px rgba(245, 158, 11, 0.3);">
+                      Open Screenplay Workspace &rarr;
+                    </a>
+                  </td>
+                </tr>
+              </table>
+
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="padding: 24px 36px; background-color: #0d0f15; border-top: 1px solid #191f2b; text-align: center;">
+              <p style="margin: 0 0 6px 0; color: #94a3b8; font-size: 12px; font-weight: 600;">
+                SSN Pictures • OpenScript Studio
+              </p>
+              <p style="margin: 0; color: #475569; font-size: 11px;">
+                Two-Way Team Activity Record &bull; <a href="https://ssnpictures.in" style="color: #64748b; text-decoration: underline;">ssnpictures.in</a>
+              </p>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+`;
+
+    try {
+      await transporter.sendMail({
+        from: this.getSender(),
+        to: inviterEmail,
+        subject: `📤 Invitation Sent: ${invitedEmail} invited to "${projectName}"`,
+        text: `You invited ${invitedEmail} to collaborate on "${projectName}" as ${cleanRole}. A secure join link was delivered to their inbox.`,
+        html,
+      });
+      return true;
+    } catch (err) {
+      console.error('[EmailService] Failed to send invite confirmation email:', err);
+      return false;
+    }
+  }
+
 }

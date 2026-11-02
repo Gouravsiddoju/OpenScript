@@ -1121,8 +1121,18 @@ export default function App() {
       if (res.ok) {
         const data = await res.json();
         if (data?.collaborator) {
-          setCollaborators((prev) => [...prev, data.collaborator]);
-          return;
+          if (data.isDuplicate) {
+            setCollaborators((prev) =>
+              prev.map((c) =>
+                c.email.toLowerCase() === email.toLowerCase()
+                  ? { ...c, role, status: 'pending' as const }
+                  : c
+              )
+            );
+          } else {
+            setCollaborators((prev) => [...prev, { ...data.collaborator, status: 'pending' as const }]);
+          }
+          return { success: true, isDuplicate: Boolean(data.isDuplicate), message: data.message };
         }
       }
     } catch {}
@@ -1134,8 +1144,28 @@ export default function App() {
       color: '#' + Math.floor(Math.random() * 16777215).toString(16).padStart(6, '0'),
       role,
       lastSeenAt: new Date().toISOString(),
+      status: 'pending',
     };
-    setCollaborators((prev) => [...prev, newCollab]);
+    setCollaborators((prev) => {
+      const exists = prev.some((c) => c.email.toLowerCase() === email.toLowerCase());
+      if (exists) {
+        return prev.map((c) => (c.email.toLowerCase() === email.toLowerCase() ? { ...c, role, status: 'pending' as const } : c));
+      }
+      return [...prev, newCollab];
+    });
+    return { success: true, isDuplicate: false };
+  };
+
+  const handleResendInvite = async (userId: string) => {
+    try {
+      await fetch(`/api/v1/projects/00000000-0000-0000-0000-000000000000/collaborators/${userId}/resend`, {
+        method: 'POST',
+        headers: authHeaders(),
+      });
+      return true;
+    } catch {
+      return false;
+    }
   };
 
   const handleUpdateCollaboratorRole = async (userId: string, role: CollaboratorRole) => {
@@ -2306,6 +2336,7 @@ export default function App() {
         onClose={() => setIsShareModalOpen(false)}
         collaborators={collaborators}
         onInviteCollaborator={handleInviteCollaborator}
+        onResendInvite={handleResendInvite}
         onUpdateRole={handleUpdateCollaboratorRole}
         onRemoveCollaborator={handleRemoveCollaborator}
         currentUserRole={currentUserRole}
