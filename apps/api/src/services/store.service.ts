@@ -235,70 +235,89 @@ export class ResilientStore {
 
   // ---- DOCUMENTS ----
   static async getDocument(id: string) {
-    try {
-      const doc = await db.query.documents.findFirst({ where: eq(documents.id, id) });
-      if (doc) return doc;
-    } catch (err) { handleDbErr(err); }
+    if (isDbActive()) {
+      try {
+        const doc = await db.query.documents.findFirst({ where: eq(documents.id, id) });
+        if (doc) return doc;
+      } catch (err) { handleDbErr(err); }
+    }
     return memStore.documents.get(id) || null;
+  }
+
+  static async getProjectDocument(projectId: string) {
+    if (isDbActive()) {
+      try {
+        const doc = await db.query.documents.findFirst({ where: eq(documents.projectId, projectId) });
+        if (doc) return doc;
+      } catch (err) { handleDbErr(err); }
+    }
+    for (const doc of memStore.documents.values()) {
+      if (doc.projectId === projectId) return doc;
+    }
+    return null;
   }
 
   static async saveDocument(id: string, projectId: string, title: string, contentJson: any, revisionNumber: number) {
     const now = new Date();
-    try {
-      const existing = await db.query.documents.findFirst({ where: eq(documents.id, id) });
-      if (!existing) {
-        const [doc] = await db.insert(documents).values({
-          id,
-          projectId,
-          title,
-          schemaVersion: 2,
-          contentJson,
-          revisionNumber: 1,
-          isLocked: false,
-        }).returning();
-        return { doc, newRevisionNumber: 1, isConflict: false };
+    if (isDbActive()) {
+      try {
+        const existing = await db.query.documents.findFirst({ where: eq(documents.id, id) });
+        if (!existing) {
+          const [doc] = await db.insert(documents).values({
+            id,
+            projectId,
+            title,
+            schemaVersion: 2,
+            contentJson,
+            revisionNumber: 1,
+            isLocked: false,
+          }).returning();
+          return { doc, newRevisionNumber: 1, isConflict: false };
+        }
+
+        // Graceful concurrent document saving: monotonically advance revision without 409 deadlock
+        const targetRevision = Math.max(existing.revisionNumber || 1, revisionNumber || 1) + 1;
+
+        const [updated] = await db.update(documents)
+          .set({
+            contentJson,
+            revisionNumber: targetRevision,
+            title,
+            updatedAt: now,
+          })
+          .where(eq(documents.id, id))
+          .returning();
+
+        return { doc: updated, newRevisionNumber: targetRevision, isConflict: false };
+      } catch (err) {
+        handleDbErr(err);
       }
-
-      // Graceful concurrent document saving: monotonically advance revision without 409 deadlock
-      const targetRevision = Math.max(existing.revisionNumber || 1, revisionNumber || 1) + 1;
-
-      const [updated] = await db.update(documents)
-        .set({
-          contentJson,
-          revisionNumber: targetRevision,
-          title,
-          updatedAt: now,
-        })
-        .where(eq(documents.id, id))
-        .returning();
-
-      return { doc: updated, newRevisionNumber: targetRevision, isConflict: false };
-    } catch {
-      // Memory store fallback
-      const existing = memStore.documents.get(id);
-      if (!existing) {
-        const doc: InMemDocument = {
-          id,
-          projectId,
-          title,
-          schemaVersion: 2,
-          contentJson,
-          revisionNumber: 1,
-          isLocked: false,
-          createdAt: now,
-          updatedAt: now,
-        };
-        memStore.documents.set(id, doc);
-        return { doc, newRevisionNumber: 1, isConflict: false };
-      }
-
-      const targetRevision = Math.max(existing.revisionNumber || 1, revisionNumber || 1) + 1;
-      existing.contentJson = contentJson;
-      existing.revisionNumber = targetRevision;
-      existing.title = title;
-      existing.updatedAt = now;
-      return { doc: existing, newRevisionNumber: targetRevision, isConflict: false };
     }
+
+    // Memory store fallback
+    const existing = memStore.documents.get(id);
+    if (!existing) {
+      const doc: InMemDocument = {
+        id,
+        projectId,
+        title,
+        schemaVersion: 2,
+        contentJson,
+        revisionNumber: 1,
+        isLocked: false,
+        createdAt: now,
+        updatedAt: now,
+      };
+      memStore.documents.set(id, doc);
+      return { doc, newRevisionNumber: 1, isConflict: false };
+    }
+
+    const targetRevision = Math.max(existing.revisionNumber || 1, revisionNumber || 1) + 1;
+    existing.contentJson = contentJson;
+    existing.revisionNumber = targetRevision;
+    existing.title = title;
+    existing.updatedAt = now;
+    return { doc: existing, newRevisionNumber: targetRevision, isConflict: false };
   }
 
   // ---- COLLABORATORS ----

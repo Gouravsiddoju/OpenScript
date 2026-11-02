@@ -51,8 +51,8 @@ export const collaborationRoutes: FastifyPluginAsync = async (server) => {
     const room = rooms.get(id);
     const peers = room ? Array.from(room.values()) : [];
     
-    // Look up doc revision to assist instant live sync
-    const doc = await ResilientStore.getDocument(id);
+    // Look up doc revision to assist instant live sync (support both docId and projectId rooms)
+    const doc = (await ResilientStore.getDocument(id)) || (await ResilientStore.getProjectDocument(id));
     return { 
       peers, 
       count: peers.length,
@@ -102,8 +102,8 @@ export const collaborationRoutes: FastifyPluginAsync = async (server) => {
     cleanupStalePeers(id);
     const peers = Array.from(room.values());
     
-    // Look up doc revision to assist instant live sync
-    const doc = await ResilientStore.getDocument(id);
+    // Look up doc revision to assist instant live sync (support both docId and projectId rooms)
+    const doc = (await ResilientStore.getDocument(id)) || (await ResilientStore.getProjectDocument(id));
     return { 
       peers, 
       count: peers.length,
