@@ -22,8 +22,12 @@ export class EmailService {
     return this.transporter;
   }
 
+  private static getResendApiKey(): string | null {
+    return process.env.RESEND_API_KEY || null;
+  }
+
   private static getSender(): string {
-    return process.env.EMAIL_FROM || '"OpenScript Studio" <ssnpictures1@gmail.com>';
+    return process.env.EMAIL_FROM || 'OpenScript Studio <onboarding@resend.dev>';
   }
 
   private static getAppUrl(): string {
@@ -31,12 +35,85 @@ export class EmailService {
   }
 
   /**
-   * Send Password Reset Email with Ultra-Polished Professional Hollywood / Linear Aesthetic
+   * Unified email dispatcher: uses Resend HTTPS API (port 443) first,
+   * completely bypassing cloud firewall SMTP blocks, then falls back to SMTP if configured.
    */
-  static async sendPasswordResetEmail(toEmail: string, resetToken: string, displayName?: string): Promise<boolean> {
+  private static async sendEmail({
+    to,
+    subject,
+    html,
+    text,
+  }: {
+    to: string;
+    subject: string;
+    html: string;
+    text?: string;
+  }): Promise<boolean> {
+    const resendApiKey = this.getResendApiKey();
+
+    if (resendApiKey) {
+      try {
+        const from = this.getSender();
+        const payload: { from: string; to: string[]; subject: string; html: string; text?: string } = {
+          from,
+          to: [to],
+          subject,
+          html,
+        };
+        if (text) payload.text = text;
+
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 12000);
+
+        const response = await fetch('https://api.resend.com/emails', {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${resendApiKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(payload),
+          signal: controller.signal,
+        });
+
+        clearTimeout(timeout);
+
+        if (response.ok) {
+          const result = await response.json();
+          console.log(`[EmailService] Email dispatched successfully via Resend to ${to} (id: ${result?.id})`);
+          return true;
+        }
+
+        const errData = await response.json();
+        console.warn(`[EmailService] Resend API error (${response.status}):`, errData);
+      } catch (err) {
+        console.error('[EmailService] Error dispatching email via Resend HTTPS API:', err);
+      }
+    }
+
+    // Fallback to Nodemailer SMTP
     const transporter = this.getTransporter();
     if (!transporter) return false;
 
+    try {
+      await transporter.sendMail({
+        from: this.getSender(),
+        to,
+        subject,
+        text,
+        html,
+      });
+      console.log(`[EmailService] Email dispatched successfully via SMTP to ${to}`);
+      return true;
+    } catch (err) {
+      console.error('[EmailService] Failed to send email via SMTP:', err);
+      return false;
+    }
+  }
+
+  /**
+   * Send Password Reset Email with Ultra-Polished Professional Hollywood / Linear Aesthetic
+   */
+  static async sendPasswordResetEmail(toEmail: string, resetToken: string, displayName?: string): Promise<boolean> {
     const appUrl = this.getAppUrl();
     const resetUrl = `${appUrl}/?resetToken=${encodeURIComponent(resetToken)}`;
     const recipientName = displayName ? displayName : toEmail.split('@')[0];
@@ -185,19 +262,12 @@ export class EmailService {
 </html>
     `;
 
-    try {
-      await transporter.sendMail({
-        from: this.getSender(),
+    return this.sendEmail({
         to: toEmail,
         subject: '🔒 Reset your OpenScript password',
         text: `Hi ${recipientName},\n\nWe received a request to reset the password for your OpenScript account (${toEmail}).\n\nClick the link below to set your new password (valid for 60 minutes):\n${resetUrl}\n\nIf you did not request this, you can safely ignore this email. Your password remains secure.\n\n— SSN Pictures • OpenScript Studio`,
         html,
       });
-      return true;
-    } catch (err) {
-      console.error('[EmailService] Failed to send password reset email:', err);
-      return false;
-    }
   }
 
   /**
@@ -210,9 +280,6 @@ export class EmailService {
     role: string,
     inviteUrl?: string
   ): Promise<boolean> {
-    const transporter = this.getTransporter();
-    if (!transporter) return false;
-
     const appUrl = this.getAppUrl();
     const targetUrl = inviteUrl || appUrl;
     const cleanRole = role.toUpperCase();
@@ -393,19 +460,12 @@ export class EmailService {
 </html>
     `;
 
-    try {
-      await transporter.sendMail({
-        from: this.getSender(),
+    return this.sendEmail({
         to: toEmail,
         subject: `🎬 Invitation: ${inviterName} invited you to "${projectName}" on OpenScript`,
         text: `Hi,\n\n${inviterName} has invited you to collaborate on the screenplay "${projectName}" as a ${cleanRole}.\n\nOpen the screenplay here:\n${targetUrl}\n\n— SSN Pictures • OpenScript Studio`,
         html,
       });
-      return true;
-    } catch (err) {
-      console.error('[EmailService] Failed to send invite email:', err);
-      return false;
-    }
   }
 
   /**
@@ -417,9 +477,6 @@ export class EmailService {
     projectName: string,
     role: string
   ): Promise<boolean> {
-    const transporter = this.getTransporter();
-    if (!transporter) return false;
-
     const appUrl = this.getAppUrl();
     const cleanRole = role.toUpperCase();
 
@@ -549,19 +606,12 @@ export class EmailService {
 </html>
 `;
 
-    try {
-      await transporter.sendMail({
-        from: this.getSender(),
+    return this.sendEmail({
         to: inviterEmail,
         subject: `📤 Invitation Sent: ${invitedEmail} invited to "${projectName}"`,
         text: `You invited ${invitedEmail} to collaborate on "${projectName}" as ${cleanRole}. A secure join link was delivered to their inbox.`,
         html,
       });
-      return true;
-    } catch (err) {
-      console.error('[EmailService] Failed to send invite confirmation email:', err);
-      return false;
-    }
   }
 
 }
