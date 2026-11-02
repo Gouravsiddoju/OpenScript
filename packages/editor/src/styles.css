@@ -206,50 +206,45 @@
 /* Authentic Physical Screenplay Page Separation on Studio Desk */
 [data-page-break] {
   position: relative !important;
-  margin-top: 96px !important;
-  padding-top: 28px !important;
+  margin-top: 84px !important;
+  padding-top: 36px !important;
 }
 
-/* Realistic dark studio desk gap between separate physical sheets */
+/* Clean, realistic studio desk gap between separate physical sheets (identical to Cover Page gap) */
 [data-page-break]::before {
   content: "";
   position: absolute;
-  top: -68px;
-  /* Extends from left edge of 8.5in paper to right edge, plus 30px bleed on each side to cut outer shadow */
-  left: calc(-1.5in - var(--element-left, 0in) - 30px);
-  width: calc(8.5in + 60px);
-  height: 38px;
+  top: -48px;
+  /* Exactly matches the 8.5in paper width with no harsh borders or wings */
+  left: calc(-1.5in - var(--element-left, 0in));
+  width: 8.5in;
+  height: 32px;
   background-color: #0d0e11;
-  /* Top border is bottom of previous paper sheet; bottom border is top of current paper sheet */
-  border-top: 1px solid #d4d4d8;
-  border-bottom: 1px solid #d4d4d8;
-  /* Realistic physical page drop shadows: downward shadow from previous sheet, upward shadow from next sheet */
+  border: none;
+  /* Clean, realistic physical page drop shadows: downward shadow from previous sheet, upward shadow from next sheet */
   box-shadow: 
-    inset 0 10px 14px -6px rgba(0, 0, 0, 0.75),
-    inset 0 -6px 10px -4px rgba(0, 0, 0, 0.55),
-    0 -4px 12px rgba(0, 0, 0, 0.4),
-    0 4px 12px rgba(0, 0, 0, 0.4);
+    0 -4px 12px rgba(0, 0, 0, 0.25),
+    0 4px 12px rgba(0, 0, 0, 0.25);
   pointer-events: none;
   z-index: 20;
 }
 
-/* Authentic Screenplay Page Number in Top-Right Margin of Every New Page */
+/* Authentic Screenplay Page Number in Top-Right Margin of Every New Page (Courier 10pt) */
 [data-page-break]::after {
-  content: "PAGE " attr(data-page-break);
+  content: attr(data-page-break) ".";
   position: absolute;
-  top: -22px;
+  top: 6px;
   left: calc(6.0in - var(--element-left, 0in));
   transform: translateX(-100%);
   font-family: 'Courier Prime', 'Courier New', monospace;
-  font-size: 9pt;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  color: #94a3b8;
-  background: #181a22;
-  padding: 3px 10px;
-  border-radius: 6px;
-  border: 1px solid #2e3446;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+  font-size: 10pt;
+  font-weight: 400;
+  color: #6b7280;
+  background: transparent;
+  padding: 0;
+  border-radius: 0;
+  border: none;
+  box-shadow: none;
   user-select: none;
   pointer-events: none;
   z-index: 25;
@@ -260,9 +255,12 @@
   content: "ACT BREAK • PAGE " attr(data-page-break) !important;
   background: #1e1b4b !important;
   color: #c7d2fe !important;
-  border-color: #4338ca !important;
+  border: 1px solid #4338ca !important;
+  border-radius: 6px !important;
+  padding: 3px 10px !important;
   font-weight: 700 !important;
   letter-spacing: 0.05em !important;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4) !important;
 }
 
 @media print {
