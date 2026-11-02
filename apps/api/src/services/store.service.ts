@@ -102,6 +102,23 @@ class MemoryStore {
 
 export const memStore = new MemoryStore();
 
+let dbAvailable = true;
+let lastDbError = 0;
+
+function isDbActive(): boolean {
+  if (process.env.NODE_ENV === 'test' && !process.env.DATABASE_URL) return false;
+  if (!dbAvailable && Date.now() - lastDbError < 20000) return false;
+  return true;
+}
+
+function handleDbErr(err: any) {
+  const msg = String(err?.message || err?.code || '');
+  if (err?.code === 'ECONNREFUSED' || msg.includes('ECONNREFUSED') || err?.name === 'AggregateError') {
+    dbAvailable = false;
+    lastDbError = Date.now();
+  }
+}
+
 /**
  * Universal Resilient Store Service that safely queries PostgreSQL,
  * falling back gracefully to memory store if PostgreSQL is unreachable.
@@ -135,36 +152,50 @@ export class ResilientStore {
   }
 
   static async getProject(id: string) {
-    try {
+    if (isDbActive()) try {
       const p = await db.query.projects.findFirst({ where: eq(projects.id, id) });
       if (p) return p;
-    } catch {}
+    } catch (err) { handleDbErr(err); }
     return memStore.projects.get(id) || null;
   }
 
   static async createProject(name: string, description?: string, ownerId?: string) {
     const id = crypto.randomUUID();
     const now = new Date();
-    try {
-      const [p] = await db.insert(projects).values({
-        id,
-        name,
-        description,
-        ownerId: ownerId || crypto.randomUUID(),
-      }).returning();
-      return p;
-    } catch {
-      const p: InMemProject = {
-        id,
-        name,
-        description: description || null,
-        ownerId: ownerId || crypto.randomUUID(),
-        createdAt: now,
-        updatedAt: now,
-      };
-      memStore.projects.set(id, p);
-      return p;
+    if (isDbActive()) {
+      try {
+        const [p] = await db.insert(projects).values({
+          id,
+          name,
+          description,
+          ownerId: ownerId || crypto.randomUUID(),
+        }).returning();
+        if (p) {
+          memStore.projects.set(p.id, {
+            id: p.id,
+            name: p.name,
+            description: p.description,
+            ownerId: p.ownerId,
+            createdAt: p.createdAt,
+            updatedAt: p.updatedAt,
+          });
+          return p;
+        }
+      } catch (e) {
+        handleDbErr(e);
+      }
     }
+
+    const p: InMemProject = {
+      id,
+      name,
+      description: description || null,
+      ownerId: ownerId || crypto.randomUUID(),
+      createdAt: now,
+      updatedAt: now,
+    };
+    memStore.projects.set(id, p);
+    return p;
   }
 
   static async checkProjectAccess(projectId: string, userId: string): Promise<{ hasAccess: boolean; role: string | null }> {
@@ -172,7 +203,7 @@ export class ResilientStore {
       return { hasAccess: true, role: 'owner' };
     }
 
-    try {
+    if (isDbActive()) try {
       const p = await db.query.projects.findFirst({ where: eq(projects.id, projectId) });
       if (p && p.ownerId === userId) {
         return { hasAccess: true, role: 'owner' };
@@ -187,7 +218,7 @@ export class ResilientStore {
       if (m) {
         return { hasAccess: true, role: m.role };
       }
-    } catch {}
+    } catch (err) { handleDbErr(err); }
 
     const memProj = memStore.projects.get(projectId);
     if (memProj && memProj.ownerId === userId) {
@@ -207,7 +238,7 @@ export class ResilientStore {
     try {
       const doc = await db.query.documents.findFirst({ where: eq(documents.id, id) });
       if (doc) return doc;
-    } catch {}
+    } catch (err) { handleDbErr(err); }
     return memStore.documents.get(id) || null;
   }
 
@@ -277,7 +308,7 @@ export class ResilientStore {
 
   // ---- COLLABORATORS ----
   static async listCollaborators(projectId: string) {
-    try {
+    if (isDbActive()) try {
       const members = await db.query.projectMembers.findMany({
         where: eq(projectMembers.projectId, projectId),
       });
@@ -299,7 +330,7 @@ export class ResilientStore {
           })
         );
       }
-    } catch {}
+    } catch (err) { handleDbErr(err); }
 
     return Array.from(memStore.members.values()).filter((m) => m.projectId === projectId);
   }
@@ -333,7 +364,18 @@ export class ResilientStore {
       createdAt: now,
     };
     memStore.members.set(`${projectId}_${userId}`, member);
-    try {
+    // Also record invited user with placeholder in memory store
+    if (!memStore.users.has(userId)) {
+      memStore.users.set(userId, {
+        id: userId,
+        email: cleanEmail,
+        displayName,
+        passwordHash: 'placeholder',
+        role,
+        createdAt: now,
+      });
+    }
+    if (isDbActive()) try {
       let u = await db.query.users.findFirst({ where: eq(users.email, cleanEmail) });
       if (!u) {
         const [newUser] = await db.insert(users).values({ id: userId, email: cleanEmail, passwordHash: "placeholder", displayName }).returning();
@@ -342,9 +384,7 @@ export class ResilientStore {
       if (u) {
         await db.insert(projectMembers).values({ id, projectId, userId: u.id, role, invitedBy: invitedBy && invitedBy !== "default-owner" ? invitedBy : undefined }).onConflictDoNothing();
       }
-    } catch (e) {
-      console.warn("[Store] DB insert projectMembers skipped/failed:", e);
-    }
+    } catch (e) { handleDbErr(e); console.warn("[Store] DB insert projectMembers skipped/failed:", e); }
     return { collaborator: member, isDuplicate: false };
   }
 
@@ -365,13 +405,13 @@ export class ResilientStore {
 
   // ---- SCRIPTNOTES ----
   static async listNotes(documentId: string) {
-    try {
+    if (isDbActive()) try {
       const list = await db.query.scriptNotes.findMany({
         where: eq(scriptNotes.documentId, documentId),
         orderBy: [desc(scriptNotes.createdAt)],
       });
       if (list.length > 0) return list;
-    } catch {}
+    } catch (err) { handleDbErr(err); }
 
     const notesList = Array.from(memStore.notes.values())
       .filter((n) => n.documentId === documentId)
@@ -451,7 +491,7 @@ export class ResilientStore {
   // ---- USERS & AUTH ----
   static async findUserByEmail(email: string): Promise<InMemUser | null> {
     const cleanEmail = email.toLowerCase().trim();
-    try {
+    if (isDbActive()) try {
       const u = await db.query.users.findFirst({
         where: eq(users.email, cleanEmail),
       });
@@ -465,7 +505,7 @@ export class ResilientStore {
           createdAt: u.createdAt,
         };
       }
-    } catch {}
+    } catch (err) { handleDbErr(err); }
 
     for (const u of memStore.users.values()) {
       if (u.email.toLowerCase().trim() === cleanEmail) {
@@ -476,7 +516,7 @@ export class ResilientStore {
   }
 
   static async findUserById(id: string): Promise<InMemUser | null> {
-    try {
+    if (isDbActive()) try {
       const u = await db.query.users.findFirst({
         where: eq(users.id, id),
       });
@@ -490,14 +530,14 @@ export class ResilientStore {
           createdAt: u.createdAt,
         };
       }
-    } catch {}
+    } catch (err) { handleDbErr(err); }
 
     return memStore.users.get(id) || null;
   }
 
   static async createUser(email: string, passwordHash: string, displayName: string): Promise<InMemUser> {
     const cleanEmail = email.toLowerCase().trim();
-    try {
+    if (isDbActive()) try {
       const [u] = await db.insert(users).values({
         email: cleanEmail,
         passwordHash,
@@ -515,7 +555,7 @@ export class ResilientStore {
         memStore.users.set(u.id, userObj);
         return userObj;
       }
-    } catch {}
+    } catch (err) { handleDbErr(err); }
 
     const id = crypto.randomUUID();
     const userObj: InMemUser = {
@@ -531,13 +571,13 @@ export class ResilientStore {
   }
 
   static async createSession(userId: string, tokenHash: string, expiresAt: Date) {
-    try {
+    if (isDbActive()) try {
       await db.insert(sessions).values({
         userId,
         tokenHash,
         expiresAt,
       });
-    } catch {}
+    } catch (err) { handleDbErr(err); }
 
     memStore.sessions.set(tokenHash, {
       userId,
@@ -552,7 +592,7 @@ export class ResilientStore {
         where: eq(sessions.tokenHash, tokenHash),
       });
       if (s) return s as InMemSession;
-    } catch {}
+    } catch (err) { handleDbErr(err); }
 
     return memStore.sessions.get(tokenHash) || null;
   }
@@ -580,9 +620,9 @@ export class ResilientStore {
   }
 
   static async updateUserPassword(userId: string, newPasswordHash: string): Promise<boolean> {
-    try {
+    if (isDbActive()) try {
       await db.update(users).set({ passwordHash: newPasswordHash }).where(eq(users.id, userId));
-    } catch {}
+    } catch (err) { handleDbErr(err); }
 
     const memUser = memStore.users.get(userId);
     if (memUser) {
@@ -592,9 +632,9 @@ export class ResilientStore {
   }
 
   static async deleteSession(tokenHash: string) {
-    try {
+    if (isDbActive()) try {
       await db.delete(sessions).where(eq(sessions.tokenHash, tokenHash));
-    } catch {}
+    } catch (err) { handleDbErr(err); }
 
     memStore.sessions.delete(tokenHash);
   }
@@ -610,13 +650,13 @@ export class ResilientStore {
         updateData.displayName = cleanName;
       }
       await db.update(users).set(updateData).where(eq(users.id, userId));
-    } catch (e) {
-      console.warn('[Store] DB update user activation failed:', e);
-    }
+    } catch (e) { handleDbErr(e); console.warn('[Store] DB update user activation failed:', e); }
 
     // Update in-memory members status to active
+    const targetUser = memStore.users.get(userId);
+    const targetEmail = targetUser?.email?.toLowerCase();
     for (const member of memStore.members.values()) {
-      if (member.userId === userId) {
+      if (member.userId === userId || (targetEmail && member.email.toLowerCase() === targetEmail)) {
         member.status = 'active';
         if (cleanName) member.displayName = cleanName;
       }
