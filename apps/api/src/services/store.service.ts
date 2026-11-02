@@ -274,6 +274,8 @@ export class ResilientStore {
               role: m.role,
               email: u?.email || 'collaborator@studio.com',
               displayName: u?.displayName || 'Collaborator',
+              status: 'active',
+              lastSeenAt: m.createdAt,
               createdAt: m.createdAt,
             };
           })

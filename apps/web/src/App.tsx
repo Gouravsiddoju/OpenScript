@@ -886,8 +886,8 @@ export default function App() {
                   displayName: s.displayName || s.email.split('@')[0],
                   color: s.color || '#ec4899',
                   role: s.role || 'co-writer',
-                  status: s.status || 'pending',
-                  lastSeenAt: s.lastSeenAt,
+                  status: s.status === 'pending' && !s.lastSeenAt ? 'pending' : 'active',
+                  lastSeenAt: s.lastSeenAt || s.createdAt || new Date().toISOString(),
                 });
               }
             }

@@ -284,7 +284,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({
               {uniqueCollaborators.map((collab) => {
                 const RoleIcon = ROLE_DESCRIPTIONS[collab.role]?.icon || Edit3;
                 const isSelf = collab.role === 'owner';
-                const isPending = (collab as any).status === 'pending' || !(collab as any).lastSeenAt;
+                const isPending = (collab as any).status === 'pending' && !(collab as any).lastSeenAt;
 
                 return (
                   <div
