@@ -2,6 +2,7 @@ import { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import { ResilientStore } from '../services/store.service';
 import { requireProjectAccess } from '../plugins/auth.middleware';
+import { EmailService } from '../services/email.service';
 
 const AddCollaboratorSchema = z.object({
   email: z.string().email(),
@@ -35,6 +36,18 @@ export const collaboratorRoutes: FastifyPluginAsync = async (server) => {
 
     const { email, role, invitedBy } = parseResult.data;
     const member = await ResilientStore.addCollaborator(id, email, role, invitedBy);
+
+    // Send invitation email in background
+    (async () => {
+      try {
+        const project = await ResilientStore.getProject(id);
+        const inviter = request.user?.displayName || 'A team member';
+        await EmailService.sendInviteEmail(email, inviter, project?.name || 'Screenplay Project', role);
+      } catch (err) {
+        console.warn('[Collaborators] Failed to send invite email:', err);
+      }
+    })();
+
     return reply.status(201).send({ collaborator: member });
   });
 

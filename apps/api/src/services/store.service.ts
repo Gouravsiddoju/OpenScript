@@ -11,6 +11,12 @@ export interface InMemUser {
   createdAt: Date;
 }
 
+export interface InMemPasswordReset {
+  userId: string;
+  tokenHash: string;
+  expiresAt: Date;
+}
+
 export interface InMemSession {
   userId: string;
   tokenHash: string;
@@ -85,6 +91,7 @@ class MemoryStore {
   replies = new Map<string, InMemReply[]>();
   users = new Map<string, InMemUser>();
   sessions = new Map<string, InMemSession>();
+  passwordResets = new Map<string, InMemPasswordReset>();
 
   constructor() {
     // Clean production store: no dummy demo seed users or mock collaborators
@@ -500,6 +507,40 @@ export class ResilientStore {
     } catch {}
 
     return memStore.sessions.get(tokenHash) || null;
+  }
+
+  static async createPasswordReset(userId: string, tokenHash: string, expiresAt: Date) {
+    memStore.passwordResets.set(tokenHash, {
+      userId,
+      tokenHash,
+      expiresAt,
+    });
+  }
+
+  static async findPasswordReset(tokenHash: string): Promise<InMemPasswordReset | null> {
+    const pr = memStore.passwordResets.get(tokenHash);
+    if (!pr) return null;
+    if (new Date() > new Date(pr.expiresAt)) {
+      memStore.passwordResets.delete(tokenHash);
+      return null;
+    }
+    return pr;
+  }
+
+  static async consumePasswordReset(tokenHash: string) {
+    memStore.passwordResets.delete(tokenHash);
+  }
+
+  static async updateUserPassword(userId: string, newPasswordHash: string): Promise<boolean> {
+    try {
+      await db.update(users).set({ passwordHash: newPasswordHash }).where(eq(users.id, userId));
+    } catch {}
+
+    const memUser = memStore.users.get(userId);
+    if (memUser) {
+      memUser.passwordHash = newPasswordHash;
+    }
+    return true;
   }
 
   static async deleteSession(tokenHash: string) {

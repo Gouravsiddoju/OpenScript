@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   X, 
   LogIn, 
@@ -6,22 +6,25 @@ import {
   Mail, 
   Lock, 
   User, 
-  Film, 
-  Sparkles, 
   AlertCircle,
   Loader2,
   CheckCircle2,
   Clapperboard,
   ArrowRight,
+  ArrowLeft,
+  KeyRound,
   ShieldCheck
 } from 'lucide-react';
 import { UserProfileData } from './UserProfileModal';
+
+export type AuthMode = 'login' | 'register' | 'forgot-password' | 'reset-password';
 
 interface AuthModalProps {
   isOpen: boolean;
   onClose: () => void;
   onAuthSuccess: (user: UserProfileData, token: string, isNewUser?: boolean) => void;
-  defaultMode?: 'login' | 'register';
+  defaultMode?: AuthMode;
+  initialResetToken?: string | null;
   isCompulsory?: boolean;
 }
 
@@ -75,19 +78,112 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   onClose,
   onAuthSuccess,
   defaultMode = 'register',
+  initialResetToken = null,
   isCompulsory = false,
 }) => {
-  const [mode, setMode] = useState<'login' | 'register'>(defaultMode);
+  const [mode, setMode] = useState<AuthMode>(initialResetToken ? 'reset-password' : defaultMode);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [displayName, setDisplayName] = useState('');
+  const [resetToken, setResetToken] = useState(initialResetToken || '');
   const [error, setError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    if (initialResetToken) {
+      setResetToken(initialResetToken);
+      setMode('reset-password');
+    } else {
+      setMode(defaultMode);
+    }
+  }, [defaultMode, initialResetToken]);
 
   if (!isOpen) return null;
 
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    setSuccessMessage(null);
+    setIsLoading(true);
+
+    try {
+      const res = await fetch('/api/v1/auth/forgot-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email.trim() }),
+      });
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || 'Failed to request password reset');
+      }
+
+      setSuccessMessage(`Password reset link sent to ${email.trim()}! Please check your inbox (and spam folder).`);
+    } catch (err: any) {
+      setError(err.message || 'Failed to send password reset link.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    setSuccessMessage(null);
+
+    if (password !== confirmPassword) {
+      setError('Passwords do not match. Please re-enter.');
+      return;
+    }
+
+    if (!resetToken.trim()) {
+      setError('Missing or invalid reset token. Please click the link in your email.');
+      return;
+    }
+
+    setIsLoading(true);
+
+    try {
+      const res = await fetch('/api/v1/auth/reset-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: resetToken.trim(), newPassword: password }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to reset password');
+      }
+
+      if (data?.user && data?.token) {
+        const userProfile: UserProfileData = {
+          id: data.user.id,
+          email: data.user.email,
+          displayName: data.user.displayName || data.user.email.split('@')[0],
+          role: data.user.role || 'owner',
+          studio: data.user.studio || 'SSN Pictures Studio',
+          color: '#f59e0b',
+        };
+        onAuthSuccess(userProfile, data.token, false);
+        onClose();
+      } else {
+        setSuccessMessage('Password successfully changed! You can now sign in.');
+        setMode('login');
+      }
+    } catch (err: any) {
+      setError(err.message || 'Failed to reset password. Link may have expired.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (mode === 'forgot-password') return handleForgotPassword(e);
+    if (mode === 'reset-password') return handleResetPassword(e);
+
     setError(null);
     setIsLoading(true);
 
@@ -108,7 +204,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         if (res.ok) {
           data = await res.json();
         } else {
-          // If server returns a specific user validation error (400, 401, 409)
           const errData = await res.json().catch(() => ({}));
           if (errData?.error && (res.status === 400 || res.status === 401 || res.status === 409)) {
             let errorMsg = errData.error;
@@ -123,16 +218,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             }
             throw new Error(errorMsg);
           }
-          // Proxy timeout / backend server offline -> fallback to local studio auth
           data = handleLocalStudioAuth(mode, email, password, displayName);
         }
       } catch (fetchErr: any) {
-        // If it's a specific live server validation message, rethrow
         const msg = String(fetchErr?.message || '');
         if (msg.includes('already exists') || msg.includes('Invalid email') || msg.includes('Password must')) {
           throw fetchErr;
         }
-        // Otherwise fallback gracefully to local studio auth
         data = handleLocalStudioAuth(mode, email, password, displayName);
       }
 
@@ -158,13 +250,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 overflow-hidden select-none bg-[#07080a]">
       {/* 1. React Bits Ambient Aurora Gradients */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        {/* Amber Aurora Orb */}
         <div className="absolute -top-32 -left-32 w-[650px] h-[650px] rounded-full bg-gradient-to-tr from-amber-500/35 via-orange-500/20 to-transparent blur-[100px] animate-aurora-1" />
-        {/* Violet Aurora Orb */}
         <div className="absolute -bottom-40 -right-40 w-[700px] h-[700px] rounded-full bg-gradient-to-bl from-indigo-500/35 via-purple-600/30 to-pink-500/20 blur-[110px] animate-aurora-2" />
-        {/* Cyan Ambient Glow */}
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] rounded-full bg-cyan-500/20 blur-[90px] animate-aurora-3" />
-        {/* Projected Cinema Light Beam from top-center */}
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[550px] bg-gradient-to-b from-amber-400/12 via-amber-500/5 to-transparent blur-[60px] pointer-events-none" />
       </div>
 
@@ -185,7 +273,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         }}
       />
 
-      {/* 3. Subtle Floating Cinematic Screenplay Artifacts */}
+      {/* 3. Subtle Floating Screenplay Artifacts */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden text-gray-500/10 font-screenplay select-none text-xs hidden md:block">
         <div className="absolute top-12 left-16 tracking-widest animate-float-gentle">
           FADE IN:
@@ -201,17 +289,14 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         </div>
       </div>
 
-      {/* 4. React Bits Spotlight Glow Card Container */}
+      {/* 4. Spotlight Glow Card Container */}
       <div 
         className="relative w-full max-w-md animate-fadeIn transition-all duration-300"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Animated Radiant Border Glow */}
         <div className="absolute -inset-0.5 rounded-3xl bg-gradient-to-b from-amber-500/40 via-purple-500/20 to-transparent blur-sm opacity-80" />
 
-        {/* Card Body */}
         <div className="relative w-full bg-[#0d0f15]/90 backdrop-blur-2xl border border-white/10 rounded-3xl shadow-2xl overflow-hidden flex flex-col">
-          {/* Shimmer Light Beam on Top Border */}
           <div className="absolute top-0 left-0 right-0 h-[1.5px] overflow-hidden">
             <div className="w-1/2 h-full bg-gradient-to-r from-transparent via-amber-400 to-transparent animate-shimmer-sweep" />
           </div>
@@ -232,7 +317,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   </span>
                 </div>
                 <p className="text-xs text-gray-400 mt-0.5">
-                  {mode === 'login' ? 'Sign in to access production screenplays' : 'Create your screenwriting account'}
+                  {mode === 'login' && 'Sign in to access production screenplays'}
+                  {mode === 'register' && 'Create your screenwriting account'}
+                  {mode === 'forgot-password' && 'Reset your account password'}
+                  {mode === 'reset-password' && 'Enter your new secure password'}
                 </p>
               </div>
             </div>
@@ -249,42 +337,46 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             )}
           </div>
 
-          {/* Mode Switcher Pills */}
-          <div className="px-6 pt-4 pb-2">
-            <div className="grid grid-cols-2 p-1 bg-[#141720] rounded-2xl border border-white/5 relative">
-              <button
-                type="button"
-                onClick={() => {
-                  setMode('register');
-                  setError(null);
-                }}
-                className={`py-2 text-xs font-mono font-semibold rounded-xl transition-all duration-200 flex items-center justify-center gap-1.5 cursor-pointer ${
-                  mode === 'register'
-                    ? 'bg-amber-500 text-black shadow-md shadow-amber-500/20 font-bold'
-                    : 'text-gray-400 hover:text-gray-200 hover:bg-white/5'
-                }`}
-              >
-                <UserPlus className="w-3.5 h-3.5" />
-                <span>Create Account</span>
-              </button>
+          {/* Mode Switcher Pills (Only for Register / Login) */}
+          {(mode === 'register' || mode === 'login') && (
+            <div className="px-6 pt-4 pb-2">
+              <div className="grid grid-cols-2 p-1 bg-[#141720] rounded-2xl border border-white/5 relative">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMode('register');
+                    setError(null);
+                    setSuccessMessage(null);
+                  }}
+                  className={`py-2 text-xs font-mono font-semibold rounded-xl transition-all duration-200 flex items-center justify-center gap-1.5 cursor-pointer ${
+                    mode === 'register'
+                      ? 'bg-amber-500 text-black shadow-md shadow-amber-500/20 font-bold'
+                      : 'text-gray-400 hover:text-gray-200 hover:bg-white/5'
+                  }`}
+                >
+                  <UserPlus className="w-3.5 h-3.5" />
+                  <span>Create Account</span>
+                </button>
 
-              <button
-                type="button"
-                onClick={() => {
-                  setMode('login');
-                  setError(null);
-                }}
-                className={`py-2 text-xs font-mono font-semibold rounded-xl transition-all duration-200 flex items-center justify-center gap-1.5 cursor-pointer ${
-                  mode === 'login'
-                    ? 'bg-amber-500 text-black shadow-md shadow-amber-500/20 font-bold'
-                    : 'text-gray-400 hover:text-gray-200 hover:bg-white/5'
-                }`}
-              >
-                <LogIn className="w-3.5 h-3.5" />
-                <span>Sign In</span>
-              </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMode('login');
+                    setError(null);
+                    setSuccessMessage(null);
+                  }}
+                  className={`py-2 text-xs font-mono font-semibold rounded-xl transition-all duration-200 flex items-center justify-center gap-1.5 cursor-pointer ${
+                    mode === 'login'
+                      ? 'bg-amber-500 text-black shadow-md shadow-amber-500/20 font-bold'
+                      : 'text-gray-400 hover:text-gray-200 hover:bg-white/5'
+                  }`}
+                >
+                  <LogIn className="w-3.5 h-3.5" />
+                  <span>Sign In</span>
+                </button>
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Form Body */}
           <form onSubmit={handleSubmit} className="px-6 pb-6 pt-2 space-y-3.5">
@@ -309,85 +401,234 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               </div>
             )}
 
-            {mode === 'register' && (
-              <div className="space-y-1">
-                <label className="text-[11px] font-mono text-gray-400 flex items-center justify-between">
-                  <span>Display Name / Screenwriter</span>
-                  <span className="text-[10px] text-gray-600">Visible on scripts</span>
-                </label>
-                <div className="relative group">
-                  <User className="absolute left-3.5 top-3 w-4 h-4 text-gray-500 group-focus-within:text-amber-400 transition-colors" />
-                  <input
-                    type="text"
-                    required
-                    value={displayName}
-                    onChange={(e) => setDisplayName(e.target.value)}
-                    placeholder="e.g. Alex Morgan"
-                    className="w-full bg-[#13161f]/90 border border-white/10 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 rounded-xl pl-10 pr-3.5 py-2.5 text-xs text-gray-100 placeholder-gray-600 focus:outline-none transition-all"
-                  />
-                </div>
+            {successMessage && (
+              <div className="p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-xl flex items-start gap-2.5 text-xs text-emerald-300 font-mono animate-fadeIn">
+                <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                <span>{successMessage}</span>
               </div>
             )}
 
-            <div className="space-y-1">
-              <label className="text-[11px] font-mono text-gray-400">Email Address</label>
-              <div className="relative group">
-                <Mail className="absolute left-3.5 top-3 w-4 h-4 text-gray-500 group-focus-within:text-amber-400 transition-colors" />
-                <input
-                  type="email"
-                  required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="screenwriter@studio.com"
-                  className="w-full bg-[#13161f]/90 border border-white/10 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 rounded-xl pl-10 pr-3.5 py-2.5 text-xs text-gray-100 placeholder-gray-600 focus:outline-none transition-all"
-                />
-              </div>
-            </div>
+            {/* FORGOT PASSWORD MODE */}
+            {mode === 'forgot-password' && (
+              <>
+                <div className="space-y-1">
+                  <label className="text-[11px] font-mono text-gray-400">Your Account Email</label>
+                  <div className="relative group">
+                    <Mail className="absolute left-3.5 top-3 w-4 h-4 text-gray-500 group-focus-within:text-amber-400 transition-colors" />
+                    <input
+                      type="email"
+                      required
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="screenwriter@studio.com"
+                      className="w-full bg-[#13161f]/90 border border-white/10 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 rounded-xl pl-10 pr-3.5 py-2.5 text-xs text-gray-100 placeholder-gray-600 focus:outline-none transition-all"
+                    />
+                  </div>
+                </div>
 
-            <div className="space-y-1">
-              <label className="text-[11px] font-mono text-gray-400 flex items-center justify-between">
-                <span>Password</span>
-                <span className="text-[10px] text-gray-600">Min 6 characters</span>
-              </label>
-              <div className="relative group">
-                <Lock className="absolute left-3.5 top-3 w-4 h-4 text-gray-500 group-focus-within:text-amber-400 transition-colors" />
-                <input
-                  type="password"
-                  required
-                  minLength={6}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
-                  className="w-full bg-[#13161f]/90 border border-white/10 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 rounded-xl pl-10 pr-3.5 py-2.5 text-xs text-gray-100 placeholder-gray-600 focus:outline-none transition-all"
-                />
-              </div>
-            </div>
+                <button
+                  type="submit"
+                  disabled={isLoading}
+                  className="w-full mt-2 py-3 px-4 rounded-xl bg-gradient-to-r from-amber-500 via-amber-400 to-amber-500 hover:brightness-110 active:scale-[0.98] disabled:opacity-50 text-black font-bold text-xs shadow-lg shadow-amber-500/25 transition-all duration-200 flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>Sending reset link...</span>
+                    </>
+                  ) : (
+                    <>
+                      <KeyRound className="w-4 h-4" />
+                      <span>Send Password Reset Link</span>
+                    </>
+                  )}
+                </button>
 
-            {/* Submit Button with Butter-Smooth Hover Glow */}
-            <button
-              type="submit"
-              disabled={isLoading}
-              className="w-full mt-2 py-3 px-4 rounded-xl bg-gradient-to-r from-amber-500 via-amber-400 to-amber-500 hover:brightness-110 active:scale-[0.98] disabled:opacity-50 text-black font-bold text-xs shadow-lg shadow-amber-500/25 transition-all duration-200 flex items-center justify-center gap-2 cursor-pointer"
-            >
-              {isLoading ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  <span>Setting up your studio...</span>
-                </>
-              ) : mode === 'register' ? (
-                <>
-                  <UserPlus className="w-4 h-4" />
-                  <span>Create Production Account</span>
-                  <ArrowRight className="w-3.5 h-3.5 ml-1" />
-                </>
-              ) : (
-                <>
-                  <LogIn className="w-4 h-4" />
-                  <span>Sign In to OpenScript</span>
-                  <ArrowRight className="w-3.5 h-3.5 ml-1" />
-                </>
-              )}
-            </button>
+                <div className="pt-2 text-center">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMode('login');
+                      setError(null);
+                      setSuccessMessage(null);
+                    }}
+                    className="inline-flex items-center gap-1 text-xs text-gray-400 hover:text-amber-400 transition-colors cursor-pointer"
+                  >
+                    <ArrowLeft className="w-3.5 h-3.5" />
+                    <span>Back to Sign In</span>
+                  </button>
+                </div>
+              </>
+            )}
+
+            {/* RESET PASSWORD MODE (VIA EMAIL TOKEN) */}
+            {mode === 'reset-password' && (
+              <>
+                <div className="space-y-1">
+                  <label className="text-[11px] font-mono text-gray-400 flex items-center justify-between">
+                    <span>New Password</span>
+                    <span className="text-[10px] text-gray-600">Min 6 characters</span>
+                  </label>
+                  <div className="relative group">
+                    <Lock className="absolute left-3.5 top-3 w-4 h-4 text-gray-500 group-focus-within:text-amber-400 transition-colors" />
+                    <input
+                      type="password"
+                      required
+                      minLength={6}
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="••••••••"
+                      className="w-full bg-[#13161f]/90 border border-white/10 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 rounded-xl pl-10 pr-3.5 py-2.5 text-xs text-gray-100 placeholder-gray-600 focus:outline-none transition-all"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[11px] font-mono text-gray-400">Confirm New Password</label>
+                  <div className="relative group">
+                    <Lock className="absolute left-3.5 top-3 w-4 h-4 text-gray-500 group-focus-within:text-amber-400 transition-colors" />
+                    <input
+                      type="password"
+                      required
+                      minLength={6}
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      placeholder="••••••••"
+                      className="w-full bg-[#13161f]/90 border border-white/10 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 rounded-xl pl-10 pr-3.5 py-2.5 text-xs text-gray-100 placeholder-gray-600 focus:outline-none transition-all"
+                    />
+                  </div>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={isLoading}
+                  className="w-full mt-2 py-3 px-4 rounded-xl bg-gradient-to-r from-amber-500 via-amber-400 to-amber-500 hover:brightness-110 active:scale-[0.98] disabled:opacity-50 text-black font-bold text-xs shadow-lg shadow-amber-500/25 transition-all duration-200 flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>Saving new password...</span>
+                    </>
+                  ) : (
+                    <>
+                      <ShieldCheck className="w-4 h-4" />
+                      <span>Set New Password & Sign In</span>
+                    </>
+                  )}
+                </button>
+
+                <div className="pt-2 text-center">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMode('login');
+                      setError(null);
+                      setSuccessMessage(null);
+                    }}
+                    className="inline-flex items-center gap-1 text-xs text-gray-400 hover:text-amber-400 transition-colors cursor-pointer"
+                  >
+                    <ArrowLeft className="w-3.5 h-3.5" />
+                    <span>Back to Sign In</span>
+                  </button>
+                </div>
+              </>
+            )}
+
+            {/* REGISTER & LOGIN MODES */}
+            {(mode === 'register' || mode === 'login') && (
+              <>
+                {mode === 'register' && (
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-mono text-gray-400 flex items-center justify-between">
+                      <span>Display Name / Screenwriter</span>
+                      <span className="text-[10px] text-gray-600">Visible on scripts</span>
+                    </label>
+                    <div className="relative group">
+                      <User className="absolute left-3.5 top-3 w-4 h-4 text-gray-500 group-focus-within:text-amber-400 transition-colors" />
+                      <input
+                        type="text"
+                        required
+                        value={displayName}
+                        onChange={(e) => setDisplayName(e.target.value)}
+                        placeholder="e.g. Alex Morgan"
+                        className="w-full bg-[#13161f]/90 border border-white/10 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 rounded-xl pl-10 pr-3.5 py-2.5 text-xs text-gray-100 placeholder-gray-600 focus:outline-none transition-all"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                <div className="space-y-1">
+                  <label className="text-[11px] font-mono text-gray-400">Email Address</label>
+                  <div className="relative group">
+                    <Mail className="absolute left-3.5 top-3 w-4 h-4 text-gray-500 group-focus-within:text-amber-400 transition-colors" />
+                    <input
+                      type="email"
+                      required
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="screenwriter@studio.com"
+                      className="w-full bg-[#13161f]/90 border border-white/10 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 rounded-xl pl-10 pr-3.5 py-2.5 text-xs text-gray-100 placeholder-gray-600 focus:outline-none transition-all"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between">
+                    <label className="text-[11px] font-mono text-gray-400">Password</label>
+                    {mode === 'login' && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setMode('forgot-password');
+                          setError(null);
+                          setSuccessMessage(null);
+                        }}
+                        className="text-[11px] font-mono text-amber-400/90 hover:text-amber-300 hover:underline transition-colors cursor-pointer"
+                      >
+                        Forgot password?
+                      </button>
+                    )}
+                  </div>
+                  <div className="relative group">
+                    <Lock className="absolute left-3.5 top-3 w-4 h-4 text-gray-500 group-focus-within:text-amber-400 transition-colors" />
+                    <input
+                      type="password"
+                      required
+                      minLength={6}
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="••••••••"
+                      className="w-full bg-[#13161f]/90 border border-white/10 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 rounded-xl pl-10 pr-3.5 py-2.5 text-xs text-gray-100 placeholder-gray-600 focus:outline-none transition-all"
+                    />
+                  </div>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={isLoading}
+                  className="w-full mt-2 py-3 px-4 rounded-xl bg-gradient-to-r from-amber-500 via-amber-400 to-amber-500 hover:brightness-110 active:scale-[0.98] disabled:opacity-50 text-black font-bold text-xs shadow-lg shadow-amber-500/25 transition-all duration-200 flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>Setting up your studio...</span>
+                    </>
+                  ) : mode === 'register' ? (
+                    <>
+                      <UserPlus className="w-4 h-4" />
+                      <span>Create Production Account</span>
+                      <ArrowRight className="w-3.5 h-3.5 ml-1" />
+                    </>
+                  ) : (
+                    <>
+                      <LogIn className="w-4 h-4" />
+                      <span>Sign In to OpenScript</span>
+                      <ArrowRight className="w-3.5 h-3.5 ml-1" />
+                    </>
+                  )}
+                </button>
+              </>
+            )}
 
           </form>
         </div>
