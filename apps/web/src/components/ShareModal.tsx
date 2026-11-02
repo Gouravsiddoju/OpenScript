@@ -60,8 +60,6 @@ export const ShareModal: React.FC<ShareModalProps> = ({
   const [resendingId, setResendingId] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<{ type: 'success' | 'info' | 'error'; message: string } | null>(null);
 
-  if (!isOpen) return null;
-
   const isOwner = currentUserRole === 'owner';
 
   // Deduplicate collaborators by email or userId to prevent duplicate rows
@@ -149,6 +147,8 @@ export const ShareModal: React.FC<ShareModalProps> = ({
     setCopiedLink(true);
     setTimeout(() => setCopiedLink(false), 2000);
   };
+
+  if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-150">
