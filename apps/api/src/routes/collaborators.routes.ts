@@ -24,7 +24,7 @@ export const collaboratorRoutes: FastifyPluginAsync = async (server) => {
     return { collaborators: members };
   });
 
-  // Add / invite collaborator to project (Protected)
+  // Add / invite collaborator to project with duplicate protection & two-way email
   server.post<{ Params: { id: string } }>('/api/v1/projects/:id/collaborators', {
     preHandler: [requireProjectAccess()],
   }, async (request, reply) => {
@@ -35,20 +35,56 @@ export const collaboratorRoutes: FastifyPluginAsync = async (server) => {
     }
 
     const { email, role, invitedBy } = parseResult.data;
-    const member = await ResilientStore.addCollaborator(id, email, role, invitedBy);
+    const { collaborator, isDuplicate } = await ResilientStore.addCollaborator(id, email, role, invitedBy);
 
-    // Send invitation email in background
+    // Two-way email notification in background
     (async () => {
       try {
         const project = await ResilientStore.getProject(id);
-        const inviter = request.user?.displayName || 'A team member';
-        await EmailService.sendInviteEmail(email, inviter, project?.name || 'Screenplay Project', role);
+        const projectName = project?.name || 'Screenplay Project';
+        const inviterName = request.user?.displayName || 'Screenwriter';
+        const inviterEmail = request.user?.email;
+
+        // 1. Send invite email to the invited collaborator
+        await EmailService.sendInviteEmail(email, inviterName, projectName, role);
+
+        // 2. Send two-way confirmation email to the user who sent the invite
+        if (inviterEmail && inviterEmail !== email) {
+          await EmailService.sendInviteConfirmationEmail(inviterEmail, email, projectName, role);
+        }
       } catch (err) {
-        console.warn('[Collaborators] Failed to send invite email:', err);
+        console.warn('[Collaborators] Failed to send two-way notification emails:', err);
       }
     })();
 
-    return reply.status(201).send({ collaborator: member });
+    return reply.status(201).send({
+      collaborator,
+      isDuplicate,
+      message: isDuplicate 
+        ? `Invitation already exists for ${email}. Role updated to ${role}.`
+        : `Invitation successfully dispatched to ${email}.`,
+    });
+  });
+
+  // Resend invitation email
+  server.post<{ Params: { id: string; userId: string } }>('/api/v1/projects/:id/collaborators/:userId/resend', {
+    preHandler: [requireProjectAccess()],
+  }, async (request, reply) => {
+    const { id, userId } = request.params;
+    const members = await ResilientStore.listCollaborators(id);
+    const member = members.find((m: any) => m.userId === userId || m.id === userId);
+
+    if (!member) {
+      return reply.status(404).send({ error: 'Collaborator not found' });
+    }
+
+    const project = await ResilientStore.getProject(id);
+    const projectName = project?.name || 'Screenplay Project';
+    const inviterName = request.user?.displayName || 'Screenwriter';
+
+    await EmailService.sendInviteEmail(member.email, inviterName, projectName, member.role);
+
+    return { success: true, message: `Invitation resent to ${member.email}` };
   });
 
   // Update collaborator role (Protected)

@@ -17,6 +17,8 @@ export const CollaboratorProfileSchema = z.object({
   color: z.string(),
   role: CollaboratorRoleSchema,
   lastSeenAt: z.string(),
+  status: z.enum(['pending', 'active']).optional(),
+  invitedAt: z.string().optional(),
 });
 export type CollaboratorProfile = z.infer<typeof CollaboratorProfileSchema>;
 

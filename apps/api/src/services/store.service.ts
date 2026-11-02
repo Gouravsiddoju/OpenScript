@@ -52,6 +52,8 @@ export interface InMemMember {
   email: string;
   displayName: string;
   invitedBy?: string;
+  status?: string;
+  invitedAt?: Date;
   createdAt: Date;
 }
 
@@ -283,21 +285,35 @@ export class ResilientStore {
   }
 
   static async addCollaborator(projectId: string, email: string, role: string, invitedBy?: string) {
+    const cleanEmail = email.trim().toLowerCase();
+
+    // Check for duplicate in-memory members
+    for (const [key, existing] of memStore.members.entries()) {
+      if (existing.projectId === projectId && existing.email.toLowerCase() === cleanEmail) {
+        // Gracefully update role if changed
+        existing.role = role;
+        return { collaborator: existing, isDuplicate: true };
+      }
+    }
+
     const userId = crypto.randomUUID();
     const id = crypto.randomUUID();
-    const displayName = email.split('@')[0];
+    const displayName = cleanEmail.split('@')[0];
+    const now = new Date();
     const member: InMemMember = {
       id,
       projectId,
       userId,
       role,
-      email,
+      email: cleanEmail,
       displayName,
       invitedBy,
-      createdAt: new Date(),
+      status: 'pending',
+      invitedAt: now,
+      createdAt: now,
     };
     memStore.members.set(`${projectId}_${userId}`, member);
-    return member;
+    return { collaborator: member, isDuplicate: false };
   }
 
   static async updateCollaboratorRole(projectId: string, userId: string, role: string) {
