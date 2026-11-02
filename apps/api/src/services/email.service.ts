@@ -27,7 +27,7 @@ export class EmailService {
   }
 
   private static getSender(): string {
-    return process.env.EMAIL_FROM || 'OpenScript Studio <onboarding@resend.dev>';
+    return process.env.EMAIL_FROM || 'OpenScript Studio <studio@ssnpictures.in>';
   }
 
   private static getAppUrl(): string {
