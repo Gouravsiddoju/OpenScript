@@ -1034,10 +1034,25 @@ export default function App() {
                 console.warn('Failed to save project to local list:', e);
               }
             } else if (serverRev > revisionNumber) {
-              setServerContent(sFountain);
-              setServerRevision(serverRev);
-              setServerUpdatedAt(serverDoc.updatedAt);
-              setConflictModalOpen(true);
+              if (isSaved) {
+                // User has not modified anything locally - seamlessly absorb server update
+                const newHtml = fountainToHtml(sFountain);
+                setFountainText(sFountain);
+                setScriptHtml(newHtml);
+                if (editorInstance) {
+                  editorInstance.commands.setContent(newHtml);
+                }
+                setRevisionNumber(serverRev);
+                localStorage.setItem(`openscript_rev_${documentId}`, String(serverRev));
+                localStorage.setItem('openscript_draft_fountain', sFountain);
+                localStorage.setItem('openscript_draft_html', newHtml);
+              } else {
+                // User has made active local edits that conflict with incoming server revision
+                setServerContent(sFountain);
+                setServerRevision(serverRev);
+                setServerUpdatedAt(serverDoc.updatedAt);
+                setConflictModalOpen(true);
+              }
             }
           }
         }
