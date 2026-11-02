@@ -6,6 +6,7 @@ import {
   CanonicalScreenplayDocument,
   createScreenplayBlock 
 } from '@openscript/screenplay-schema';
+import { requireProjectAccess, requireDocumentAccess } from '../plugins/auth.middleware';
 
 const CreateDocumentSchema = z.object({
   projectId: z.string().uuid(),
@@ -13,8 +14,10 @@ const CreateDocumentSchema = z.object({
 });
 
 export const documentRoutes: FastifyPluginAsync = async (server) => {
-  // Create document in a project
-  server.post('/api/v1/projects/:projectId/documents', async (request, reply) => {
+  // Create document in a project (Protected)
+  server.post('/api/v1/projects/:projectId/documents', {
+    preHandler: [requireProjectAccess()],
+  }, async (request, reply) => {
     const { projectId } = request.params as { projectId: string };
     const parseResult = CreateDocumentSchema.safeParse({ ...request.body as any, projectId });
     if (!parseResult.success) {
@@ -57,8 +60,10 @@ export const documentRoutes: FastifyPluginAsync = async (server) => {
     return reply.status(201).send({ document: res.doc });
   });
 
-  // Get document by ID
-  server.get<{ Params: { id: string } }>('/api/v1/documents/:id', async (request, reply) => {
+  // Get document by ID (Protected)
+  server.get<{ Params: { id: string } }>('/api/v1/documents/:id', {
+    preHandler: [requireDocumentAccess()],
+  }, async (request, reply) => {
     const { id } = request.params;
     const doc = await ResilientStore.getDocument(id);
 
@@ -69,11 +74,13 @@ export const documentRoutes: FastifyPluginAsync = async (server) => {
     return { document: doc };
   });
 
-  // Patch document with atomic concurrency lock
+  // Patch document with atomic concurrency lock (Protected)
   server.patch<{
     Params: { id: string };
     Body: { revisionNumber: number; content: any; title?: string };
-  }>('/api/v1/documents/:id', async (request, reply) => {
+  }>('/api/v1/documents/:id', {
+    preHandler: [requireDocumentAccess()],
+  }, async (request, reply) => {
     const { id } = request.params;
     const { revisionNumber, content, title } = request.body || {};
 

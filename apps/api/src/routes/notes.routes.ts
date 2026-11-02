@@ -1,6 +1,7 @@
 import { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import { ResilientStore } from '../services/store.service';
+import { requireDocumentAccess } from '../plugins/auth.middleware';
 
 const CreateNoteSchema = z.object({
   blockId: z.string().uuid(),
@@ -19,15 +20,19 @@ const AddReplySchema = z.object({
 });
 
 export const noteRoutes: FastifyPluginAsync = async (server) => {
-  // List all notes for a document
-  server.get<{ Params: { id: string } }>('/api/v1/documents/:id/notes', async (request) => {
+  // List all notes for a document (Protected)
+  server.get<{ Params: { id: string } }>('/api/v1/documents/:id/notes', {
+    preHandler: [requireDocumentAccess()],
+  }, async (request) => {
     const { id } = request.params;
     const notes = await ResilientStore.listNotes(id);
     return { notes };
   });
 
-  // Create new ScriptNote anchored to a block
-  server.post<{ Params: { id: string } }>('/api/v1/documents/:id/notes', async (request, reply) => {
+  // Create new ScriptNote anchored to a block (Protected)
+  server.post<{ Params: { id: string } }>('/api/v1/documents/:id/notes', {
+    preHandler: [requireDocumentAccess()],
+  }, async (request, reply) => {
     const { id } = request.params;
     const parseResult = CreateNoteSchema.safeParse(request.body);
     if (!parseResult.success) {
@@ -62,7 +67,7 @@ export const noteRoutes: FastifyPluginAsync = async (server) => {
       if (!note) {
         return reply.status(404).send({ error: 'Note not found' });
       }
-      return { note };
+      return { success: true, note };
     }
   );
 

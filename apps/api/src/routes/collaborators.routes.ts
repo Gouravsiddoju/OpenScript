@@ -1,6 +1,7 @@
 import { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import { ResilientStore } from '../services/store.service';
+import { requireProjectAccess } from '../plugins/auth.middleware';
 
 const AddCollaboratorSchema = z.object({
   email: z.string().email(),
@@ -13,15 +14,19 @@ const UpdateRoleSchema = z.object({
 });
 
 export const collaboratorRoutes: FastifyPluginAsync = async (server) => {
-  // List project collaborators
-  server.get<{ Params: { id: string } }>('/api/v1/projects/:id/collaborators', async (request) => {
+  // List project collaborators (Protected)
+  server.get<{ Params: { id: string } }>('/api/v1/projects/:id/collaborators', {
+    preHandler: [requireProjectAccess()],
+  }, async (request) => {
     const { id } = request.params;
     const members = await ResilientStore.listCollaborators(id);
     return { collaborators: members };
   });
 
-  // Add / invite collaborator to project
-  server.post<{ Params: { id: string } }>('/api/v1/projects/:id/collaborators', async (request, reply) => {
+  // Add / invite collaborator to project (Protected)
+  server.post<{ Params: { id: string } }>('/api/v1/projects/:id/collaborators', {
+    preHandler: [requireProjectAccess()],
+  }, async (request, reply) => {
     const { id } = request.params;
     const parseResult = AddCollaboratorSchema.safeParse(request.body);
     if (!parseResult.success) {
@@ -33,8 +38,10 @@ export const collaboratorRoutes: FastifyPluginAsync = async (server) => {
     return reply.status(201).send({ collaborator: member });
   });
 
-  // Update collaborator role
-  server.patch<{ Params: { id: string; userId: string } }>('/api/v1/projects/:id/collaborators/:userId', async (request, reply) => {
+  // Update collaborator role (Protected)
+  server.patch<{ Params: { id: string; userId: string } }>('/api/v1/projects/:id/collaborators/:userId', {
+    preHandler: [requireProjectAccess()],
+  }, async (request, reply) => {
     const { id, userId } = request.params;
     const parseResult = UpdateRoleSchema.safeParse(request.body);
     if (!parseResult.success) {
@@ -49,8 +56,10 @@ export const collaboratorRoutes: FastifyPluginAsync = async (server) => {
     return { success: true, collaborator: updated };
   });
 
-  // Remove collaborator
-  server.delete<{ Params: { id: string; userId: string } }>('/api/v1/projects/:id/collaborators/:userId', async (request) => {
+  // Remove collaborator (Protected)
+  server.delete<{ Params: { id: string; userId: string } }>('/api/v1/projects/:id/collaborators/:userId', {
+    preHandler: [requireProjectAccess()],
+  }, async (request) => {
     const { id, userId } = request.params;
     await ResilientStore.removeCollaborator(id, userId);
     return { success: true };

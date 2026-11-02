@@ -34,6 +34,14 @@ export function buildServer() {
     contentSecurityPolicy: false,
   });
 
+  // Anti-crawler and strict security headers (prevent search engine leaks)
+  server.addHook('onSend', async (_request, reply) => {
+    reply.header('X-Robots-Tag', 'noindex, nofollow, noarchive, nosnippet');
+    reply.header('X-Content-Type-Options', 'nosniff');
+    reply.header('X-Frame-Options', 'DENY');
+    reply.header('Referrer-Policy', 'strict-origin-when-cross-origin');
+  });
+
   // Swagger OpenAPI Specification
   server.register(swagger, {
     openapi: {

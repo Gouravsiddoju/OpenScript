@@ -1,6 +1,7 @@
 import { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import { CloudStorageService } from '../services/cloudStorage.service';
+import { requireProjectAccess } from '../plugins/auth.middleware';
 
 const BackupPayloadSchema = z.object({
   projectId: z.string().min(1),
@@ -22,7 +23,7 @@ export const storageRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(status);
   });
 
-  // 2. Upload / Save Backup
+  // 2. Upload / Save Backup (Isolated & Protected)
   server.post('/api/v1/storage/backup', {
     schema: {
       tags: ['Cloud Storage'],
@@ -50,33 +51,34 @@ export const storageRoutes: FastifyPluginAsync = async (server) => {
     }
   });
 
-  // 3. List Backups for Project
+  // 3. List Backups for Project (Protected)
   server.get('/api/v1/storage/backups/:projectId', {
     schema: {
       tags: ['Cloud Storage'],
       description: 'List all cloud backups for a specific screenplay project',
     },
+    preHandler: [requireProjectAccess()],
   }, async (request, reply) => {
     const { projectId } = request.params as { projectId: string };
     try {
       const backups = await CloudStorageService.listBackups(projectId);
-      return reply.send({ projectId, backups, count: backups.length });
+      return reply.send({ backups });
     } catch (err: any) {
       server.log.error(err);
-      return reply.status(500).send({ error: 'Failed to retrieve backups' });
+      return reply.status(500).send({ error: 'Failed to list backups', message: err.message });
     }
   });
 
-  // 4. Download / Retrieve Backup Content
+  // 4. Download / Fetch Backup Content
   server.get('/api/v1/storage/content/*', {
     schema: {
       tags: ['Cloud Storage'],
-      description: 'Retrieve backup file contents by key',
+      description: 'Fetch snapshot file content directly',
     },
   }, async (request, reply) => {
-    const key = (request.params as any)['*'] as string;
+    const key = (request.params as any)['*'];
     if (!key) {
-      return reply.status(400).send({ error: 'Storage key required' });
+      return reply.status(400).send({ error: 'Missing object key' });
     }
 
     try {

@@ -140,6 +140,41 @@ export class ResilientStore {
     }
   }
 
+  static async checkProjectAccess(projectId: string, userId: string): Promise<{ hasAccess: boolean; role: string | null }> {
+    if (projectId === '00000000-0000-0000-0000-000000000000') {
+      return { hasAccess: true, role: 'owner' };
+    }
+
+    try {
+      const p = await db.query.projects.findFirst({ where: eq(projects.id, projectId) });
+      if (p && p.ownerId === userId) {
+        return { hasAccess: true, role: 'owner' };
+      }
+
+      const m = await db.query.projectMembers.findFirst({
+        where: and(
+          eq(projectMembers.projectId, projectId),
+          eq(projectMembers.userId, userId)
+        ),
+      });
+      if (m) {
+        return { hasAccess: true, role: m.role };
+      }
+    } catch {}
+
+    const memProj = memStore.projects.get(projectId);
+    if (memProj && memProj.ownerId === userId) {
+      return { hasAccess: true, role: 'owner' };
+    }
+
+    const memMem = memStore.members.get(`${projectId}_${userId}`);
+    if (memMem) {
+      return { hasAccess: true, role: memMem.role };
+    }
+
+    return { hasAccess: false, role: null };
+  }
+
   // ---- DOCUMENTS ----
   static async getDocument(id: string) {
     try {

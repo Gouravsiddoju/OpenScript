@@ -54,6 +54,14 @@ export const CloudStorageModal: React.FC<CloudStorageModalProps> = ({
   const [backups, setBackups] = useState<BackupRecord[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isBackingUp, setIsBackingUp] = useState(false);
+
+  const getAuthHeaders = (extra: Record<string, string> = {}) => {
+    const token = localStorage.getItem('openscript_auth_token');
+    return {
+      ...extra,
+      ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+    };
+  };
   const [message, setMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
 
   useEffect(() => {
@@ -78,7 +86,7 @@ export const CloudStorageModal: React.FC<CloudStorageModalProps> = ({
   const loadBackups = async () => {
     setIsLoading(true);
     try {
-      const res = await fetch(`/api/v1/storage/backups/${projectId}`);
+      const res = await fetch(`/api/v1/storage/backups/${projectId}`, { headers: getAuthHeaders() });
       if (res.ok) {
         const data = await res.json();
         setBackups(data.backups || []);
@@ -111,7 +119,7 @@ export const CloudStorageModal: React.FC<CloudStorageModalProps> = ({
 
       const res = await fetch('/api/v1/storage/backup', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({
           projectId,
           filename,
