@@ -29,6 +29,7 @@ interface ScreenplayEditorProps {
   onClearActFilter?: () => void;
   isToolbarVisible?: boolean;
   isHeaderVisible?: boolean;
+  isSidebarOpen?: boolean;
   onShowHeader?: () => void;
 }
 
@@ -84,6 +85,7 @@ export const ScreenplayEditor: React.FC<ScreenplayEditorProps> = ({
   onClearActFilter,
   isToolbarVisible = true,
   isHeaderVisible = true,
+  isSidebarOpen = true,
   onShowHeader,
 }) => {
   const initialKnownChars = useMemo(() => {
@@ -442,6 +444,9 @@ export const ScreenplayEditor: React.FC<ScreenplayEditorProps> = ({
     content: initialContent,
     onSelectionUpdate: ({ editor }) => {
       checkSmartType(editor);
+      if (onShowHeader) {
+        onShowHeader();
+      }
       const { selection } = editor.state;
       try {
         const blockPos = selection.$from.before(1);
@@ -864,8 +869,21 @@ export const ScreenplayEditor: React.FC<ScreenplayEditorProps> = ({
 
       {/* 1. Sleek Floating Island / Pill Ribbon (Fixed to Viewport, always accessible) */}
       {canEditScreenplay(currentUserRole) && (
-      <div data-tour="format-bar" className="sticky top-0 z-30 w-full py-2 flex justify-center pointer-events-none no-print select-none mb-3">
-        <div className="pointer-events-auto bg-[#13151b]/95 backdrop-blur-md border border-[#272b38] rounded-2xl p-1.5 shadow-2xl shadow-black/80 flex items-center gap-1">
+      <div 
+        data-tour="format-bar" 
+        style={{
+          position: 'fixed',
+          left: typeof window !== 'undefined' && window.innerWidth >= 1024 && isSidebarOpen ? 'calc(50% + 160px)' : '50%',
+          top: isHeaderVisible ? 66 : 14,
+          transform: `translateX(-50%) translateY(${isToolbarVisible ? '0' : '-140%'})`,
+          opacity: isToolbarVisible ? 1 : 0,
+          pointerEvents: isToolbarVisible ? 'auto' : 'none',
+          transition: 'transform 0.28s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.2s ease, top 0.25s ease, left 0.3s ease',
+          zIndex: 35,
+        }}
+        className="no-print select-none"
+      >
+        <div className="bg-[#13151b]/95 backdrop-blur-md border border-[#272b38] rounded-2xl p-1.5 shadow-2xl shadow-black/80 flex items-center gap-1">
           {[
             { type: 'sceneHeading', label: 'Scene Heading', shortcut: '1' },
             { type: 'action', label: 'Action', shortcut: '2' },
