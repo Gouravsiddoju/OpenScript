@@ -551,62 +551,6 @@ export const ScreenplayEditor: React.FC<ScreenplayEditorProps> = ({
     }
   }, [initialContent, editor]);
 
-  // Real-time Collaborator Cursor Badges & Active Scene Indicators
-  useEffect(() => {
-    if (!editor || editor.isDestroyed) return;
-    const editorEl = editor.view?.dom;
-    if (!editorEl) return;
-
-    // Clean up previous collaborator indicators
-    editorEl.querySelectorAll('.openscript-peer-cursor-badge').forEach((el) => el.remove());
-    editorEl.querySelectorAll('.openscript-peer-active-scene').forEach((el) => {
-      (el as HTMLElement).classList.remove('openscript-peer-active-scene');
-      (el as HTMLElement).style.borderLeft = '';
-      (el as HTMLElement).style.paddingLeft = '';
-    });
-
-    const activePeers = presencePeers.filter((p) => p.isOnline && p.activeSceneHeading);
-    if (activePeers.length === 0) return;
-
-    const headings = editorEl.querySelectorAll('.script-scene-heading');
-    headings.forEach((hEl) => {
-      const hText = (hEl.textContent || '').trim().toUpperCase();
-      const peersHere = activePeers.filter((p) => 
-        p.activeSceneHeading && hText.includes(p.activeSceneHeading.toUpperCase())
-      );
-
-      if (peersHere.length > 0) {
-        const peer = peersHere[0];
-        (hEl as HTMLElement).classList.add('openscript-peer-active-scene');
-        (hEl as HTMLElement).style.borderLeft = `3px solid ${peer.color || '#ec4899'}`;
-        (hEl as HTMLElement).style.paddingLeft = '8px';
-        (hEl as HTMLElement).style.transition = 'all 0.2s ease';
-
-        const badge = document.createElement('span');
-        badge.className = 'openscript-peer-cursor-badge no-print';
-        badge.setAttribute('contenteditable', 'false');
-        badge.setAttribute('data-collab-marker', 'true');
-        badge.style.display = 'inline-flex';
-        badge.style.alignItems = 'center';
-        badge.style.gap = '4px';
-        badge.style.marginLeft = '10px';
-        badge.style.fontSize = '10px';
-        badge.style.fontFamily = 'monospace';
-        badge.style.fontWeight = 'bold';
-        badge.style.padding = '1px 6px';
-        badge.style.borderRadius = '9999px';
-        badge.style.backgroundColor = `${peer.color || '#ec4899'}25`;
-        badge.style.color = peer.color || '#ec4899';
-        badge.style.border = `1px solid ${peer.color || '#ec4899'}60`;
-        badge.style.userSelect = 'none';
-        badge.style.pointerEvents = 'none';
-        badge.innerHTML = `● ${peer.displayName}${peer.isTyping ? ' ✍️ writing...' : ''}`;
-
-        hEl.appendChild(badge);
-      }
-    });
-  }, [presencePeers, editor]);
-
   // Dynamic Pagination & Physical Page Break Slicing
   const [totalPages, setTotalPages] = useState<number>(1);
   const [currentPage, setCurrentPage] = useState<number>(1);

@@ -65,6 +65,7 @@ export function stripConflictMarkers(text: string): string {
     .replace(/\/\*\s*---+\s*ADDED FROM SERVER[^*]*---+\s*\*\//gi, '')
     .replace(/\/\*\s*===+\s*AUTOMATIC MERGE RECONCILIATION[\s\S]*?===+\s*\*\//gi, '')
     .replace(/\/\*\s*---+\s*YOUR LOCAL EDITS\s*---+\s*\*\//gi, '')
+    .replace(/[\u25CF\u2022][^\u25CF\u2022\n]*/g, '')
     .replace(/\n{3,}/g, '\n\n')
     .trim();
 }
