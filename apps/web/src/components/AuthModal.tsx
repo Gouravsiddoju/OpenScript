@@ -222,7 +222,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         }
       } catch (fetchErr: any) {
         const msg = String(fetchErr?.message || '');
-        if (msg.includes('already exists') || msg.includes('Invalid email') || msg.includes('Password must')) {
+        if (msg.includes('already exists') || msg.includes('Invalid email') || msg.includes('Password must') || msg.includes('invited') || msg.includes('collaborator')) {
           throw fetchErr;
         }
         data = handleLocalStudioAuth(mode, email, password, displayName);
@@ -396,6 +396,18 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     className="self-start mt-1 px-3 py-1 bg-amber-500 hover:bg-amber-400 text-black text-xs font-bold rounded-lg transition-all flex items-center gap-1.5 cursor-pointer shadow-md shadow-amber-500/20"
                   >
                     <span>Switch to Sign In →</span>
+                  </button>
+                )}
+                {(error.toLowerCase().includes('invited') || error.toLowerCase().includes('switch to "create')) && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMode('register');
+                      setError(null);
+                    }}
+                    className="self-start mt-1 px-3 py-1 bg-amber-500 hover:bg-amber-400 text-black text-xs font-bold rounded-lg transition-all flex items-center gap-1.5 cursor-pointer shadow-md shadow-amber-500/20"
+                  >
+                    <span>Activate Account & Set Password →</span>
                   </button>
                 )}
               </div>

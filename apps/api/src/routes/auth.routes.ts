@@ -119,6 +119,32 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
 
     const existingUser = await ResilientStore.findUserByEmail(email);
     if (existingUser) {
+      // Check if this is an invited collaborator completing their account registration
+      const isInvitedPlaceholder = !existingUser.passwordHash || existingUser.passwordHash === 'placeholder' || existingUser.passwordHash.length < 10;
+
+      if (isInvitedPlaceholder) {
+        const passwordHash = await AuthService.hashPassword(password);
+        const activatedUser = await ResilientStore.activateInvitedUser(existingUser.id, passwordHash, displayName);
+
+        const rawToken = AuthService.generateSessionToken();
+        const tokenHash = AuthService.hashToken(rawToken);
+        const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
+
+        await ResilientStore.createSession(existingUser.id, tokenHash, expiresAt);
+
+        return reply.status(200).send({
+          user: {
+            id: existingUser.id,
+            email: existingUser.email,
+            displayName: activatedUser?.displayName || displayName.trim() || existingUser.displayName,
+            role: activatedUser?.role || 'co-writer',
+          },
+          token: rawToken,
+          expiresAt,
+          message: 'Account successfully activated! Welcome to OpenScript Studio.',
+        });
+      }
+
       return reply.status(409).send({ error: 'User with this email already exists' });
     }
 
@@ -161,6 +187,39 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
 
     if (!user) {
       return reply.status(401).send({ error: 'Invalid email or password' });
+    }
+
+    // Check if user was invited and has a placeholder password
+    const isInvitedPlaceholder = !user.passwordHash || user.passwordHash === 'placeholder' || user.passwordHash.length < 10;
+    if (isInvitedPlaceholder) {
+      if (password && password.length >= 6) {
+        // Seamlessly activate and set their password!
+        const passwordHash = await AuthService.hashPassword(password);
+        const activatedUser = await ResilientStore.activateInvitedUser(user.id, passwordHash);
+
+        const rawToken = AuthService.generateSessionToken();
+        const tokenHash = AuthService.hashToken(rawToken);
+        const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+
+        await ResilientStore.createSession(user.id, tokenHash, expiresAt);
+
+        return {
+          user: {
+            id: user.id,
+            email: user.email,
+            displayName: activatedUser?.displayName || user.displayName,
+            role: activatedUser?.role || 'co-writer',
+          },
+          token: rawToken,
+          expiresAt,
+          message: 'Welcome! Your invited account has been activated and your password set.',
+        };
+      }
+
+      return reply.status(400).send({
+        error: 'You have been invited to collaborate! Please enter a password of at least 6 characters or switch to "Create Production Account" to complete your profile.',
+        isInvited: true,
+      });
     }
 
     // Verify password securely with bcrypt

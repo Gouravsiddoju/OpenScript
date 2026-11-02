@@ -278,7 +278,7 @@ export default function App() {
         setCurrentUserRole(urlRole as CollaboratorRole);
         localStorage.setItem('openscript_user_role', urlRole);
       }
-      if (urlCollab && urlCollab.trim()) {
+      if (urlCollab && urlCollab.trim() && urlCollab.includes('@')) {
         const cleanEmail = urlCollab.trim().toLowerCase();
         const dName = cleanEmail.split('@')[0];
         setCurrentUser((prev) => {

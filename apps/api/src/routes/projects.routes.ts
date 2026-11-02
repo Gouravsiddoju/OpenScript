@@ -10,9 +10,19 @@ const CreateProjectSchema = z.object({
 });
 
 export const projectRoutes: FastifyPluginAsync = async (server) => {
-  // List all projects
-  server.get('/api/v1/projects', async () => {
-    const list = await ResilientStore.listProjects();
+  // List all projects (Filtered by user access if authenticated)
+  server.get('/api/v1/projects', async (request, reply) => {
+    let userId: string | undefined;
+    const authHeader = request.headers.authorization;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      try {
+        await authenticateToken(request, reply);
+        if (request.user) {
+          userId = request.user.id;
+        }
+      } catch {}
+    }
+    const list = await ResilientStore.listProjects(userId);
     return { projects: list };
   });
 

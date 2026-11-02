@@ -20,7 +20,7 @@ import {
   X,
   LogIn,
 } from 'lucide-react';
-import { ScreenplayProject, ScreenplayProjectTemplate, listProjects, deleteProject, duplicateProject, createProject } from '../utils/projectStore';
+import { ScreenplayProject, ScreenplayProjectTemplate, listProjects, deleteProject, duplicateProject, createProject, getProject, saveProject } from '../utils/projectStore';
 import { CollaboratorProfile, CollaboratorRole } from '@openscript/screenplay-schema';
 
 export interface ProjectDashboardProps {
@@ -51,6 +51,44 @@ export const ProjectDashboard: React.FC<ProjectDashboardProps> = ({
 
   useEffect(() => {
     refreshProjects();
+
+    // Fetch projects from server (includes projects user created or was invited to)
+    const token = localStorage.getItem('openscript_auth_token');
+    if (token) {
+      fetch('/api/v1/projects', {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+        .then((res) => (res.ok ? res.json() : null))
+        .then((data) => {
+          if (data?.projects && Array.isArray(data.projects)) {
+            let hasNew = false;
+            for (const srvProj of data.projects) {
+              const existing = getProject(srvProj.id);
+              if (!existing) {
+                saveProject({
+                  id: srvProj.id,
+                  title: srvProj.name || 'Screenplay Project',
+                  author: srvProj.description || 'Collaborative Screenplay',
+                  credit: 'written by',
+                  draftLabel: 'First Draft',
+                  draftColor: 'white',
+                  scriptHtml: '',
+                  fountainText: '',
+                  sceneCount: 1,
+                  wordCount: 0,
+                  createdAt: srvProj.createdAt || new Date().toISOString(),
+                  updatedAt: srvProj.updatedAt || new Date().toISOString(),
+                });
+                hasNew = true;
+              }
+            }
+            if (hasNew) {
+              refreshProjects();
+            }
+          }
+        })
+        .catch(() => {});
+    }
   }, []);
 
   const filteredProjects = projects.filter((p) => {

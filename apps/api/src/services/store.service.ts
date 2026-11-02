@@ -108,11 +108,29 @@ export const memStore = new MemoryStore();
  */
 export class ResilientStore {
   // ---- PROJECTS ----
-  static async listProjects() {
+  static async listProjects(userId?: string) {
     try {
+      if (userId) {
+        const memberRows = await db.query.projectMembers.findMany({
+          where: eq(projectMembers.userId, userId),
+        });
+        const memberProjectIds = new Set(memberRows.map((m) => m.projectId));
+
+        const allProjects = await db.query.projects.findMany({ orderBy: [desc(projects.updatedAt)] });
+        return allProjects.filter((p) => p.ownerId === userId || memberProjectIds.has(p.id));
+      }
       return await db.query.projects.findMany({ orderBy: [desc(projects.updatedAt)] });
     } catch {
-      return Array.from(memStore.projects.values());
+      const all = Array.from(memStore.projects.values());
+      if (userId) {
+        const memMemberProjectIds = new Set(
+          Array.from(memStore.members.values())
+            .filter((m) => m.userId === userId)
+            .map((m) => m.projectId)
+        );
+        return all.filter((p) => p.ownerId === userId || memMemberProjectIds.has(p.id));
+      }
+      return all;
     }
   }
 
@@ -579,5 +597,38 @@ export class ResilientStore {
     } catch {}
 
     memStore.sessions.delete(tokenHash);
+  }
+
+  static async activateInvitedUser(userId: string, newPasswordHash: string, displayName?: string): Promise<InMemUser | null> {
+    const cleanName = displayName?.trim();
+    try {
+      const updateData: any = { 
+        passwordHash: newPasswordHash,
+        updatedAt: new Date()
+      };
+      if (cleanName) {
+        updateData.displayName = cleanName;
+      }
+      await db.update(users).set(updateData).where(eq(users.id, userId));
+    } catch (e) {
+      console.warn('[Store] DB update user activation failed:', e);
+    }
+
+    // Update in-memory members status to active
+    for (const member of memStore.members.values()) {
+      if (member.userId === userId) {
+        member.status = 'active';
+        if (cleanName) member.displayName = cleanName;
+      }
+    }
+
+    const memUser = memStore.users.get(userId);
+    if (memUser) {
+      memUser.passwordHash = newPasswordHash;
+      if (cleanName) memUser.displayName = cleanName;
+      return memUser;
+    }
+
+    return await this.findUserById(userId);
   }
 }
