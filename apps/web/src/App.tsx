@@ -954,18 +954,49 @@ export default function App() {
   }, [currentUserRole, isSaved, documentId, currentUser]);
 
   const presencePeers: LivePresence[] = useMemo(() => {
-    if (livePeers.length > 0) return livePeers;
-    return collaborators
-      .filter((c) => c.role !== 'owner')
-      .map((c) => ({
+    const currentUserId = currentUser.id || 'default-owner';
+    const currentEmail = currentUser.email?.trim().toLowerCase();
+    const memberMap = new Map<string, LivePresence>();
+
+    // 1. Always display invited project team members (e.g. co-writers, readers)
+    for (const c of collaborators) {
+      if (c.role === 'owner') continue;
+      if (c.email && c.email.trim().toLowerCase() === currentEmail) continue;
+      if (c.userId === currentUserId) continue;
+
+      const key = (c.email?.trim().toLowerCase() || c.userId || '').trim();
+      const isOnline = livePeers.some(
+        (lp) =>
+          lp.userId === c.userId ||
+          (c.email && lp.displayName?.toLowerCase() === c.email.split('@')[0].toLowerCase()) ||
+          lp.displayName?.toLowerCase() === c.displayName?.toLowerCase()
+      );
+
+      memberMap.set(key, {
         userId: c.userId,
-        displayName: c.displayName,
+        displayName: c.displayName || (c.email ? c.email.split('@')[0] : 'Collaborator'),
         color: c.color || '#ec4899',
         role: c.role,
-        isTyping: c.role === 'co-writer',
+        isTyping: isOnline && c.role === 'co-writer',
         lastPing: Date.now(),
-      }));
-  }, [livePeers, collaborators]);
+        isOnline,
+      } as any);
+    }
+
+    // 2. Add any active live peers from backend presence
+    for (const lp of livePeers) {
+      if (lp.userId === currentUserId || lp.displayName === currentUser.displayName) continue;
+      const key = lp.userId;
+      if (!memberMap.has(key)) {
+        memberMap.set(key, {
+          ...lp,
+          isOnline: true,
+        } as any);
+      }
+    }
+
+    return Array.from(memberMap.values());
+  }, [livePeers, collaborators, currentUser]);
 
   // Production revision state
   const [isScriptLocked, setIsScriptLocked] = useState<boolean>(() => {

@@ -28,26 +28,33 @@ export const CollaborationBar: React.FC<CollaborationBarProps> = ({
 }) => {
   return (
     <div className="flex items-center gap-2">
-      {/* Active Collaborators Presence Roster */}
-      <div className="flex items-center -space-x-1.5 overflow-hidden pl-1" title="Active collaborators in room (Click avatar to view profile)">
-        {presencePeers.map((peer) => (
-          <button
-            key={peer.userId}
-            type="button"
-            onClick={() => onSelectPeerProfile && onSelectPeerProfile(peer)}
-            className="relative group cursor-pointer focus:outline-none"
-            title={`${peer.displayName} (${peer.role}) - Click to view basic info`}
-          >
-            <span
-              className="inline-flex items-center justify-center w-6 h-6 rounded-full text-[10px] font-bold text-white ring-2 ring-[#0c0d0e] transition-transform group-hover:scale-110 shadow-sm"
-              style={{ backgroundColor: peer.color }}
+      {/* Active & Invited Team Presence Roster */}
+      <div className="flex items-center -space-x-1.5 overflow-hidden pl-1" title="Project team & active collaborators (Click avatar to view profile)">
+        {presencePeers.map((peer) => {
+          const isLive = Boolean((peer as any).isOnline || peer.isTyping);
+          return (
+            <button
+              key={peer.userId}
+              type="button"
+              onClick={() => onSelectPeerProfile && onSelectPeerProfile(peer)}
+              className="relative group cursor-pointer focus:outline-none"
+              title={`${peer.displayName} (${peer.role}) - ${isLive ? 'Active now in room' : 'Invited / Offline'}`}
             >
-              {peer.displayName.charAt(0).toUpperCase()}
-            </span>
-            {/* Live presence pulsing green dot */}
-            <span className="absolute bottom-0 right-0 w-2 h-2 rounded-full bg-emerald-400 ring-1 ring-black animate-pulse" />
-          </button>
-        ))}
+              <span
+                className="inline-flex items-center justify-center w-6 h-6 rounded-full text-[10px] font-bold text-white ring-2 ring-[#0c0d0e] transition-transform group-hover:scale-110 shadow-sm"
+                style={{ backgroundColor: peer.color || '#ec4899' }}
+              >
+                {peer.displayName.charAt(0).toUpperCase()}
+              </span>
+              {/* Live presence status dot */}
+              {isLive ? (
+                <span className="absolute bottom-0 right-0 w-2 h-2 rounded-full bg-emerald-400 ring-1 ring-black animate-pulse" title="Active now" />
+              ) : (
+                <span className="absolute bottom-0 right-0 w-2 h-2 rounded-full bg-gray-500 ring-1 ring-black" title="Offline / Invited" />
+              )}
+            </button>
+          );
+        })}
       </div>
 
       {/* ScriptNotes Toggle Button */}
