@@ -16,13 +16,16 @@
     "@openscript/database": "workspace:*",
     "@openscript/fountain": "workspace:*",
     "@openscript/screenplay-schema": "workspace:*",
+    "dotenv": "^18.0.9",
     "drizzle-orm": "^0.36.0",
     "fastify": "^5.2.0",
+    "nodemailer": "^10.3.1",
     "tsx": "^4.19.2",
     "zod": "^3.23.8"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",
+    "@types/nodemailer": "^8.0.2",
     "typescript": "^5.7.0"
   }
 }

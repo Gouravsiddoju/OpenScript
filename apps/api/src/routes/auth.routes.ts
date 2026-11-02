@@ -2,6 +2,7 @@ import { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import { AuthService } from '../services/auth.service';
 import { ResilientStore } from '../services/store.service';
+import { EmailService } from '../services/email.service';
 
 const RegisterSchema = z.object({
   email: z.string().email(),
@@ -19,6 +20,89 @@ const UpdateProfileSchema = z.object({
 });
 
 export const authRoutes: FastifyPluginAsync = async (server) => {
+  // Forgot Password
+  server.post('/api/v1/auth/forgot-password', {
+    schema: {
+      tags: ['Authentication'],
+      description: 'Send a secure password reset link to user email',
+    },
+  }, async (request, reply) => {
+    const schema = z.object({ email: z.string().email() });
+    const parseResult = schema.safeParse(request.body);
+    if (!parseResult.success) {
+      return reply.status(400).send({ error: 'Valid email address required' });
+    }
+
+    const { email } = parseResult.data;
+    const user = await ResilientStore.findUserByEmail(email);
+
+    if (user) {
+      const rawResetToken = AuthService.generateSessionToken();
+      const tokenHash = AuthService.hashToken(rawResetToken);
+      const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+
+      await ResilientStore.createPasswordReset(user.id, tokenHash, expiresAt);
+      await EmailService.sendPasswordResetEmail(user.email, rawResetToken, user.displayName);
+    }
+
+    return {
+      success: true,
+      message: 'If an account exists with this email, a password reset link has been sent.',
+    };
+  });
+
+  // Reset Password with Token
+  server.post('/api/v1/auth/reset-password', {
+    schema: {
+      tags: ['Authentication'],
+      description: 'Reset password using secure token from email',
+    },
+  }, async (request, reply) => {
+    const schema = z.object({
+      token: z.string().min(10, 'Valid reset token required'),
+      newPassword: z.string().min(6, 'Password must be at least 6 characters'),
+    });
+    const parseResult = schema.safeParse(request.body);
+    if (!parseResult.success) {
+      return reply.status(400).send({ error: 'Validation failed', details: parseResult.error.flatten() });
+    }
+
+    const { token, newPassword } = parseResult.data;
+    const tokenHash = AuthService.hashToken(token);
+
+    const resetRecord = await ResilientStore.findPasswordReset(tokenHash);
+    if (!resetRecord) {
+      return reply.status(400).send({ error: 'Invalid or expired password reset link. Please request a new one.' });
+    }
+
+    const user = await ResilientStore.findUserById(resetRecord.userId);
+    if (!user) {
+      return reply.status(404).send({ error: 'Account not found' });
+    }
+
+    const newHash = await AuthService.hashPassword(newPassword);
+    await ResilientStore.updateUserPassword(user.id, newHash);
+    await ResilientStore.consumePasswordReset(tokenHash);
+
+    const rawToken = AuthService.generateSessionToken();
+    const sessionHash = AuthService.hashToken(rawToken);
+    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+    await ResilientStore.createSession(user.id, sessionHash, expiresAt);
+
+    return {
+      success: true,
+      message: 'Password successfully updated! You are now logged in.',
+      user: {
+        id: user.id,
+        email: user.email,
+        displayName: user.displayName,
+        role: user.role || 'owner',
+      },
+      token: rawToken,
+      expiresAt,
+    };
+  });
+
   // Register
   server.post('/api/v1/auth/register', {
     schema: {

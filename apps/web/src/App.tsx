@@ -44,7 +44,7 @@ import { ShareModal } from './components/ShareModal';
 import { CollaborationBar } from './components/CollaborationBar';
 import { KeyboardShortcutsModal } from './components/KeyboardShortcutsModal';
 import { UserProfileModal, UserProfileData } from './components/UserProfileModal';
-import { AuthModal } from './components/AuthModal';
+import { AuthModal, AuthMode } from './components/AuthModal';
 import { SceneTakesModal } from './components/SceneTakesModal';
 import { ImportModal } from './components/ImportModal';
 import { ExportModal } from './components/ExportModal';
@@ -251,7 +251,8 @@ export default function App() {
   // User Profile & Authentication state
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
-  const [authModalMode, setAuthModalMode] = useState<'login' | 'register'>('login');
+  const [authModalMode, setAuthModalMode] = useState<AuthMode>('login');
+  const [authResetToken, setAuthResetToken] = useState<string | null>(null);
   const [selectedPeerProfile, setSelectedPeerProfile] = useState<UserProfileData | null>(null);
   const [authToken, setAuthToken] = useState<string | null>(() => {
     return localStorage.getItem('openscript_auth_token');
@@ -680,6 +681,20 @@ export default function App() {
       ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
     };
   };
+
+  // Detect resetToken in URL query params (from password reset email)
+  useEffect(() => {
+    try {
+      const urlParams = new URLSearchParams(window.location.search);
+      const resetToken = urlParams.get('resetToken');
+      if (resetToken) {
+        setAuthResetToken(resetToken);
+        setAuthModalMode('reset-password');
+        setIsAuthModalOpen(true);
+        window.history.replaceState({}, document.title, window.location.pathname);
+      }
+    } catch {}
+  }, []);
 
   // 0. Auto-sync authenticated profile from backend
   useEffect(() => {
@@ -1685,7 +1700,8 @@ export default function App() {
           isCompulsory={true}
           onClose={() => {}}
           onAuthSuccess={handleAuthSuccess}
-          defaultMode="register"
+          defaultMode={authModalMode}
+          initialResetToken={authResetToken}
         />
       </div>
     );
@@ -2393,6 +2409,7 @@ export default function App() {
         onClose={() => setIsAuthModalOpen(false)}
         onAuthSuccess={handleAuthSuccess}
         defaultMode={authModalMode}
+        initialResetToken={authResetToken}
       />
     </div>
   );
