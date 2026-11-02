@@ -198,6 +198,24 @@ function extractScenes(html: string): SceneItem[] {
 
 export default function App() {
   const [documentId, setDocumentId] = useState<string>(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const urlDocId = params.get('doc') || params.get('documentId') || params.get('id');
+      if (urlDocId && urlDocId.trim()) {
+        const cleanId = urlDocId.trim();
+        localStorage.setItem('openscript_doc_id', cleanId);
+        return cleanId;
+      }
+      const pathParts = window.location.pathname.split('/').filter(Boolean);
+      if (pathParts.length >= 2 && (pathParts[0] === 'join' || pathParts[0] === 'doc')) {
+        const pathDocId = pathParts[1].trim();
+        if (pathDocId && pathDocId.length > 5) {
+          localStorage.setItem('openscript_doc_id', pathDocId);
+          return pathDocId;
+        }
+      }
+    } catch {}
+
     let id = localStorage.getItem('openscript_doc_id');
     if (!id) {
       id = crypto.randomUUID();
@@ -205,6 +223,7 @@ export default function App() {
     }
     return id;
   });
+  const [isInitialDocLoading, setIsInitialDocLoading] = useState(true);
   const [isSaved, setIsSaved] = useState(true);
   const [localSaveNotification, setLocalSaveNotification] = useState<string | null>(null);
   const [activeMode, setActiveMode] = useState<'screenplay' | 'beats' | 'fountain' | 'reports'>('screenplay');
@@ -951,13 +970,43 @@ export default function App() {
         const res = await fetch(`/api/v1/documents/${documentId}`, { headers: authHeaders() });
         if (res.ok && isMounted) {
           const { document: serverDoc } = await res.json();
-          if (serverDoc && typeof serverDoc.revisionNumber === 'number') {
-            const serverRev = serverDoc.revisionNumber;
+          if (serverDoc && serverDoc.contentJson) {
+            const serverRev = typeof serverDoc.revisionNumber === 'number' ? serverDoc.revisionNumber : 1;
             const sFountain = serializeFountain(serverDoc.contentJson);
             
-            if (isFountainContentIdentical(fountainText, sFountain)) {
+            // Check if local is blank template or uninitialized for this doc
+            const isLocalBlank = !fountainText || 
+              fountainText.trim().length === 0 || 
+              fountainText.includes('Every story begins with a blank page') ||
+              localStorage.getItem(`openscript_loaded_doc_${documentId}`) !== 'true';
+
+            if (isLocalBlank || isFountainContentIdentical(fountainText, sFountain)) {
+              const newHtml = fountainToHtml(sFountain);
+              setFountainText(sFountain);
+              setScriptHtml(newHtml);
+              if (editorInstance) {
+                editorInstance.commands.setContent(newHtml);
+              }
+              if (serverDoc.contentJson.metadata) {
+                const meta = serverDoc.contentJson.metadata;
+                setTitleMetadata((prev) => ({
+                  ...prev,
+                  title: meta.title || serverDoc.title || prev.title,
+                  credit: meta.credit || prev.credit,
+                  author: Array.isArray(meta.authors) ? meta.authors.join(', ') : (meta.author || prev.author),
+                  draftLabel: meta.draftLabel || prev.draftLabel,
+                }));
+                if (meta.draftColor) {
+                  setActiveRevisionColor(meta.draftColor);
+                }
+              } else if (serverDoc.title) {
+                setTitleMetadata((prev) => ({ ...prev, title: serverDoc.title }));
+              }
               setRevisionNumber(serverRev);
               localStorage.setItem(`openscript_rev_${documentId}`, String(serverRev));
+              localStorage.setItem('openscript_draft_fountain', sFountain);
+              localStorage.setItem('openscript_draft_html', newHtml);
+              localStorage.setItem(`openscript_loaded_doc_${documentId}`, 'true');
             } else if (serverRev > revisionNumber) {
               setServerContent(sFountain);
               setServerRevision(serverRev);
@@ -966,16 +1015,20 @@ export default function App() {
             }
           }
         }
-      } catch {}
+      } catch (err) {
+        console.warn('Failed to sync document from server:', err);
+      } finally {
+        if (isMounted) setIsInitialDocLoading(false);
+      }
     }
     syncDocumentRevision();
     return () => { isMounted = false; };
-  }, [documentId]);
+  }, [documentId, editorInstance]);
 
   // Debounced API concurrency autosave
   useEffect(() => {
     // Pause autosave while resolving a conflict to avoid infinite loops
-    if (conflictModalOpen || isResolvingConflictRef.current) return;
+    if (conflictModalOpen || isResolvingConflictRef.current || isInitialDocLoading) return;
 
     const timer = setTimeout(async () => {
       try {
@@ -1179,7 +1232,7 @@ export default function App() {
       const res = await fetch('/api/v1/projects/00000000-0000-0000-0000-000000000000/collaborators', {
         method: 'POST',
         headers: authHeaders({ 'Content-Type': 'application/json' }),
-        body: JSON.stringify({ email, role }),
+        body: JSON.stringify({ email, role, documentId, projectName: titleMetadata.title }),
       });
       if (res.ok) {
         const data = await res.json();
@@ -2548,6 +2601,7 @@ export default function App() {
         onRemoveCollaborator={handleRemoveCollaborator}
         currentUserRole={currentUserRole}
         documentTitle={titleMetadata.title}
+        documentId={documentId}
       />
 
       {/* Keyboard Shortcuts Cheatsheet Modal */}

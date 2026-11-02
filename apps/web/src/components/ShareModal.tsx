@@ -30,6 +30,7 @@ interface ShareModalProps {
   onRemoveCollaborator: (userId: string) => void;
   currentUserRole: CollaboratorRole;
   documentTitle: string;
+  documentId?: string;
 }
 
 const ROLE_DESCRIPTIONS: Record<CollaboratorRole, { label: string; icon: any; desc: string }> = {
@@ -50,6 +51,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({
   onRemoveCollaborator,
   currentUserRole,
   documentTitle,
+  documentId,
 }) => {
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteRole, setInviteRole] = useState<CollaboratorRole>('co-writer');
@@ -126,9 +128,10 @@ export const ShareModal: React.FC<ShareModalProps> = ({
     }
   };
 
+  const shareableUrl = documentId ? `${window.location.origin}/?doc=${documentId}` : window.location.origin;
+
   const handleCopyLink = () => {
-    const inviteUrl = `${window.location.origin}/join/${encodeURIComponent(documentTitle.toLowerCase().replace(/\s+/g, '-'))}`;
-    navigator.clipboard.writeText(inviteUrl);
+    navigator.clipboard.writeText(shareableUrl);
     setCopiedLink(true);
     setTimeout(() => setCopiedLink(false), 2000);
   };
@@ -242,7 +245,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({
             <div className="space-y-0.5">
               <span className="text-xs font-semibold text-gray-200">Shareable Room Link</span>
               <p className="text-[11px] text-gray-400 font-mono truncate max-w-xs">
-                {window.location.origin}/join/{documentTitle.toLowerCase().replace(/\s+/g, '-')}
+                {shareableUrl}
               </p>
             </div>
             <button

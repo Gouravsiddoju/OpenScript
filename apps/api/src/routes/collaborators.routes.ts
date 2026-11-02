@@ -8,6 +8,8 @@ const AddCollaboratorSchema = z.object({
   email: z.string().email(),
   role: z.enum(['owner', 'co-writer', 'commenter', 'reader']).default('co-writer'),
   invitedBy: z.string().uuid().optional(),
+  documentId: z.string().optional(),
+  projectName: z.string().optional(),
 });
 
 const UpdateRoleSchema = z.object({
@@ -24,7 +26,7 @@ export const collaboratorRoutes: FastifyPluginAsync = async (server) => {
     return { collaborators: members };
   });
 
-  // Add / invite collaborator to project with duplicate protection & two-way email
+  // Add / invite collaborator to project with duplicate protection & direct screenplay join link
   server.post<{ Params: { id: string } }>('/api/v1/projects/:id/collaborators', {
     preHandler: [requireProjectAccess()],
   }, async (request, reply) => {
@@ -34,19 +36,23 @@ export const collaboratorRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(400).send({ error: 'Validation failed', details: parseResult.error.flatten() });
     }
 
-    const { email, role, invitedBy } = parseResult.data;
+    const { email, role, invitedBy, documentId, projectName: passedProjectName } = parseResult.data;
     const { collaborator, isDuplicate } = await ResilientStore.addCollaborator(id, email, role, invitedBy);
 
     // Two-way email notification in background
     (async () => {
       try {
         const project = await ResilientStore.getProject(id);
-        const projectName = project?.name || 'Screenplay Project';
+        const projectName = passedProjectName || project?.name || 'Screenplay Project';
         const inviterName = request.user?.displayName || 'Screenwriter';
         const inviterEmail = request.user?.email;
 
-        // 1. Send invite email to the invited collaborator
-        await EmailService.sendInviteEmail(email, inviterName, projectName, role);
+        const appUrl = process.env.APP_URL || 'https://dev-openscript.ssnpictures.in';
+        const targetDocId = documentId || (id !== '00000000-0000-0000-0000-000000000000' ? id : '');
+        const targetUrl = targetDocId ? `${appUrl}/?doc=${targetDocId}` : appUrl;
+
+        // 1. Send invite email to the invited collaborator with direct document link
+        await EmailService.sendInviteEmail(email, inviterName, projectName, role, targetUrl);
 
         // 2. Send two-way confirmation email to the user who sent the invite
         if (inviterEmail && inviterEmail !== email) {
@@ -82,7 +88,11 @@ export const collaboratorRoutes: FastifyPluginAsync = async (server) => {
     const projectName = project?.name || 'Screenplay Project';
     const inviterName = request.user?.displayName || 'Screenwriter';
 
-    await EmailService.sendInviteEmail(member.email, inviterName, projectName, member.role);
+    const appUrl = process.env.APP_URL || 'https://dev-openscript.ssnpictures.in';
+    const targetDocId = id !== '00000000-0000-0000-0000-000000000000' ? id : '';
+    const targetUrl = targetDocId ? `${appUrl}/?doc=${targetDocId}` : appUrl;
+
+    await EmailService.sendInviteEmail(member.email, inviterName, projectName, member.role, targetUrl);
 
     return { success: true, message: `Invitation resent to ${member.email}` };
   });

@@ -517,6 +517,16 @@ export const ScreenplayEditor: React.FC<ScreenplayEditorProps> = ({
     }
   }, [editor, onEditorReady]);
 
+  // Sync initial content when document loads from remote server / join URL
+  useEffect(() => {
+    if (editor && initialContent && !editor.isDestroyed) {
+      const currentHtml = editor.getHTML();
+      if (initialContent !== currentHtml && (currentHtml.includes('Every story begins with a blank page') || !currentHtml || currentHtml === '<p></p>')) {
+        editor.commands.setContent(initialContent);
+      }
+    }
+  }, [initialContent, editor]);
+
   // Dynamic Pagination & Physical Page Break Slicing
   const [totalPages, setTotalPages] = useState<number>(1);
   const [currentPage, setCurrentPage] = useState<number>(1);
