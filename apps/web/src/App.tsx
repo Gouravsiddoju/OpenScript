@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { 
   FileText, 
   Code, 
@@ -53,7 +53,8 @@ import { ProjectDashboard } from './components/ProjectDashboard';
 import { listProjects, getProject, saveProject, createProject, getActiveProjectId, setActiveProjectId } from './utils/projectStore';
 import { htmlToBlocks, exportScreenplayPdf, saveScreenplayToLocalDisk } from './utils/exporter';
 import { ImportedScreenplayResult } from './utils/importer';
-import { fountainToHtml, parseFountain, blocksToHtml } from '@openscript/fountain';
+import { fountainToHtml, parseFountain, blocksToHtml, serializeFountain } from '@openscript/fountain';
+import { createSafetyBackup, isFountainContentIdentical, smartMergeFountain } from './utils/conflictResolver';
 import { parseFdx, serializeFdx } from '@openscript/fdx';
 import { 
   PRODUCTION_REVISION_SEQUENCE, 
@@ -543,6 +544,9 @@ export default function App() {
     setDocumentId(proj.id);
     setScriptHtml(proj.scriptHtml);
     setFountainText(proj.fountainText);
+    const savedRev = Number(localStorage.getItem(`openscript_rev_${proj.id}`)) || 1;
+    setRevisionNumber(savedRev);
+    setConflictModalOpen(false);
     if (editorInstance) {
       editorInstance.commands.setContent(proj.scriptHtml);
     }
@@ -863,10 +867,14 @@ export default function App() {
 
   // Concurrency & Autosave state
   const [revisionNumber, setRevisionNumber] = useState<number>(() => {
-    return Number(localStorage.getItem('openscript_revision_number')) || 1;
+    const curDocId = localStorage.getItem('openscript_doc_id') || '';
+    return Number(localStorage.getItem(`openscript_rev_${curDocId}`)) || Number(localStorage.getItem('openscript_revision_number')) || 1;
   });
   const [conflictModalOpen, setConflictModalOpen] = useState(false);
   const [serverRevision, setServerRevision] = useState<number | undefined>(undefined);
+  const [serverContent, setServerContent] = useState<string>('');
+  const [serverUpdatedAt, setServerUpdatedAt] = useState<string | undefined>(undefined);
+  const isResolvingConflictRef = useRef(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -935,8 +943,40 @@ export default function App() {
     setIsSaved(true);
   }, [scriptHtml, fountainText, titleMetadata, isScriptLocked, isTrackingRevisions, activeRevisionColor, revisionNumber]);
 
+  // Sync document revision with server when documentId changes
+  useEffect(() => {
+    let isMounted = true;
+    async function syncDocumentRevision() {
+      try {
+        const res = await fetch(`/api/v1/documents/${documentId}`, { headers: authHeaders() });
+        if (res.ok && isMounted) {
+          const { document: serverDoc } = await res.json();
+          if (serverDoc && typeof serverDoc.revisionNumber === 'number') {
+            const serverRev = serverDoc.revisionNumber;
+            const sFountain = serializeFountain(serverDoc.contentJson);
+            
+            if (isFountainContentIdentical(fountainText, sFountain)) {
+              setRevisionNumber(serverRev);
+              localStorage.setItem(`openscript_rev_${documentId}`, String(serverRev));
+            } else if (serverRev > revisionNumber) {
+              setServerContent(sFountain);
+              setServerRevision(serverRev);
+              setServerUpdatedAt(serverDoc.updatedAt);
+              setConflictModalOpen(true);
+            }
+          }
+        }
+      } catch {}
+    }
+    syncDocumentRevision();
+    return () => { isMounted = false; };
+  }, [documentId]);
+
   // Debounced API concurrency autosave
   useEffect(() => {
+    // Pause autosave while resolving a conflict to avoid infinite loops
+    if (conflictModalOpen || isResolvingConflictRef.current) return;
+
     const timer = setTimeout(async () => {
       try {
         const blocks = parseFountain(fountainText);
@@ -970,12 +1010,35 @@ export default function App() {
 
         if (res.status === 409) {
           const data = await res.json();
-          setServerRevision(data.serverRevisionNumber);
+          const sRev = data.serverRevisionNumber;
+          setServerRevision(sRev);
+
+          // Fetch server document to inspect content
+          try {
+            const docRes = await fetch(`/api/v1/documents/${documentId}`, { headers: authHeaders() });
+            if (docRes.ok) {
+              const { document: serverDoc } = await docRes.json();
+              const sFountain = serializeFountain(serverDoc.contentJson);
+
+              // 1. Silent resolution if content is actually identical (false alarm conflict)
+              if (isFountainContentIdentical(fountainText, sFountain)) {
+                setRevisionNumber(sRev);
+                localStorage.setItem(`openscript_rev_${documentId}`, String(sRev));
+                return;
+              }
+
+              // 2. Real content conflict with differing text
+              setServerContent(sFountain);
+              setServerUpdatedAt(serverDoc.updatedAt);
+            }
+          } catch {}
+
           setConflictModalOpen(true);
         } else if (res.ok) {
           const data = await res.json();
           if (data.newRevisionNumber) {
             setRevisionNumber(data.newRevisionNumber);
+            localStorage.setItem(`openscript_rev_${documentId}`, String(data.newRevisionNumber));
           }
         }
       } catch (err) {
@@ -984,7 +1047,7 @@ export default function App() {
     }, 1500);
 
     return () => clearTimeout(timer);
-  }, [scriptHtml, fountainText, revisionNumber, documentId, titleMetadata, activeRevisionColor, isScriptLocked]);
+  }, [scriptHtml, fountainText, revisionNumber, documentId, titleMetadata, activeRevisionColor, isScriptLocked, conflictModalOpen]);
 
   // Extract Scene Items for Final Draft Navigator & Beat Board
   const scenes = useMemo(() => {
@@ -2294,20 +2357,164 @@ export default function App() {
         onChange={setTitleMetadata}
       />
 
-      {/* Concurrency Conflict Resolution Modal */}
+      {/* Concurrency Conflict Resolution Modal with Zero-Data-Loss Safety */}
       <ConflictModal
         isOpen={conflictModalOpen}
         localRevisionNumber={revisionNumber}
         serverRevisionNumber={serverRevision}
         localContentPreview={fountainText}
+        serverContentPreview={serverContent}
+        serverUpdatedAt={serverUpdatedAt}
         onClose={() => setConflictModalOpen(false)}
-        onReloadServer={() => {
+        onSmartMerge={async (mergedText) => {
+          isResolvingConflictRef.current = true;
+          createSafetyBackup(documentId, titleMetadata.title, fountainText, scriptHtml, revisionNumber, 'conflict_overwrite');
+
+          const nextRev = serverRevision || revisionNumber;
+          const blocks = parseFountain(mergedText);
+          const html = blocksToHtml(blocks);
+
+          setFountainText(mergedText);
+          setScriptHtml(html);
+          if (editorInstance) {
+            editorInstance.commands.setContent(html);
+          }
+          setRevisionNumber(nextRev);
+          localStorage.setItem(`openscript_rev_${documentId}`, String(nextRev));
           setConflictModalOpen(false);
-          if (serverRevision) setRevisionNumber(serverRevision);
+
+          try {
+            const docPayload = {
+              schemaVersion: 2,
+              id: documentId,
+              projectId: '00000000-0000-0000-0000-000000000000',
+              revisionNumber: nextRev,
+              metadata: {
+                title: titleMetadata.title,
+                credit: titleMetadata.credit,
+                authors: [titleMetadata.author],
+                draftLabel: titleMetadata.draftLabel,
+                draftColor: activeRevisionColor,
+                isLocked: isScriptLocked,
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+              },
+              content: blocks,
+            };
+
+            const res = await fetch(`/api/v1/documents/${documentId}`, {
+              method: 'PATCH',
+              headers: authHeaders({ 'Content-Type': 'application/json' }),
+              body: JSON.stringify({
+                revisionNumber: nextRev,
+                content: docPayload,
+                title: titleMetadata.title,
+              }),
+            });
+
+            if (res.ok) {
+              const data = await res.json();
+              if (data.newRevisionNumber) {
+                setRevisionNumber(data.newRevisionNumber);
+                localStorage.setItem(`openscript_rev_${documentId}`, String(data.newRevisionNumber));
+              }
+            }
+          } catch {} finally {
+            setTimeout(() => { isResolvingConflictRef.current = false; }, 1000);
+          }
         }}
-        onOverwrite={() => {
+        onForkDraft={() => {
+          isResolvingConflictRef.current = true;
+          const forkTitle = `${titleMetadata.title} (Local Fork - Rev ${revisionNumber})`;
+          createProject(forkTitle, titleMetadata.author, 'blank');
+          createSafetyBackup(documentId, forkTitle, fountainText, scriptHtml, revisionNumber, 'manual_fork');
+
+          if (serverContent) {
+            const blocks = parseFountain(serverContent);
+            const html = blocksToHtml(blocks);
+            setFountainText(serverContent);
+            setScriptHtml(html);
+            if (editorInstance) {
+              editorInstance.commands.setContent(html);
+            }
+          }
+          if (serverRevision) {
+            setRevisionNumber(serverRevision);
+            localStorage.setItem(`openscript_rev_${documentId}`, String(serverRevision));
+          }
           setConflictModalOpen(false);
-          if (serverRevision) setRevisionNumber(serverRevision);
+          setLocalSaveNotification('Local edits saved as a new draft in Dashboard! Server version loaded.');
+          setTimeout(() => { isResolvingConflictRef.current = false; }, 1000);
+        }}
+        onReloadServer={() => {
+          isResolvingConflictRef.current = true;
+          createSafetyBackup(documentId, titleMetadata.title, fountainText, scriptHtml, revisionNumber, 'server_reload');
+
+          if (serverContent) {
+            const blocks = parseFountain(serverContent);
+            const html = blocksToHtml(blocks);
+            setFountainText(serverContent);
+            setScriptHtml(html);
+            if (editorInstance) {
+              editorInstance.commands.setContent(html);
+            }
+          }
+          if (serverRevision) {
+            setRevisionNumber(serverRevision);
+            localStorage.setItem(`openscript_rev_${documentId}`, String(serverRevision));
+          }
+          setConflictModalOpen(false);
+          setTimeout(() => { isResolvingConflictRef.current = false; }, 1000);
+        }}
+        onOverwrite={async () => {
+          isResolvingConflictRef.current = true;
+          createSafetyBackup(documentId, titleMetadata.title, fountainText, scriptHtml, revisionNumber, 'conflict_overwrite');
+
+          const targetRev = serverRevision || revisionNumber;
+          setRevisionNumber(targetRev);
+          localStorage.setItem(`openscript_rev_${documentId}`, String(targetRev));
+          setConflictModalOpen(false);
+
+          try {
+            const blocks = parseFountain(fountainText);
+            const docPayload = {
+              schemaVersion: 2,
+              id: documentId,
+              projectId: '00000000-0000-0000-0000-000000000000',
+              revisionNumber: targetRev,
+              metadata: {
+                title: titleMetadata.title,
+                credit: titleMetadata.credit,
+                authors: [titleMetadata.author],
+                draftLabel: titleMetadata.draftLabel,
+                draftColor: activeRevisionColor,
+                isLocked: isScriptLocked,
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+              },
+              content: blocks,
+            };
+
+            const res = await fetch(`/api/v1/documents/${documentId}`, {
+              method: 'PATCH',
+              headers: authHeaders({ 'Content-Type': 'application/json' }),
+              body: JSON.stringify({
+                revisionNumber: targetRev,
+                content: docPayload,
+                title: titleMetadata.title,
+              }),
+            });
+
+            if (res.ok) {
+              const data = await res.json();
+              if (data.newRevisionNumber) {
+                setRevisionNumber(data.newRevisionNumber);
+                localStorage.setItem(`openscript_rev_${documentId}`, String(data.newRevisionNumber));
+              }
+            }
+          } catch {} finally {
+            setTimeout(() => { isResolvingConflictRef.current = false; }, 1000);
+          }
         }}
       />
 
