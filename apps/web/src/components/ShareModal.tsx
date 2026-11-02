@@ -62,16 +62,25 @@ export const ShareModal: React.FC<ShareModalProps> = ({
 
   const isOwner = currentUserRole === 'owner';
 
-  // Deduplicate collaborators by email or userId to prevent duplicate rows
+  // Deduplicate collaborators by email or userId to prevent duplicate rows & ensure exactly one owner row
   const uniqueCollaborators = React.useMemo(() => {
-    const seen = new Set<string>();
+    const seenEmails = new Set<string>();
+    const seenUserIds = new Set<string>();
+    let seenOwner = false;
     const list: CollaboratorProfile[] = [];
+
     for (const c of collaborators) {
-      const key = (c.email?.trim().toLowerCase() || c.userId || '').trim();
-      if (key && !seen.has(key)) {
-        seen.add(key);
-        list.push(c);
+      if (c.role === 'owner') {
+        if (seenOwner) continue; // Strictly only one owner row ever
+        seenOwner = true;
       }
+      const email = c.email?.trim().toLowerCase();
+      const userId = c.userId?.trim();
+      if (email && seenEmails.has(email)) continue;
+      if (userId && seenUserIds.has(userId)) continue;
+      if (email) seenEmails.add(email);
+      if (userId) seenUserIds.add(userId);
+      list.push(c);
     }
     return list;
   }, [collaborators]);
@@ -284,7 +293,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({
               {uniqueCollaborators.map((collab) => {
                 const RoleIcon = ROLE_DESCRIPTIONS[collab.role]?.icon || Edit3;
                 const isSelf = collab.role === 'owner';
-                const isPending = (collab as any).status === 'pending' && !(collab as any).lastSeenAt;
+                const isPending = (collab as any).status === 'pending' && !(collab as any).lastSeenAt && !(collab as any).isOnline;
 
                 return (
                   <div

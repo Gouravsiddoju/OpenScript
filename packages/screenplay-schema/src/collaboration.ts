@@ -23,14 +23,17 @@ export const CollaboratorProfileSchema = z.object({
 export type CollaboratorProfile = z.infer<typeof CollaboratorProfileSchema>;
 
 export const LivePresenceSchema = z.object({
-  userId: z.string().uuid(),
+  userId: z.string(),
   displayName: z.string(),
   color: z.string(),
   role: CollaboratorRoleSchema,
-  activeBlockId: z.string().uuid().optional(),
+  activeBlockId: z.string().optional(),
+  activeSceneHeading: z.string().optional(),
+  activeBlockSnippet: z.string().optional(),
   cursorOffset: z.number().int().nonnegative().optional(),
   isTyping: z.boolean().default(false),
   lastPing: z.number(),
+  isOnline: z.boolean().optional(),
 });
 export type LivePresence = z.infer<typeof LivePresenceSchema>;
 

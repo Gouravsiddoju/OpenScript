@@ -53,16 +53,33 @@ export function createSafetyBackup(
 }
 
 /**
+ * Cleanses any legacy or leaked merge conflict comment markers from fountain screenplay text
+ */
+export function stripConflictMarkers(text: string): string {
+  if (!text) return text;
+  return text
+    .replace(/\/\*\s*===+\s*CONFLICT IN SCENE:[^*]*===+\s*\*\//gi, '')
+    .replace(/\/\*\s*---+\s*SERVER VERSION[^*]*---+\s*\*\//gi, '')
+    .replace(/\/\*\s*---+\s*YOUR LOCAL DRAFT[^*]*---+\s*\*\//gi, '')
+    .replace(/\/\*\s*===+\s*END SCENE CONFLICT\s*===+\s*\*\//gi, '')
+    .replace(/\/\*\s*---+\s*ADDED FROM SERVER[^*]*---+\s*\*\//gi, '')
+    .replace(/\/\*\s*===+\s*AUTOMATIC MERGE RECONCILIATION[\s\S]*?===+\s*\*\//gi, '')
+    .replace(/\/\*\s*---+\s*YOUR LOCAL EDITS\s*---+\s*\*\//gi, '')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
+/**
  * Checks if two pieces of Fountain text have identical content (ignoring whitespace differences)
  */
 export function isFountainContentIdentical(textA: string, textB: string): boolean {
-  const normA = textA.replace(/\r\n/g, '\n').replace(/\n+/g, '\n').trim();
-  const normB = textB.replace(/\r\n/g, '\n').replace(/\n+/g, '\n').trim();
+  const normA = stripConflictMarkers(textA).replace(/\r\n/g, '\n').replace(/\n+/g, '\n').trim();
+  const normB = stripConflictMarkers(textB).replace(/\r\n/g, '\n').replace(/\n+/g, '\n').trim();
   return normA === normB;
 }
 
 /**
- * Smartly reconciles two conflicting Fountain screenplays.
+ * Smartly reconciles two conflicting Fountain screenplays without ever leaking raw comment syntax.
  * Ensures not a single word or scene written by either writer is lost.
  */
 export function smartMergeFountain(
@@ -71,8 +88,8 @@ export function smartMergeFountain(
   localRev: number = 1,
   serverRev: number = 2
 ): string {
-  const normLocal = localText.replace(/\r\n/g, '\n').trim();
-  const normServer = serverText.replace(/\r\n/g, '\n').trim();
+  const normLocal = stripConflictMarkers(localText).replace(/\r\n/g, '\n').trim();
+  const normServer = stripConflictMarkers(serverText).replace(/\r\n/g, '\n').trim();
 
   // If identical, return either
   if (normLocal === normServer) {
@@ -106,18 +123,32 @@ export function smartMergeFountain(
         mergedScenes.push(lScene);
       } else {
         // Scene exists in local or was modified
-        // Check if there is a similar scene heading in server
         const lHeading = lScene.split('\n')[0].trim().toUpperCase();
         const matchingServerScene = serverScenes.find(s => s.split('\n')[0].trim().toUpperCase() === lHeading);
 
         if (matchingServerScene && matchingServerScene !== lScene) {
-          // Conflict in same scene: preserve both variants clearly demarcated
-          mergedScenes.push(
-            `/* === CONFLICT IN SCENE: ${lHeading} === */\n` +
-            `/* --- SERVER VERSION (Rev #${serverRev}) --- */\n${matchingServerScene}\n\n` +
-            `/* --- YOUR LOCAL DRAFT (Rev #${localRev}) --- */\n${lScene}\n` +
-            `/* === END SCENE CONFLICT === */`
-          );
+          // Both writers touched the same scene - reconcile cleanly without comment markers
+          const lBody = lScene.split('\n').slice(1).join('\n').trim();
+          const sBody = matchingServerScene.split('\n').slice(1).join('\n').trim();
+
+          if (lBody.includes(sBody)) {
+            mergedScenes.push(lScene);
+          } else if (sBody.includes(lBody)) {
+            mergedScenes.push(matchingServerScene);
+          } else {
+            // Reconcile by scene heading + union of paragraphs
+            const lLines = lBody.split(/\n\s*\n/).map(l => l.trim()).filter(Boolean);
+            const sLines = sBody.split(/\n\s*\n/).map(l => l.trim()).filter(Boolean);
+            const seenParas = new Set(lLines.map(p => p.toLowerCase()));
+            const combinedParas = [...lLines];
+            for (const sp of sLines) {
+              if (!seenParas.has(sp.toLowerCase())) {
+                seenParas.add(sp.toLowerCase());
+                combinedParas.push(sp);
+              }
+            }
+            mergedScenes.push(`${lHeading}\n\n${combinedParas.join('\n\n')}`);
+          }
         } else {
           mergedScenes.push(lScene);
         }
@@ -129,20 +160,13 @@ export function smartMergeFountain(
       const sHeading = sScene.split('\n')[0].trim().toUpperCase();
       const existsInLocal = localScenes.some(l => l.split('\n')[0].trim().toUpperCase() === sHeading);
       if (!existsInLocal) {
-        mergedScenes.push(`/* --- ADDED FROM SERVER (Rev #${serverRev}) --- */\n${sScene}`);
+        mergedScenes.push(sScene);
       }
     }
 
-    return mergedScenes.join('\n\n');
+    return stripConflictMarkers(mergedScenes.join('\n\n'));
   }
 
-  // Fallback: Clear block-level demarcation
-  return (
-    `/* ========================================================\n` +
-    `   AUTOMATIC MERGE RECONCILIATION\n` +
-    `   Server Rev #${serverRev} + Local Base Rev #${localRev}\n` +
-    `   ======================================================== */\n\n` +
-    `/* --- SERVER VERSION --- */\n${normServer}\n\n` +
-    `/* --- YOUR LOCAL EDITS --- */\n${normLocal}`
-  );
+  // Fallback: cleanly preserve both versions without comment markers
+  return stripConflictMarkers(normServer + '\n\n' + normLocal);
 }

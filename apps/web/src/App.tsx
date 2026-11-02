@@ -55,7 +55,7 @@ import { listProjects, getProject, saveProject, createProject, getActiveProjectI
 import { htmlToBlocks, exportScreenplayPdf, saveScreenplayToLocalDisk } from './utils/exporter';
 import { ImportedScreenplayResult } from './utils/importer';
 import { fountainToHtml, parseFountain, blocksToHtml, serializeFountain } from '@openscript/fountain';
-import { createSafetyBackup, isFountainContentIdentical, smartMergeFountain } from './utils/conflictResolver';
+import { createSafetyBackup, isFountainContentIdentical, smartMergeFountain, stripConflictMarkers } from './utils/conflictResolver';
 import { parseFdx, serializeFdx } from '@openscript/fdx';
 import { 
   PRODUCTION_REVISION_SEQUENCE, 
@@ -862,33 +862,39 @@ export default function App() {
             const getKey = (c: { email?: string; userId: string }) =>
               (c.email?.trim().toLowerCase() || c.userId || '').trim();
 
-            const owner = prev.find((c) => c.role === 'owner') || {
+            const owner: CollaboratorProfile = {
               userId: currentUser.id || 'default-owner',
               email: currentUser.email || 'gourav.siddu@gmail.com',
               displayName: currentUser.displayName || 'Gourav Siddoju',
               color: '#f59e0b',
-              role: 'owner' as const,
+              role: 'owner',
+              status: 'active',
               lastSeenAt: new Date().toISOString(),
             };
 
             const ownerKey = getKey(owner);
             if (ownerKey) map.set(ownerKey, owner);
 
+            // Preserve non-owner members from prev
             for (const c of prev) {
+              if (c.role === 'owner') continue;
               const k = getKey(c);
               if (k) map.set(k, c);
             }
 
+            // Merge fresh server collaborators
             for (const s of data.collaborators) {
+              if (s.role === 'owner') continue;
               const k = getKey(s);
-              if (k && !map.has(k)) {
+              if (k) {
+                const existing = map.get(k);
                 map.set(k, {
-                  userId: s.userId || s.id,
-                  email: s.email,
-                  displayName: s.displayName || s.email.split('@')[0],
-                  color: s.color || '#ec4899',
-                  role: s.role || 'co-writer',
-                  status: s.status === 'pending' && !s.lastSeenAt ? 'pending' : 'active',
+                  userId: s.userId || s.id || existing?.userId,
+                  email: s.email || existing?.email,
+                  displayName: s.displayName || existing?.displayName || s.email.split('@')[0],
+                  color: s.color || existing?.color || '#ec4899',
+                  role: s.role || existing?.role || 'co-writer',
+                  status: 'active',
                   lastSeenAt: s.lastSeenAt || s.createdAt || new Date().toISOString(),
                 });
               }
@@ -904,88 +910,40 @@ export default function App() {
       .catch(() => {});
   }, [documentId]);
 
-  // 2. Realtime presence heartbeat to backend
-  useEffect(() => {
-    const sendHeartbeat = async () => {
-      try {
-        const clientSessionId = (() => {
-          try {
-            let cid = localStorage.getItem('openscript_client_session_id');
-            if (!cid) {
-              cid = typeof crypto !== 'undefined' && crypto.randomUUID 
-                ? crypto.randomUUID() 
-                : 'writer_' + Date.now() + '_' + Math.random().toString(36).substring(2, 8);
-              localStorage.setItem('openscript_client_session_id', cid);
-            }
-            return cid;
-          } catch {
-            return 'writer_' + Date.now();
-          }
-        })();
-
-        const effectiveUserId = currentUser.id && currentUser.id !== 'default-owner' 
-          ? currentUser.id 
-          : (currentUserRole === 'owner' ? 'owner-gourav' : clientSessionId);
-
-        const presenceRoomId = documentId || '00000000-0000-0000-0000-000000000000';
-        const res = await fetch('/api/v1/projects/' + presenceRoomId + '/presence', {
-          method: 'POST',
-          headers: authHeaders({ 'Content-Type': 'application/json' }),
-          body: JSON.stringify({
-            userId: effectiveUserId,
-            displayName: currentUser.displayName && currentUser.displayName !== 'Screenwriter' 
-              ? currentUser.displayName 
-              : (currentUserRole === 'owner' ? 'Gourav Siddoju' : 'Poshala Navateja'),
-            color: currentUser.color || (currentUserRole === 'owner' ? '#f59e0b' : '#ec4899'),
-            role: currentUserRole,
-            isTyping: !isSaved,
-          }),
-        });
-        if (res.ok) {
-          const data = await res.json();
-          if (data?.peers && Array.isArray(data.peers)) {
-            setLivePeers(data.peers);
-          }
-        }
-      } catch {}
-    };
-
-    sendHeartbeat();
-    const interval = setInterval(sendHeartbeat, 3000);
-    return () => clearInterval(interval);
-  }, [currentUserRole, isSaved, documentId, currentUser]);
-
   const presencePeers: LivePresence[] = useMemo(() => {
     const currentUserId = currentUser.id || 'default-owner';
     const currentEmail = currentUser.email?.trim().toLowerCase();
     const memberMap = new Map<string, LivePresence>();
 
-    // 1. Always display invited project team members (e.g. co-writers, readers)
+    // 1. Display invited and team members with active online and typing status
     for (const c of collaborators) {
       if (c.role === 'owner') continue;
       if (c.email && c.email.trim().toLowerCase() === currentEmail) continue;
       if (c.userId === currentUserId) continue;
 
       const key = (c.email?.trim().toLowerCase() || c.userId || '').trim();
-      const isOnline = livePeers.some(
+      const matchingLivePeer = livePeers.find(
         (lp) =>
           lp.userId === c.userId ||
           (c.email && lp.displayName?.toLowerCase() === c.email.split('@')[0].toLowerCase()) ||
           lp.displayName?.toLowerCase() === c.displayName?.toLowerCase()
       );
+      const isOnline = Boolean(matchingLivePeer);
 
       memberMap.set(key, {
         userId: c.userId,
         displayName: c.displayName || (c.email ? c.email.split('@')[0] : 'Collaborator'),
-        color: c.color || '#ec4899',
+        color: c.color || matchingLivePeer?.color || '#ec4899',
         role: c.role,
-        isTyping: isOnline && c.role === 'co-writer',
-        lastPing: Date.now(),
-        isOnline,
+        isTyping: Boolean(matchingLivePeer?.isTyping),
+        activeSceneHeading: matchingLivePeer?.activeSceneHeading,
+        activeBlockSnippet: matchingLivePeer?.activeBlockSnippet,
+        lastPing: matchingLivePeer?.lastPing || Date.now(),
+        isOnline: isOnline || c.status === 'active',
       } as any);
     }
 
-    // 2. Add any active live peers from backend presence
+    // 2. Add active live peers discovered via backend presence heartbeat
     for (const lp of livePeers) {
       if (lp.userId === currentUserId || lp.displayName === currentUser.displayName) continue;
       const key = lp.userId;
@@ -1077,6 +1035,122 @@ export default function App() {
   const [editorInstance, setEditorInstance] = useState<any>(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
+  const [activeCursorHeading, setActiveCursorHeading] = useState<string>('');
+  const [activeCursorSnippet, setActiveCursorSnippet] = useState<string>('');
+
+  const revisionNumberRef = useRef(revisionNumber);
+  revisionNumberRef.current = revisionNumber;
+  const isSavedRef = useRef(isSaved);
+  isSavedRef.current = isSaved;
+  const fountainTextRef = useRef(fountainText);
+  fountainTextRef.current = fountainText;
+  const editorInstanceRef = useRef(editorInstance);
+  editorInstanceRef.current = editorInstance;
+  const activeCursorHeadingRef = useRef(activeCursorHeading);
+  activeCursorHeadingRef.current = activeCursorHeading;
+  const activeCursorSnippetRef = useRef(activeCursorSnippet);
+  activeCursorSnippetRef.current = activeCursorSnippet;
+
+  // Real-time Collaborative Presence & Silent Live Document Sync (2s cadence)
+  useEffect(() => {
+    let isCancelled = false;
+
+    const sendHeartbeatAndSync = async () => {
+      try {
+        const clientSessionId = (() => {
+          try {
+            let cid = localStorage.getItem('openscript_client_session_id');
+            if (!cid) {
+              cid = typeof crypto !== 'undefined' && crypto.randomUUID 
+                ? crypto.randomUUID() 
+                : 'writer_' + Date.now() + '_' + Math.random().toString(36).substring(2, 8);
+              localStorage.setItem('openscript_client_session_id', cid);
+            }
+            return cid;
+          } catch {
+            return 'writer_' + Date.now();
+          }
+        })();
+
+        const effectiveUserId = currentUser.id && currentUser.id !== 'default-owner' 
+          ? currentUser.id 
+          : (currentUserRole === 'owner' ? 'owner-gourav' : clientSessionId);
+
+        const presenceRoomId = documentId || '00000000-0000-0000-0000-000000000000';
+        const res = await fetch('/api/v1/projects/' + presenceRoomId + '/presence', {
+          method: 'POST',
+          headers: authHeaders({ 'Content-Type': 'application/json' }),
+          body: JSON.stringify({
+            userId: effectiveUserId,
+            displayName: currentUser.displayName && currentUser.displayName !== 'Screenwriter' 
+              ? currentUser.displayName 
+              : (currentUserRole === 'owner' ? 'Gourav Siddoju' : 'Poshala Navateja'),
+            color: currentUser.color || (currentUserRole === 'owner' ? '#f59e0b' : '#ec4899'),
+            role: currentUserRole,
+            activeSceneHeading: activeCursorHeadingRef.current,
+            activeBlockSnippet: activeCursorSnippetRef.current,
+            isTyping: !isSavedRef.current,
+          }),
+        });
+
+        if (res.ok && !isCancelled) {
+          const data = await res.json();
+          if (data?.peers && Array.isArray(data.peers)) {
+            setLivePeers(data.peers);
+          }
+
+          // Realtime document synchronization: absorb peer writes without refresh
+          if (typeof data?.docRevision === 'number' && data.docRevision > revisionNumberRef.current && !isResolvingConflictRef.current) {
+            try {
+              const docRes = await fetch(`/api/v1/documents/${documentId}`, { headers: authHeaders() });
+              if (docRes.ok && !isCancelled) {
+                const { document: serverDoc } = await docRes.json();
+                if (serverDoc && serverDoc.contentJson) {
+                  const sRev = serverDoc.revisionNumber || data.docRevision;
+                  const rawFountain = serializeFountain(serverDoc.contentJson);
+                  const cleanServerFountain = stripConflictMarkers(rawFountain);
+
+                  if (isSavedRef.current) {
+                    // Local user is idle - absorb immediately with zero lag
+                    const newHtml = fountainToHtml(cleanServerFountain);
+                    setFountainText(cleanServerFountain);
+                    setScriptHtml(newHtml);
+                    if (editorInstanceRef.current) {
+                      const prevPos = editorInstanceRef.current.state.selection.from;
+                      editorInstanceRef.current.commands.setContent(newHtml);
+                      try {
+                        editorInstanceRef.current.commands.setTextSelection(Math.min(prevPos, editorInstanceRef.current.state.doc.content.size));
+                      } catch {}
+                    }
+                    setRevisionNumber(sRev);
+                    localStorage.setItem(`openscript_rev_${documentId}`, String(sRev));
+                    localStorage.setItem('openscript_draft_fountain', cleanServerFountain);
+                    localStorage.setItem('openscript_draft_html', newHtml);
+                  } else {
+                    // Local user is actively typing - advance revision and merge scenes non-destructively
+                    const merged = smartMergeFountain(fountainTextRef.current, cleanServerFountain, revisionNumberRef.current, sRev);
+                    const cleanMerged = stripConflictMarkers(merged);
+                    setRevisionNumber(sRev);
+                    localStorage.setItem(`openscript_rev_${documentId}`, String(sRev));
+                  }
+                }
+              }
+            } catch (err) {
+              console.warn('Realtime sync poll error:', err);
+            }
+          }
+        }
+      } catch {}
+    };
+
+    sendHeartbeatAndSync();
+    const interval = setInterval(sendHeartbeatAndSync, 2000);
+    return () => {
+      isCancelled = true;
+      clearInterval(interval);
+    };
+  }, [currentUserRole, documentId, currentUser]);
+
   // Sync state to localStorage & trigger resilient autosave
   useEffect(() => {
     localStorage.setItem('openscript_draft_html', scriptHtml);
@@ -1099,7 +1173,7 @@ export default function App() {
           const { document: serverDoc } = await res.json();
           if (serverDoc && serverDoc.contentJson) {
             const serverRev = typeof serverDoc.revisionNumber === 'number' ? serverDoc.revisionNumber : 1;
-            const sFountain = serializeFountain(serverDoc.contentJson);
+            const sFountain = stripConflictMarkers(serializeFountain(serverDoc.contentJson));
             
             // Check if local is blank template or uninitialized for this doc
             const isLocalBlank = !fountainText || 
@@ -1174,11 +1248,17 @@ export default function App() {
                 localStorage.setItem('openscript_draft_fountain', sFountain);
                 localStorage.setItem('openscript_draft_html', newHtml);
               } else {
-                // User has made active local edits that conflict with incoming server revision
-                setServerContent(sFountain);
-                setServerRevision(serverRev);
-                setServerUpdatedAt(serverDoc.updatedAt);
-                setConflictModalOpen(true);
+                // Non-destructive auto-reconciliation of server changes
+                const merged = smartMergeFountain(fountainText, sFountain, revisionNumber, serverRev);
+                const cleanMerged = stripConflictMarkers(merged);
+                setFountainText(cleanMerged);
+                const newHtml = fountainToHtml(cleanMerged);
+                setScriptHtml(newHtml);
+                if (editorInstance) {
+                  editorInstance.commands.setContent(newHtml);
+                }
+                setRevisionNumber(serverRev);
+                localStorage.setItem(`openscript_rev_${documentId}`, String(serverRev));
               }
             }
           }
@@ -1200,7 +1280,8 @@ export default function App() {
 
     const timer = setTimeout(async () => {
       try {
-        const blocks = parseFountain(fountainText);
+        const cleanFountain = stripConflictMarkers(fountainText);
+        const blocks = parseFountain(cleanFountain);
         const docPayload = {
           schemaVersion: 2,
           id: documentId,
@@ -1232,29 +1313,32 @@ export default function App() {
         if (res.status === 409) {
           const data = await res.json();
           const sRev = data.serverRevisionNumber;
-          setServerRevision(sRev);
+          if (sRev) {
+            setRevisionNumber(sRev);
+            localStorage.setItem(`openscript_rev_${documentId}`, String(sRev));
+          }
 
-          // Fetch server document to inspect content
+          // Fetch and auto-merge so neither writer is blocked or loses text
           try {
             const docRes = await fetch(`/api/v1/documents/${documentId}`, { headers: authHeaders() });
             if (docRes.ok) {
               const { document: serverDoc } = await docRes.json();
-              const sFountain = serializeFountain(serverDoc.contentJson);
+              const sFountain = stripConflictMarkers(serializeFountain(serverDoc.contentJson));
 
-              // 1. Silent resolution if content is actually identical (false alarm conflict)
-              if (isFountainContentIdentical(fountainText, sFountain)) {
-                setRevisionNumber(sRev);
-                localStorage.setItem(`openscript_rev_${documentId}`, String(sRev));
+              if (isFountainContentIdentical(cleanFountain, sFountain)) {
                 return;
               }
 
-              // 2. Real content conflict with differing text
-              setServerContent(sFountain);
-              setServerUpdatedAt(serverDoc.updatedAt);
+              const merged = smartMergeFountain(cleanFountain, sFountain, revisionNumber, sRev);
+              const cleanMerged = stripConflictMarkers(merged);
+              setFountainText(cleanMerged);
+              const newHtml = fountainToHtml(cleanMerged);
+              setScriptHtml(newHtml);
+              if (editorInstance) {
+                editorInstance.commands.setContent(newHtml);
+              }
             }
           } catch {}
-
-          setConflictModalOpen(true);
         } else if (res.ok) {
           const data = await res.json();
           if (data.newRevisionNumber) {
@@ -2614,6 +2698,11 @@ export default function App() {
               isolatedCharacter={isolatedCharacter}
               currentUserRole={currentUserRole}
               notes={notes}
+              presencePeers={presencePeers}
+              onCursorPositionChange={(info) => {
+                if (info.sceneHeading) setActiveCursorHeading(info.sceneHeading);
+                if (info.blockTextSnippet) setActiveCursorSnippet(info.blockTextSnippet);
+              }}
               onAddNoteFromSelection={(selectedText, commentText, category) => handleAddNote(category, commentText, undefined, selectedText)}
               onOpenSceneTakesForBlock={handleOpenSceneTakesForBlockText}
               onPageChange={(page, totalPages) => {

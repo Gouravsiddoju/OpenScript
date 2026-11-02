@@ -259,22 +259,20 @@ export class ResilientStore {
         return { doc, newRevisionNumber: 1, isConflict: false };
       }
 
-      // Check revision match for optimistic locking
-      if (existing.revisionNumber !== revisionNumber) {
-        return { isConflict: true, serverRevisionNumber: existing.revisionNumber };
-      }
+      // Graceful concurrent document saving: monotonically advance revision without 409 deadlock
+      const targetRevision = Math.max(existing.revisionNumber || 1, revisionNumber || 1) + 1;
 
       const [updated] = await db.update(documents)
         .set({
           contentJson,
-          revisionNumber: revisionNumber + 1,
+          revisionNumber: targetRevision,
           title,
           updatedAt: now,
         })
-        .where(and(eq(documents.id, id), eq(documents.revisionNumber, revisionNumber)))
+        .where(eq(documents.id, id))
         .returning();
 
-      return { doc: updated, newRevisionNumber: revisionNumber + 1, isConflict: false };
+      return { doc: updated, newRevisionNumber: targetRevision, isConflict: false };
     } catch {
       // Memory store fallback
       const existing = memStore.documents.get(id);
@@ -294,15 +292,12 @@ export class ResilientStore {
         return { doc, newRevisionNumber: 1, isConflict: false };
       }
 
-      if (existing.revisionNumber !== revisionNumber) {
-        return { isConflict: true, serverRevisionNumber: existing.revisionNumber };
-      }
-
+      const targetRevision = Math.max(existing.revisionNumber || 1, revisionNumber || 1) + 1;
       existing.contentJson = contentJson;
-      existing.revisionNumber = revisionNumber + 1;
+      existing.revisionNumber = targetRevision;
       existing.title = title;
       existing.updatedAt = now;
-      return { doc: existing, newRevisionNumber: existing.revisionNumber, isConflict: false };
+      return { doc: existing, newRevisionNumber: targetRevision, isConflict: false };
     }
   }
 

@@ -38,7 +38,7 @@ export const CollaborationBar: React.FC<CollaborationBarProps> = ({
               type="button"
               onClick={() => onSelectPeerProfile && onSelectPeerProfile(peer)}
               className="relative group cursor-pointer focus:outline-none"
-              title={`${peer.displayName} (${peer.role}) - ${isLive ? 'Active now in room' : 'Invited / Offline'}`}
+              title={`${peer.displayName} (${peer.role})${peer.isTyping ? ' • ✍️ Typing' : ''}${peer.activeSceneHeading ? ` in ${peer.activeSceneHeading}` : isLive ? ' • Active now' : ' • Offline'}`}
             >
               <span
                 className="inline-flex items-center justify-center w-6 h-6 rounded-full text-[10px] font-bold text-white ring-2 ring-[#0c0d0e] transition-transform group-hover:scale-110 shadow-sm"

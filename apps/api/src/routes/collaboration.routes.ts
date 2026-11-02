@@ -1,5 +1,6 @@
 import { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
+import { ResilientStore } from '../services/store.service';
 
 export interface PeerPresence {
   userId: string;
@@ -7,6 +8,8 @@ export interface PeerPresence {
   color: string;
   role: 'owner' | 'co-writer' | 'commenter' | 'reader';
   activeBlockId?: string;
+  activeSceneHeading?: string;
+  activeBlockSnippet?: string;
   cursorOffset?: number;
   isTyping: boolean;
   lastPing: number;
@@ -34,6 +37,8 @@ const HeartbeatSchema = z.object({
   color: z.string().default('#3b82f6'),
   role: z.enum(['owner', 'co-writer', 'commenter', 'reader']).default('co-writer'),
   activeBlockId: z.string().optional(),
+  activeSceneHeading: z.string().optional(),
+  activeBlockSnippet: z.string().optional(),
   cursorOffset: z.number().int().optional(),
   isTyping: z.boolean().default(false),
 });
@@ -45,7 +50,15 @@ export const collaborationRoutes: FastifyPluginAsync = async (server) => {
     cleanupStalePeers(id);
     const room = rooms.get(id);
     const peers = room ? Array.from(room.values()) : [];
-    return { peers, count: peers.length };
+    
+    // Look up doc revision to assist instant live sync
+    const doc = await ResilientStore.getDocument(id);
+    return { 
+      peers, 
+      count: peers.length,
+      docRevision: doc?.revisionNumber,
+      docUpdatedAt: doc?.updatedAt 
+    };
   });
 
   // Send presence heartbeat & return active peers
@@ -56,7 +69,17 @@ export const collaborationRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(400).send({ error: 'Validation failed', details: parseResult.error.flatten() });
     }
 
-    const { userId, displayName, color, role, activeBlockId, cursorOffset, isTyping } = parseResult.data;
+    const { 
+      userId, 
+      displayName, 
+      color, 
+      role, 
+      activeBlockId, 
+      activeSceneHeading, 
+      activeBlockSnippet, 
+      cursorOffset, 
+      isTyping 
+    } = parseResult.data;
 
     if (!rooms.has(id)) {
       rooms.set(id, new Map());
@@ -69,6 +92,8 @@ export const collaborationRoutes: FastifyPluginAsync = async (server) => {
       color,
       role,
       activeBlockId,
+      activeSceneHeading,
+      activeBlockSnippet,
       cursorOffset,
       isTyping,
       lastPing: Date.now(),
@@ -76,7 +101,15 @@ export const collaborationRoutes: FastifyPluginAsync = async (server) => {
 
     cleanupStalePeers(id);
     const peers = Array.from(room.values());
-    return { peers, count: peers.length };
+    
+    // Look up doc revision to assist instant live sync
+    const doc = await ResilientStore.getDocument(id);
+    return { 
+      peers, 
+      count: peers.length,
+      docRevision: doc?.revisionNumber,
+      docUpdatedAt: doc?.updatedAt
+    };
   });
 
   // Leave room

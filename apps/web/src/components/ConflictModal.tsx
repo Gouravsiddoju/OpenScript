@@ -13,7 +13,7 @@ import {
   Layers,
   X,
 } from 'lucide-react';
-import { smartMergeFountain } from '../utils/conflictResolver';
+import { smartMergeFountain, stripConflictMarkers } from '../utils/conflictResolver';
 
 interface ConflictModalProps {
   isOpen: boolean;
@@ -47,12 +47,12 @@ export const ConflictModal: React.FC<ConflictModalProps> = ({
 
   // Compute merged text automatically
   const mergedPreview = useMemo(() => {
-    return smartMergeFountain(
+    return stripConflictMarkers(smartMergeFountain(
       localContentPreview,
       serverContentPreview,
       localRevisionNumber,
       serverRevisionNumber
-    );
+    ));
   }, [localContentPreview, serverContentPreview, localRevisionNumber, serverRevisionNumber]);
 
   if (!isOpen) return null;

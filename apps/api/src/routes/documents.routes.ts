@@ -102,7 +102,7 @@ export const documentRoutes: FastifyPluginAsync = async (server) => {
     if (saveResult.isConflict) {
       return reply.status(409).send({
         error: 'Conflict: Document was modified by another session or tab',
-        serverRevisionNumber: saveResult.serverRevisionNumber,
+        serverRevisionNumber: (saveResult as any).serverRevisionNumber,
       });
     }
 

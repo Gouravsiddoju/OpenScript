@@ -5,7 +5,7 @@ import { screenplayNodes, ScreenplayKeymap, ScreenplayUppercase, paginateScreenp
 import { htmlToBlocks } from '../utils/exporter';
 import { TitlePageMetadata } from './TitlePageModal';
 import { Lock, Sparkles, Columns, Eye, Keyboard, MessageSquare, X } from 'lucide-react';
-import { CollaboratorRole, ScriptNote, ScriptNoteCategory, canEditScreenplay, canAddNotes, isWatermarkRequired } from '@openscript/screenplay-schema';
+import { CollaboratorRole, ScriptNote, ScriptNoteCategory, LivePresence, canEditScreenplay, canAddNotes, isWatermarkRequired } from '@openscript/screenplay-schema';
 
 interface ScreenplayEditorProps {
   initialContent?: string;
@@ -19,6 +19,12 @@ interface ScreenplayEditorProps {
   isolatedCharacter?: string | null;
   currentUserRole?: CollaboratorRole;
   notes?: ScriptNote[];
+  presencePeers?: LivePresence[];
+  onCursorPositionChange?: (info: {
+    sceneHeading?: string;
+    blockType?: string;
+    blockTextSnippet?: string;
+  }) => void;
   onSelectBlockForNotes?: (blockId: string) => void;
   onAddNoteFromSelection?: (selectedText: string, commentText: string, category: ScriptNoteCategory) => void;
   onOpenSceneTakesForBlock?: (blockText: string) => void;
@@ -75,6 +81,8 @@ export const ScreenplayEditor: React.FC<ScreenplayEditorProps> = ({
   isolatedCharacter = null,
   currentUserRole = 'owner',
   notes = [],
+  presencePeers = [],
+  onCursorPositionChange,
   onSelectBlockForNotes,
   onAddNoteFromSelection,
   onOpenSceneTakesForBlock,
@@ -453,6 +461,22 @@ export const ScreenplayEditor: React.FC<ScreenplayEditorProps> = ({
         if (blockPos !== currentBlockPosRef.current) {
           currentBlockPosRef.current = blockPos;
           currentBlockFocusTextRef.current = selection.$from.parent?.textContent?.trim() || '';
+        }
+
+        if (onCursorPositionChange) {
+          const currentBlockType = selection.$from.parent?.type?.name;
+          const currentText = selection.$from.parent?.textContent?.trim() || '';
+          let nearestHeading = '';
+          editor.state.doc.nodesBetween(0, selection.$from.pos, (node) => {
+            if (node.type.name === 'sceneHeading') {
+              nearestHeading = node.textContent.trim().toUpperCase();
+            }
+          });
+          onCursorPositionChange({
+            sceneHeading: nearestHeading,
+            blockType: currentBlockType,
+            blockTextSnippet: currentText.slice(0, 60),
+          });
         }
       } catch {}
     },
@@ -1127,6 +1151,37 @@ export const ScreenplayEditor: React.FC<ScreenplayEditorProps> = ({
             Page {currentPage} of {totalPages}
           </span>
         </div>
+
+        {/* Live Collaborator Presence Indicator directly inside Screenplay View */}
+        {presencePeers && presencePeers.filter((p) => p.isOnline).length > 0 && (
+          <div className="flex items-center justify-between mb-4 px-3 py-1.5 bg-[#14161f] border border-[#2b3040] rounded-xl text-xs font-mono select-none no-print shadow-sm">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+              <span className="text-gray-400 font-semibold text-[10px] uppercase tracking-wider">Active Writers:</span>
+              {presencePeers.filter((p) => p.isOnline).map((p) => (
+                <span
+                  key={p.userId}
+                  className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-bold border transition-all"
+                  style={{
+                    backgroundColor: `${p.color}20`,
+                    color: p.color,
+                    borderColor: `${p.color}50`,
+                  }}
+                  title={p.activeSceneHeading ? `Currently in ${p.activeSceneHeading}` : 'Active in script'}
+                >
+                  <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: p.color }} />
+                  <span>{p.displayName}</span>
+                  {p.activeSceneHeading && (
+                    <span className="opacity-75 text-[10px] font-mono font-normal">
+                      · {p.activeSceneHeading.slice(0, 22)}
+                    </span>
+                  )}
+                  {p.isTyping && <span className="animate-pulse">✍️</span>}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Tiptap Screenplay Content */}
         <EditorContent editor={editor} />
