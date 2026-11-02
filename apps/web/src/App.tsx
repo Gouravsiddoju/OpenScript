@@ -1051,6 +1051,10 @@ export default function App() {
   const activeCursorSnippetRef = useRef(activeCursorSnippet);
   activeCursorSnippetRef.current = activeCursorSnippet;
 
+  const lastUserEditTimeRef = useRef<number>(0);
+  const isDirtyRef = useRef<boolean>(false);
+  const lastSavedFountainRef = useRef<string>(fountainText);
+
   // Real-time Collaborative Presence & Silent Live Document Sync (2s cadence)
   useEffect(() => {
     let isCancelled = false;
@@ -1076,6 +1080,8 @@ export default function App() {
           ? currentUser.id 
           : (currentUserRole === 'owner' ? 'owner-gourav' : clientSessionId);
 
+        const isActivelyEditing = (Date.now() - lastUserEditTimeRef.current < 3500) || Boolean(editorInstanceRef.current?.isFocused);
+
         const presenceRoomId = documentId || '00000000-0000-0000-0000-000000000000';
         const res = await fetch('/api/v1/projects/' + presenceRoomId + '/presence', {
           method: 'POST',
@@ -1089,7 +1095,7 @@ export default function App() {
             role: currentUserRole,
             activeSceneHeading: activeCursorHeadingRef.current,
             activeBlockSnippet: activeCursorSnippetRef.current,
-            isTyping: !isSavedRef.current,
+            isTyping: isActivelyEditing,
           }),
         });
 
@@ -1101,6 +1107,11 @@ export default function App() {
 
           // Realtime document synchronization: absorb peer writes without refresh
           if (typeof data?.docRevision === 'number' && data.docRevision > revisionNumberRef.current && !isResolvingConflictRef.current) {
+            // NEVER overwrite if user is actively writing or has unsaved edits
+            if (isActivelyEditing || isDirtyRef.current || !isSavedRef.current) {
+              return;
+            }
+
             try {
               const docRes = await fetch(`/api/v1/documents/${documentId}`, { headers: authHeaders() });
               if (docRes.ok && !isCancelled) {
@@ -1110,9 +1121,10 @@ export default function App() {
                   const rawFountain = serializeFountain(serverDoc.contentJson);
                   const cleanServerFountain = stripConflictMarkers(rawFountain);
 
-                  if (isSavedRef.current) {
-                    // Local user is idle - absorb immediately with zero lag
+                  // Only apply if server content differs from local content
+                  if (!isFountainContentIdentical(fountainTextRef.current, cleanServerFountain)) {
                     const newHtml = fountainToHtml(cleanServerFountain);
+                    lastSavedFountainRef.current = cleanServerFountain;
                     setFountainText(cleanServerFountain);
                     setScriptHtml(newHtml);
                     if (editorInstanceRef.current) {
@@ -1122,17 +1134,11 @@ export default function App() {
                         editorInstanceRef.current.commands.setTextSelection(Math.min(prevPos, editorInstanceRef.current.state.doc.content.size));
                       } catch {}
                     }
-                    setRevisionNumber(sRev);
-                    localStorage.setItem(`openscript_rev_${documentId}`, String(sRev));
-                    localStorage.setItem('openscript_draft_fountain', cleanServerFountain);
-                    localStorage.setItem('openscript_draft_html', newHtml);
-                  } else {
-                    // Local user is actively typing - advance revision and merge scenes non-destructively
-                    const merged = smartMergeFountain(fountainTextRef.current, cleanServerFountain, revisionNumberRef.current, sRev);
-                    const cleanMerged = stripConflictMarkers(merged);
-                    setRevisionNumber(sRev);
-                    localStorage.setItem(`openscript_rev_${documentId}`, String(sRev));
                   }
+                  setRevisionNumber(sRev);
+                  revisionNumberRef.current = sRev;
+                  localStorage.setItem(`openscript_rev_${documentId}`, String(sRev));
+                  localStorage.setItem('openscript_draft_fountain', cleanServerFountain);
                 }
               }
             } catch (err) {
@@ -1151,7 +1157,7 @@ export default function App() {
     };
   }, [currentUserRole, documentId, currentUser]);
 
-  // Sync state to localStorage & trigger resilient autosave
+  // Sync state to localStorage (WITHOUT overriding isSaved!)
   useEffect(() => {
     localStorage.setItem('openscript_draft_html', scriptHtml);
     localStorage.setItem('openscript_draft_fountain', fountainText);
@@ -1160,7 +1166,6 @@ export default function App() {
     localStorage.setItem('openscript_tracking_revisions', String(isTrackingRevisions));
     localStorage.setItem('openscript_active_rev_color', activeRevisionColor);
     localStorage.setItem('openscript_revision_number', String(revisionNumber));
-    setIsSaved(true);
   }, [scriptHtml, fountainText, titleMetadata, isScriptLocked, isTrackingRevisions, activeRevisionColor, revisionNumber]);
 
   // Sync document revision with server when documentId changes
@@ -1204,10 +1209,14 @@ export default function App() {
                 setTitleMetadata((prev) => ({ ...prev, title: serverDoc.title }));
               }
               setRevisionNumber(serverRev);
+              revisionNumberRef.current = serverRev;
               localStorage.setItem(`openscript_rev_${documentId}`, String(serverRev));
               localStorage.setItem('openscript_draft_fountain', sFountain);
               localStorage.setItem('openscript_draft_html', newHtml);
               localStorage.setItem(`openscript_loaded_doc_${documentId}`, 'true');
+              lastSavedFountainRef.current = sFountain;
+              isDirtyRef.current = false;
+              setIsSaved(true);
 
               // Automatically register in Projects Dashboard so it appears in the collaborator's projects list
               try {
@@ -1235,18 +1244,21 @@ export default function App() {
                 console.warn('Failed to save project to local list:', e);
               }
             } else if (serverRev > revisionNumber) {
-              if (isSaved) {
+              if (isSaved && !isDirtyRef.current) {
                 // User has not modified anything locally - seamlessly absorb server update
                 const newHtml = fountainToHtml(sFountain);
                 setFountainText(sFountain);
                 setScriptHtml(newHtml);
+                lastSavedFountainRef.current = sFountain;
                 if (editorInstance) {
                   editorInstance.commands.setContent(newHtml);
                 }
                 setRevisionNumber(serverRev);
+                revisionNumberRef.current = serverRev;
                 localStorage.setItem(`openscript_rev_${documentId}`, String(serverRev));
                 localStorage.setItem('openscript_draft_fountain', sFountain);
                 localStorage.setItem('openscript_draft_html', newHtml);
+                setIsSaved(true);
               } else {
                 // Non-destructive auto-reconciliation of server changes
                 const merged = smartMergeFountain(fountainText, sFountain, revisionNumber, serverRev);
@@ -1254,10 +1266,12 @@ export default function App() {
                 setFountainText(cleanMerged);
                 const newHtml = fountainToHtml(cleanMerged);
                 setScriptHtml(newHtml);
+                lastSavedFountainRef.current = cleanMerged;
                 if (editorInstance) {
                   editorInstance.commands.setContent(newHtml);
                 }
                 setRevisionNumber(serverRev);
+                revisionNumberRef.current = serverRev;
                 localStorage.setItem(`openscript_rev_${documentId}`, String(serverRev));
               }
             }
@@ -1273,20 +1287,24 @@ export default function App() {
     return () => { isMounted = false; };
   }, [documentId, editorInstance]);
 
-  // Debounced API concurrency autosave
+  // Debounced API concurrency autosave (800ms)
   useEffect(() => {
     // Pause autosave while resolving a conflict to avoid infinite loops
     if (conflictModalOpen || isResolvingConflictRef.current || isInitialDocLoading) return;
+    if (!isDirtyRef.current && isSaved) return;
 
     const timer = setTimeout(async () => {
       try {
-        const cleanFountain = stripConflictMarkers(fountainText);
+        const cleanFountain = stripConflictMarkers(fountainTextRef.current);
+        if (cleanFountain === lastSavedFountainRef.current && isSavedRef.current) return;
+
         const blocks = parseFountain(cleanFountain);
+        const curRev = revisionNumberRef.current;
         const docPayload = {
           schemaVersion: 2,
           id: documentId,
           projectId: '00000000-0000-0000-0000-000000000000',
-          revisionNumber,
+          revisionNumber: curRev,
           metadata: {
             title: titleMetadata.title,
             credit: titleMetadata.credit,
@@ -1304,7 +1322,7 @@ export default function App() {
           method: 'PATCH',
           headers: authHeaders({ 'Content-Type': 'application/json' }),
           body: JSON.stringify({
-            revisionNumber,
+            revisionNumber: curRev,
             content: docPayload,
             title: titleMetadata.title,
           }),
@@ -1315,6 +1333,7 @@ export default function App() {
           const sRev = data.serverRevisionNumber;
           if (sRev) {
             setRevisionNumber(sRev);
+            revisionNumberRef.current = sRev;
             localStorage.setItem(`openscript_rev_${documentId}`, String(sRev));
           }
 
@@ -1325,34 +1344,38 @@ export default function App() {
               const { document: serverDoc } = await docRes.json();
               const sFountain = stripConflictMarkers(serializeFountain(serverDoc.contentJson));
 
-              if (isFountainContentIdentical(cleanFountain, sFountain)) {
-                return;
+              if (!isFountainContentIdentical(cleanFountain, sFountain)) {
+                const merged = smartMergeFountain(cleanFountain, sFountain, curRev, sRev);
+                const cleanMerged = stripConflictMarkers(merged);
+                setFountainText(cleanMerged);
+                const newHtml = fountainToHtml(cleanMerged);
+                setScriptHtml(newHtml);
+                lastSavedFountainRef.current = cleanMerged;
+                if (editorInstanceRef.current) {
+                  editorInstanceRef.current.commands.setContent(newHtml);
+                }
               }
-
-              const merged = smartMergeFountain(cleanFountain, sFountain, revisionNumber, sRev);
-              const cleanMerged = stripConflictMarkers(merged);
-              setFountainText(cleanMerged);
-              const newHtml = fountainToHtml(cleanMerged);
-              setScriptHtml(newHtml);
-              if (editorInstance) {
-                editorInstance.commands.setContent(newHtml);
-              }
+              isDirtyRef.current = false;
+              setIsSaved(true);
             }
           } catch {}
         } else if (res.ok) {
           const data = await res.json();
-          if (data.newRevisionNumber) {
-            setRevisionNumber(data.newRevisionNumber);
-            localStorage.setItem(`openscript_rev_${documentId}`, String(data.newRevisionNumber));
-          }
+          const newRev = data.newRevisionNumber || curRev + 1;
+          setRevisionNumber(newRev);
+          revisionNumberRef.current = newRev;
+          localStorage.setItem(`openscript_rev_${documentId}`, String(newRev));
+          lastSavedFountainRef.current = cleanFountain;
+          isDirtyRef.current = false;
+          setIsSaved(true);
         }
       } catch (err) {
         // Backend not running / offline: graceful local preservation
       }
-    }, 1500);
+    }, 800);
 
     return () => clearTimeout(timer);
-  }, [scriptHtml, fountainText, revisionNumber, documentId, titleMetadata, activeRevisionColor, isScriptLocked, conflictModalOpen]);
+  }, [fountainText, titleMetadata, activeRevisionColor, isScriptLocked, conflictModalOpen, documentId, isSaved]);
 
   // Extract Scene Items for Final Draft Navigator & Beat Board
   const scenes = useMemo(() => {
@@ -1489,20 +1512,21 @@ export default function App() {
       if (res.ok) {
         const data = await res.json();
         if (data?.collaborator) {
+          const collabStatus = data.collaborator.status || (data.isDuplicate ? 'active' : 'pending');
           if (data.isDuplicate) {
             setCollaborators((prev) =>
               prev.map((c) =>
                 c.email.toLowerCase() === email.toLowerCase()
-                  ? { ...c, role, status: 'pending' as const }
+                  ? { ...c, role, status: collabStatus as any }
                   : c
               )
             );
           } else {
             setCollaborators((prev) => {
-            const updated = [...prev, { ...data.collaborator, status: 'pending' as const }];
-            try { localStorage.setItem('openscript_collaborators', JSON.stringify(updated)); } catch {}
-            return updated;
-          });
+              const updated = [...prev, { ...data.collaborator, status: collabStatus as any }];
+              try { localStorage.setItem('openscript_collaborators', JSON.stringify(updated)); } catch {}
+              return updated;
+            });
           }
           return { success: true, isDuplicate: Boolean(data.isDuplicate), message: data.message };
         }
@@ -1569,6 +1593,8 @@ export default function App() {
   };
 
   const handleEditorUpdate = (html: string) => {
+    lastUserEditTimeRef.current = Date.now();
+    isDirtyRef.current = true;
     setIsSaved(false);
     setScriptHtml(html);
 
@@ -1578,6 +1604,8 @@ export default function App() {
     const lines: string[] = [];
 
     Array.from(doc.body.children).forEach((el) => {
+      // Clean out any peer cursor badges before generating fountain text
+      el.querySelectorAll('.openscript-peer-cursor-badge').forEach((b) => b.remove());
       const text = el.textContent?.trim() || '';
       if (!text) return;
       if (el.classList.contains('script-scene-heading')) lines.push(`\n${text}\n`);
@@ -1588,7 +1616,8 @@ export default function App() {
       else lines.push(`\n${text}\n`);
     });
 
-    setFountainText(lines.join('\n').trim());
+    const clean = stripConflictMarkers(lines.join('\n').trim());
+    setFountainText(clean);
   };
 
   const switchMode = (newMode: 'screenplay' | 'beats' | 'fountain' | 'reports') => {
@@ -1966,9 +1995,13 @@ export default function App() {
         const data = await res.json();
         if (data.newRevisionNumber) {
           setRevisionNumber(data.newRevisionNumber);
+          revisionNumberRef.current = data.newRevisionNumber;
+          localStorage.setItem(`openscript_rev_${documentId}`, String(data.newRevisionNumber));
         }
+        lastSavedFountainRef.current = fountainText;
+        isDirtyRef.current = false;
+        setIsSaved(true);
       }
-      setIsSaved(true);
     } catch {
       setIsSaved(true);
     }

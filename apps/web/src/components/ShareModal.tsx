@@ -69,13 +69,15 @@ export const ShareModal: React.FC<ShareModalProps> = ({
     let seenOwner = false;
     const list: CollaboratorProfile[] = [];
 
-    for (const c of collaborators) {
-      if (c.role === 'owner') {
+    for (const c of (collaborators || [])) {
+      if (!c) continue;
+      const isOwnerRole = c.role === 'owner' || c.userId === 'default-owner' || c.userId === 'owner-gourav';
+      if (isOwnerRole) {
         if (seenOwner) continue; // Strictly only one owner row ever
         seenOwner = true;
       }
-      const email = c.email?.trim().toLowerCase();
-      const userId = c.userId?.trim();
+      const email = (c.email || '').trim().toLowerCase();
+      const userId = (c.userId || '').trim();
       if (email && seenEmails.has(email)) continue;
       if (userId && seenUserIds.has(userId)) continue;
       if (email) seenEmails.add(email);
@@ -87,7 +89,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({
 
   // Check if typed email already exists
   const existingCollab = uniqueCollaborators.find(
-    (c) => c.email.toLowerCase().trim() === inviteEmail.toLowerCase().trim()
+    (c) => (c.email || '').toLowerCase().trim() === inviteEmail.toLowerCase().trim()
   );
 
   const handleInvite = async (e: React.FormEvent) => {
@@ -292,12 +294,14 @@ export const ShareModal: React.FC<ShareModalProps> = ({
             <div className="space-y-2.5">
               {uniqueCollaborators.map((collab) => {
                 const RoleIcon = ROLE_DESCRIPTIONS[collab.role]?.icon || Edit3;
-                const isSelf = collab.role === 'owner';
+                const isSelf = collab.role === 'owner' || collab.userId === 'default-owner' || collab.userId === 'owner-gourav';
                 const isPending = (collab as any).status === 'pending' && !(collab as any).lastSeenAt && !(collab as any).isOnline;
+                const displayName = collab.displayName || (collab.email ? collab.email.split('@')[0] : 'Collaborator');
+                const initial = (displayName || 'C').charAt(0).toUpperCase();
 
                 return (
                   <div
-                    key={collab.userId}
+                    key={collab.userId || collab.email}
                     className="flex flex-col sm:flex-row sm:items-center justify-between p-3.5 rounded-xl bg-[#161921] border border-[#232733] gap-3"
                   >
                     <div className="flex items-center gap-3">
@@ -305,12 +309,12 @@ export const ShareModal: React.FC<ShareModalProps> = ({
                         className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white shadow shrink-0"
                         style={{ backgroundColor: collab.color || '#f59e0b' }}
                       >
-                        {collab.displayName.charAt(0).toUpperCase()}
+                        {initial}
                       </div>
                       <div className="min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
                           <span className="text-xs font-semibold text-white truncate max-w-[140px] sm:max-w-none">
-                            {collab.displayName}
+                            {displayName}
                           </span>
                           
                           {isSelf ? (
@@ -330,7 +334,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({
                           )}
                         </div>
                         <span className="text-[11px] text-gray-400 font-mono truncate block max-w-[200px] sm:max-w-none">
-                          {collab.email}
+                          {collab.email || 'No email provided'}
                         </span>
                       </div>
                     </div>
