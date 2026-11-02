@@ -675,7 +675,16 @@ export default function App() {
       try {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          return parsed;
+          const seen = new Set<string>();
+          const deduped: CollaboratorProfile[] = [];
+          for (const c of parsed) {
+            const k = (c.email?.trim().toLowerCase() || c.userId || '').trim();
+            if (k && !seen.has(k)) {
+              seen.add(k);
+              deduped.push(c);
+            }
+          }
+          return deduped;
         }
       } catch {}
     }
@@ -847,6 +856,10 @@ export default function App() {
       .then((data) => {
         if (data?.collaborators && Array.isArray(data.collaborators) && data.collaborators.length > 0) {
           setCollaborators((prev) => {
+            const map = new Map<string, CollaboratorProfile>();
+            const getKey = (c: { email?: string; userId: string }) =>
+              (c.email?.trim().toLowerCase() || c.userId || '').trim();
+
             const owner = prev.find((c) => c.role === 'owner') || {
               userId: currentUser.id || 'default-owner',
               email: currentUser.email || 'gourav.siddu@gmail.com',
@@ -855,15 +868,18 @@ export default function App() {
               role: 'owner' as const,
               lastSeenAt: new Date().toISOString(),
             };
-            const map = new Map<string, CollaboratorProfile>();
-            map.set(owner.userId, owner);
+
+            const ownerKey = getKey(owner);
+            if (ownerKey) map.set(ownerKey, owner);
+
             for (const c of prev) {
-              const k = c.email ? c.email.toLowerCase() : c.userId;
-              map.set(k, c);
+              const k = getKey(c);
+              if (k) map.set(k, c);
             }
+
             for (const s of data.collaborators) {
-              const k = s.email ? s.email.toLowerCase() : s.userId;
-              if (!map.has(k)) {
+              const k = getKey(s);
+              if (k && !map.has(k)) {
                 map.set(k, {
                   userId: s.userId || s.id,
                   email: s.email,
