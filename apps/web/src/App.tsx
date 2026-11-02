@@ -673,6 +673,14 @@ export default function App() {
 
   const [livePeers, setLivePeers] = useState<LivePresence[]>([]);
 
+  const authHeaders = (extra: Record<string, string> = {}) => {
+    const token = authToken || localStorage.getItem('openscript_auth_token');
+    return {
+      ...extra,
+      ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+    };
+  };
+
   // 0. Auto-sync authenticated profile from backend
   useEffect(() => {
     if (authToken) {
@@ -762,7 +770,7 @@ export default function App() {
 
   // 1. Initial backend sync for Notes & Collaborators
   useEffect(() => {
-    fetch(`/api/v1/documents/${documentId}/notes`)
+    fetch(`/api/v1/documents/${documentId}/notes`, { headers: authHeaders() })
       .then((r) => r.json())
       .then((data) => {
         if (data?.notes && Array.isArray(data.notes) && data.notes.length > 0) {
@@ -771,7 +779,7 @@ export default function App() {
       })
       .catch(() => {});
 
-    fetch('/api/v1/projects/00000000-0000-0000-0000-000000000000/collaborators')
+    fetch('/api/v1/projects/00000000-0000-0000-0000-000000000000/collaborators', { headers: authHeaders() })
       .then((r) => r.json())
       .then((data) => {
         if (data?.collaborators && Array.isArray(data.collaborators) && data.collaborators.length > 0) {
@@ -792,7 +800,7 @@ export default function App() {
       try {
         const res = await fetch('/api/v1/projects/00000000-0000-0000-0000-000000000000/presence', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: authHeaders({ 'Content-Type': 'application/json' }),
           body: JSON.stringify({
             userId: currentUser.id || 'default-owner',
             displayName: currentUser.displayName || 'Screenwriter',
@@ -937,7 +945,7 @@ export default function App() {
 
         const res = await fetch(`/api/v1/documents/${documentId}`, {
           method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
+          headers: authHeaders({ 'Content-Type': 'application/json' }),
           body: JSON.stringify({
             revisionNumber,
             content: docPayload,
@@ -993,7 +1001,7 @@ export default function App() {
     try {
       const res = await fetch(`/api/v1/documents/${documentId}/notes`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: authHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({
           blockId: blockTargetId,
           authorName,
@@ -1036,7 +1044,7 @@ export default function App() {
     try {
       const res = await fetch(`/api/v1/notes/${noteId}/replies`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: authHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ authorName, authorColor, content: replyContent }),
       });
       if (res.ok) {
@@ -1067,7 +1075,7 @@ export default function App() {
     try {
       await fetch(`/api/v1/notes/${noteId}/resolve`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: authHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ isResolved: nextStatus }),
       });
     } catch {}
@@ -1083,7 +1091,7 @@ export default function App() {
 
   const handleDeleteNote = async (noteId: string) => {
     try {
-      await fetch(`/api/v1/notes/${noteId}`, { method: 'DELETE' });
+      await fetch(`/api/v1/notes/${noteId}`, { method: 'DELETE', headers: authHeaders() });
     } catch {}
     setNotes((prev) => prev.filter((n) => n.id !== noteId));
   };
@@ -1092,7 +1100,7 @@ export default function App() {
     try {
       const res = await fetch('/api/v1/projects/00000000-0000-0000-0000-000000000000/collaborators', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: authHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ email, role }),
       });
       if (res.ok) {
@@ -1119,7 +1127,7 @@ export default function App() {
     try {
       await fetch(`/api/v1/projects/00000000-0000-0000-0000-000000000000/collaborators/${userId}`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: authHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ role }),
       });
     } catch {}
@@ -1133,6 +1141,7 @@ export default function App() {
     try {
       await fetch(`/api/v1/projects/00000000-0000-0000-0000-000000000000/collaborators/${userId}`, {
         method: 'DELETE',
+        headers: authHeaders(),
       });
     } catch {}
     setCollaborators((prev) => prev.filter((c) => c.userId !== userId));
@@ -1520,7 +1529,7 @@ export default function App() {
 
       const res = await fetch(`/api/v1/documents/${documentId}`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: authHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({
           revisionNumber,
           content: docPayload,
