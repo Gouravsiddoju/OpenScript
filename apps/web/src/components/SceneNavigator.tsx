@@ -964,7 +964,10 @@ const SceneCardItem: React.FC<SceneCardItemProps> = ({
 
           {/* Page Duration in Eighths */}
           {scene.eighths && (
-            <span className="font-mono text-[10px] text-gray-400 bg-[#16181f] px-1.5 py-0.5 rounded border border-[#262a34] shrink-0 font-medium" title="Estimated scene duration">
+            <span 
+              className="font-mono text-[10px] text-gray-400 bg-[#16181f] px-1.5 py-0.5 rounded border border-[#262a34] shrink-0 font-medium cursor-help" 
+              title={`Scene Length: ${scene.eighths} page(s) — Measured in 1/8th page increments (Hollywood Production Standard)`}
+            >
               {scene.eighths} pgs
             </span>
           )}
