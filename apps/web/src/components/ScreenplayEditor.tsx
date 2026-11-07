@@ -620,12 +620,9 @@ export const ScreenplayEditor: React.FC<ScreenplayEditorProps> = ({
       // In real-time collaboration, wait until provider is synced before inspecting document
       const seedIfEmpty = () => {
         const fragment = ydoc.getXmlFragment('default');
-        if (fragment && fragment.length === 0) {
-          const currentHtml = editor.getHTML();
-          if (!currentHtml || currentHtml === '<p></p>' || currentHtml.includes('Every story begins with a blank page')) {
-            console.log('[OpenScript Collab] Seeding initial content into empty Yjs document');
-            editor.commands.setContent(initialContent);
-          }
+        if (fragment && fragment.length === 0 && initialContent) {
+          console.log('[OpenScript Collab] Empty Yjs document detected. Seeding initialContent template into editor.');
+          editor.commands.setContent(initialContent);
         }
       };
 
@@ -638,7 +635,7 @@ export const ScreenplayEditor: React.FC<ScreenplayEditorProps> = ({
     }
 
     const currentHtml = editor.getHTML();
-    if (initialContent !== currentHtml && (currentHtml.includes('Every story begins with a blank page') || !currentHtml || currentHtml === '<p></p>')) {
+    if (initialContent && initialContent !== currentHtml) {
       editor.commands.setContent(initialContent);
     }
   }, [initialContent, editor, ydoc, collabProvider]);

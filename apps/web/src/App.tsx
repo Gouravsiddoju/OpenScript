@@ -586,27 +586,68 @@ export default function App() {
     }
   };
 
-  const handleOpenProject = (projectId: string) => {
+  const handleOpenProject = async (projectId: string) => {
     saveCurrentProject();
     const proj = getProject(projectId);
     if (!proj) return;
 
     setActiveProjectId(projectId);
     setDocumentId(proj.id);
-    setScriptHtml(proj.scriptHtml);
-    setFountainText(proj.fountainText);
+    localStorage.setItem('openscript_doc_id', proj.id);
+
+    // Update URL query parameter without page reload so refreshing maintains the active project
+    try {
+      const url = new URL(window.location.href);
+      url.searchParams.set('doc', proj.id);
+      window.history.pushState({}, '', url.toString());
+    } catch {}
+
+    let currentHtml = proj.scriptHtml;
+    let currentFountain = proj.fountainText;
+
+    // If local project record has empty content (e.g. pulled from server list), fetch document from server
+    if (!currentHtml && !currentFountain) {
+      try {
+        const res = await fetch(`/api/v1/documents/${proj.id}`, { headers: authHeaders() });
+        if (res.ok) {
+          const { document: serverDoc } = await res.json();
+          if (serverDoc?.contentJson) {
+            currentFountain = stripConflictMarkers(serializeFountain(serverDoc.contentJson));
+            currentHtml = fountainToHtml(currentFountain);
+            proj.scriptHtml = currentHtml;
+            proj.fountainText = currentFountain;
+            if (serverDoc.title) proj.title = serverDoc.title;
+            saveProject(proj);
+          }
+        }
+      } catch (err) {
+        console.warn('Error fetching server doc for project:', err);
+      }
+    }
+
+    const resolvedHtml = currentHtml || INITIAL_SCRIPT_HTML;
+    const resolvedFountain = currentFountain || '';
+
+    setScriptHtml(resolvedHtml);
+    setFountainText(resolvedFountain);
+    lastSavedFountainRef.current = resolvedFountain;
+    isDirtyRef.current = false;
+
     const savedRev = Number(localStorage.getItem(`openscript_rev_${proj.id}`)) || 1;
     setRevisionNumber(savedRev);
+    revisionNumberRef.current = savedRev;
     setConflictModalOpen(false);
-    if (editorInstance) {
-      editorInstance.commands.setContent(proj.scriptHtml);
+
+    if (editorInstance && !editorInstance.isDestroyed) {
+      editorInstance.commands.setContent(resolvedHtml);
     }
+
     setTitleMetadata({
-      title: proj.title,
-      author: proj.author,
+      title: proj.title || 'Untitled Screenplay',
+      author: proj.author || 'Screenwriter',
       credit: proj.credit || 'written by',
       draftLabel: proj.draftLabel || 'First Draft',
-      draftDate: new Date(proj.updatedAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }),
+      draftDate: new Date(proj.updatedAt || Date.now()).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }),
       showTitlePage: true,
       contact: proj.contact || '',
       basedOn: '',

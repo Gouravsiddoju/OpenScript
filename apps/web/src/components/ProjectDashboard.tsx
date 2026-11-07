@@ -102,10 +102,29 @@ export const ProjectDashboard: React.FC<ProjectDashboardProps> = ({
 
   const handleCreate = (e: React.FormEvent) => {
     e.preventDefault();
-    const created = createProject(newTitle || 'Untitled Screenplay', newAuthor || currentUser.displayName, selectedTemplate);
+    const title = newTitle.trim() || 'Untitled Screenplay';
+    const author = newAuthor.trim() || currentUser.displayName || 'Screenwriter';
+    const created = createProject(title, author, selectedTemplate);
     refreshProjects();
     setIsNewProjectModalOpen(false);
     setNewTitle('');
+
+    // If authenticated, also register the project on the server
+    const token = localStorage.getItem('openscript_auth_token');
+    if (token) {
+      fetch('/api/v1/projects', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          name: title,
+          description: `Screenplay by ${author} (${selectedTemplate})`,
+        }),
+      }).catch((err) => console.warn('Background server project registration:', err));
+    }
+
     onOpenProject(created.id);
   };
 
