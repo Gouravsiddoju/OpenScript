@@ -1,4 +1,4 @@
-﻿import { registerCourierPrimeFonts } from './courierPrimeFont';
+import { registerCourierPrimeFonts } from './courierPrimeFont';
 import { ScreenplayBlock, createScreenplayBlock, RevisionColor, SceneTake, ScriptNote } from '@openscript/screenplay-schema';
 import { serializeFdx } from '@openscript/fdx';
 import { jsPDF } from 'jspdf';
@@ -16,10 +16,12 @@ export function htmlToBlocks(html: string): ScreenplayBlock[] {
   if (typeof DOMParser !== 'undefined') {
     const parser = new DOMParser();
     const doc = parser.parseFromString(html, 'text/html');
+    // Ensure all collaboration cursor carets, labels, and typing badges are removed before extracting blocks
+    doc.querySelectorAll('.openscript-peer-cursor-badge, .collaboration-cursor__caret, .collaboration-cursor__label, .collaboration-cursor__icon, .collaboration-cursor__typing, .ProseMirror-yjs-cursor').forEach((b) => b.remove());
     const children = Array.from(doc.body.children);
 
     for (const el of children) {
-      const text = el.textContent?.trim() || '';
+      const text = (el.textContent || '').replace(/[\u2060\u200B\uFEFF]/g, '').trim();
       if (!text) continue;
 
       let type: ScreenplayBlock['type'] = 'action';

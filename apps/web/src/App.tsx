@@ -29,6 +29,7 @@ import {
   Cloud,
   BookOpen,
   SlidersHorizontal,
+  Loader2,
 } from 'lucide-react';
 import { isNonCharacterCue, isSceneHeadingCandidate } from '@openscript/screenplay-schema';
 import { InteractiveTour } from './components/InteractiveTour';
@@ -579,29 +580,76 @@ export default function App() {
   };
 
   const saveCurrentProject = () => {
-    const activeId = getActiveProjectId();
-    const existing = getProject(activeId);
-    if (existing) {
+    const activeId = getActiveProjectId() || documentId;
+    if (!activeId) return;
+    try {
+      const existing = getProject(activeId);
+      const cleanFountain = stripConflictMarkers(fountainTextRef.current || fountainText);
       saveProject({
-        ...existing,
-        title: titleMetadata.title,
-        author: titleMetadata.author,
-        credit: titleMetadata.credit,
-        draftLabel: titleMetadata.draftLabel,
+        id: activeId,
+        title: titleMetadata.title || 'Untitled Screenplay',
+        author: titleMetadata.author || 'Screenwriter',
+        credit: titleMetadata.credit || 'written by',
+        draftLabel: titleMetadata.draftLabel || 'First Draft',
         draftColor: activeRevisionColor,
-        scriptHtml,
-        fountainText,
+        scriptHtml: scriptHtml || fountainToHtml(cleanFountain),
+        fountainText: cleanFountain,
         sceneCount: scenes.length,
         wordCount: metrics.words,
+        createdAt: existing?.createdAt || new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
         isLocked: isScriptLocked,
-        sceneTakes,
-        notes,
+        sceneTakes: existing?.sceneTakes || sceneTakes,
+        notes: existing?.notes || notes,
       });
+    } catch (e) {
+      console.warn('saveCurrentProject error:', e);
     }
+  };
+
+  const flushDocumentToServer = async (targetDocId: string) => {
+    if (!targetDocId) return;
+    try {
+      const cleanFountain = stripConflictMarkers(fountainTextRef.current || fountainText);
+      const blocks = parseFountain(cleanFountain);
+      const curRev = revisionNumberRef.current;
+      const docPayload = {
+        schemaVersion: 2,
+        id: targetDocId,
+        projectId: targetDocId || '00000000-0000-0000-0000-000000000000',
+        revisionNumber: curRev,
+        metadata: {
+          title: titleMetadata.title,
+          credit: titleMetadata.credit,
+          authors: [titleMetadata.author],
+          draftLabel: titleMetadata.draftLabel,
+          draftColor: activeRevisionColor,
+          isLocked: isScriptLocked,
+          updatedAt: new Date().toISOString(),
+        },
+        content: blocks,
+      };
+
+      await fetch(`/api/v1/documents/${targetDocId}`, {
+        method: 'PATCH',
+        headers: authHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({
+          revisionNumber: curRev,
+          content: docPayload,
+          title: titleMetadata.title,
+        }),
+      });
+      lastSavedFountainRef.current = cleanFountain;
+      isDirtyRef.current = false;
+      setIsSaved(true);
+    } catch {}
   };
 
   const handleOpenProject = async (projectId: string) => {
     saveCurrentProject();
+    if (isDirtyRef.current && documentId) {
+      flushDocumentToServer(documentId);
+    }
     const proj = getProject(projectId);
     if (!proj) return;
 
@@ -1462,10 +1510,35 @@ export default function App() {
     if (!isDirtyRef.current && isSaved) return;
 
     const timer = setTimeout(async () => {
-      try {
-        const cleanFountain = stripConflictMarkers(fountainTextRef.current);
-        if (cleanFountain === lastSavedFountainRef.current && isSavedRef.current) return;
+      const cleanFountain = stripConflictMarkers(fountainTextRef.current || '');
+      if (cleanFountain === lastSavedFountainRef.current && isSavedRef.current) return;
 
+      const syncLocalProjectStore = () => {
+        try {
+          const existing = getProject(documentId);
+          saveProject({
+            id: documentId,
+            title: titleMetadata.title || 'Untitled Screenplay',
+            author: titleMetadata.author || 'Screenwriter',
+            credit: titleMetadata.credit || 'written by',
+            draftLabel: titleMetadata.draftLabel || 'First Draft',
+            draftColor: activeRevisionColor,
+            isLocked: isScriptLocked,
+            fountainText: cleanFountain,
+            scriptHtml: fountainToHtml(cleanFountain),
+            sceneCount: (cleanFountain.match(/^(INT\.|EXT\.|INT\/EXT\.|I\/E\.)/gim) || []).length || 1,
+            wordCount: cleanFountain.trim().split(/\s+/).filter(Boolean).length,
+            createdAt: existing?.createdAt || new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            sceneTakes: existing?.sceneTakes || sceneTakes,
+            notes: existing?.notes || notes,
+          });
+        } catch (e) {
+          console.warn('Failed to sync local project store:', e);
+        }
+      };
+
+      try {
         const blocks = parseFountain(cleanFountain);
         const curRev = revisionNumberRef.current;
         const docPayload = {
@@ -1506,6 +1579,7 @@ export default function App() {
           }
           isDirtyRef.current = false;
           setIsSaved(true);
+          syncLocalProjectStore();
         } else if (res.ok) {
           const data = await res.json();
           const newRev = data.newRevisionNumber || curRev + 1;
@@ -1515,26 +1589,13 @@ export default function App() {
           lastSavedFountainRef.current = cleanFountain;
           isDirtyRef.current = false;
           setIsSaved(true);
-          try {
-            const existing = getProject(documentId);
-            if (existing) {
-              saveProject({
-                ...existing,
-                title: titleMetadata.title,
-                author: titleMetadata.author,
-                draftColor: activeRevisionColor,
-                isLocked: isScriptLocked,
-                fountainText: cleanFountain,
-                scriptHtml: fountainToHtml(cleanFountain),
-                sceneCount: (cleanFountain.match(/^(INT\.|EXT\.|INT\/EXT\.|I\/E\.)/gim) || []).length || 1,
-                wordCount: cleanFountain.trim().split(/\s+/).filter(Boolean).length,
-                updatedAt: new Date().toISOString(),
-              });
-            }
-          } catch {}
+          syncLocalProjectStore();
+        } else {
+          syncLocalProjectStore();
         }
       } catch (err) {
-        // Backend not running / offline: graceful local preservation
+        // Backend not running / offline / fetch network error: graceful local preservation
+        syncLocalProjectStore();
       }
     }, 800);
 
@@ -1763,9 +1824,10 @@ export default function App() {
     const lines: string[] = [];
 
     Array.from(doc.body.children).forEach((el) => {
-      // Clean out any peer cursor badges before generating fountain text
-      el.querySelectorAll('.openscript-peer-cursor-badge').forEach((b) => b.remove());
-      const text = el.textContent?.trim() || '';
+      // Clean out all peer cursor badges, caret lines, labels, and typing tags
+      el.querySelectorAll('.openscript-peer-cursor-badge, .collaboration-cursor__caret, .collaboration-cursor__label, .collaboration-cursor__icon, .collaboration-cursor__typing, .ProseMirror-yjs-cursor').forEach((b) => b.remove());
+      const rawText = el.textContent || '';
+      const text = rawText.replace(/[\u2060\u200B\uFEFF]/g, '').trim();
       if (!text) return;
       if (el.classList.contains('script-scene-heading')) lines.push(`\n${text}\n`);
       else if (el.classList.contains('script-character')) lines.push(`\n${text}`);
@@ -1776,8 +1838,8 @@ export default function App() {
     });
 
     const clean = stripConflictMarkers(lines.join('\n').trim());
-    const normalizedClean = clean.replace(/\s+/g, ' ');
-    const normalizedCurrent = (fountainTextRef.current || '').replace(/\s+/g, ' ');
+    const normalizedClean = clean.replace(/[\u2060\u200B\uFEFF]/g, '').replace(/\s+/g, ' ');
+    const normalizedCurrent = (fountainTextRef.current || '').replace(/[\u2060\u200B\uFEFF]/g, '').replace(/\s+/g, ' ');
     if (normalizedClean === normalizedCurrent) {
       return;
     }
@@ -2173,8 +2235,63 @@ export default function App() {
       }
     } catch {
       setIsSaved(true);
+    } finally {
+      saveCurrentProject();
     }
   };
+
+  // Browser Unload & Tab Switch Zero-Data-Loss Flush (keepalive beacon)
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      saveCurrentProject();
+      if (isDirtyRef.current && documentId) {
+        try {
+          const cleanFountain = stripConflictMarkers(fountainTextRef.current || fountainText);
+          const blocks = parseFountain(cleanFountain);
+          const curRev = revisionNumberRef.current;
+          const docPayload = {
+            schemaVersion: 2,
+            id: documentId,
+            projectId: documentId || '00000000-0000-0000-0000-000000000000',
+            revisionNumber: curRev,
+            metadata: {
+              title: titleMetadata.title,
+              credit: titleMetadata.credit,
+              authors: [titleMetadata.author],
+              draftLabel: titleMetadata.draftLabel,
+              draftColor: activeRevisionColor,
+              isLocked: isScriptLocked,
+              updatedAt: new Date().toISOString(),
+            },
+            content: blocks,
+          };
+          fetch(`/api/v1/documents/${documentId}`, {
+            method: 'PATCH',
+            headers: authHeaders({ 'Content-Type': 'application/json' }),
+            body: JSON.stringify({
+              revisionNumber: curRev,
+              content: docPayload,
+              title: titleMetadata.title,
+            }),
+            keepalive: true,
+          });
+        } catch {}
+      }
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') {
+        handleBeforeUnload();
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [documentId, titleMetadata, activeRevisionColor, isScriptLocked, fountainText]);
 
   // Global Studio Ergonomics & Shortcuts Engine (Lock, Track, Notes, Save, PDF, Views)
   useEffect(() => {
@@ -3010,9 +3127,23 @@ export default function App() {
                 : 'Production Reports'}
             </span>
             <span className="text-gray-700">|</span>
-            <span className="flex items-center gap-1.5 text-emerald-400 font-mono">
-              <CheckCircle2 className="w-3.5 h-3.5" />
-              <span>{localSaveNotification ? `Saved to ${localSaveNotification}` : (isSaved ? 'Cloud Synced' : 'Saving...')}</span>
+            <span className="flex items-center gap-1.5 font-mono">
+              {localSaveNotification ? (
+                <span className="flex items-center gap-1.5 text-emerald-400">
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  <span>Saved to {localSaveNotification}</span>
+                </span>
+              ) : isSaved ? (
+                <span className="flex items-center gap-1.5 text-emerald-400">
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  <span>Cloud Synced</span>
+                </span>
+              ) : (
+                <span className="flex items-center gap-1.5 text-amber-400">
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  <span>Saving changes...</span>
+                </span>
+              )}
             </span>
           </div>
         </footer>

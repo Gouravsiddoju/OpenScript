@@ -239,7 +239,21 @@ export class ResilientStore {
     if (isDbActive()) {
       try {
         const doc = await db.query.documents.findFirst({ where: eq(documents.id, id) });
-        if (doc) return doc;
+        if (doc) {
+          memStore.documents.set(doc.id, {
+            id: doc.id,
+            projectId: doc.projectId,
+            title: doc.title,
+            schemaVersion: doc.schemaVersion,
+            contentJson: doc.contentJson,
+            yjsState: doc.yjsState,
+            revisionNumber: doc.revisionNumber,
+            isLocked: doc.isLocked,
+            createdAt: doc.createdAt,
+            updatedAt: doc.updatedAt,
+          });
+          return doc;
+        }
       } catch (err) { handleDbErr(err); }
     }
     return memStore.documents.get(id) || null;
@@ -262,6 +276,22 @@ export class ResilientStore {
     const now = new Date();
     if (isDbActive()) {
       try {
+        // 1. Ensure parent project row exists in PostgreSQL to guarantee foreign key integrity
+        if (projectId && projectId !== '00000000-0000-0000-0000-000000000000') {
+          const proj = await db.query.projects.findFirst({ where: eq(projects.id, projectId) });
+          if (!proj) {
+            const ownerId = contentJson?.metadata?.ownerId || 'd7aa0723-b200-4f94-869b-68db882de3a2';
+            await db.insert(projects).values({
+              id: projectId,
+              name: title || 'Untitled Screenplay',
+              ownerId,
+              description: `Screenplay: ${title || 'Untitled'}`,
+              createdAt: now,
+              updatedAt: now,
+            }).onConflictDoNothing();
+          }
+        }
+
         const existing = await db.query.documents.findFirst({ where: eq(documents.id, id) });
         if (!existing) {
           const [doc] = await db.insert(documents).values({
@@ -273,23 +303,57 @@ export class ResilientStore {
             revisionNumber: 1,
             isLocked: false,
           }).returning();
-          return { doc, newRevisionNumber: 1, isConflict: false };
+          if (doc) {
+            memStore.documents.set(doc.id, {
+              id: doc.id,
+              projectId: doc.projectId,
+              title: doc.title,
+              schemaVersion: doc.schemaVersion,
+              contentJson: doc.contentJson,
+              yjsState: doc.yjsState,
+              revisionNumber: doc.revisionNumber,
+              isLocked: doc.isLocked,
+              createdAt: doc.createdAt,
+              updatedAt: doc.updatedAt,
+            });
+            return { doc, newRevisionNumber: 1, isConflict: false };
+          }
+          throw new Error(`Failed to insert document ${id}`);
         }
 
         // Graceful concurrent document saving: monotonically advance revision without 409 deadlock
         const targetRevision = Math.max(existing.revisionNumber || 1, revisionNumber || 1) + 1;
 
+        const updateFields: any = {
+          contentJson,
+          revisionNumber: targetRevision,
+          title,
+          updatedAt: now,
+        };
+        if (projectId && projectId !== '00000000-0000-0000-0000-000000000000' && existing.projectId !== projectId) {
+          updateFields.projectId = projectId;
+        }
+
         const [updated] = await db.update(documents)
-          .set({
-            contentJson,
-            revisionNumber: targetRevision,
-            title,
-            updatedAt: now,
-          })
+          .set(updateFields)
           .where(eq(documents.id, id))
           .returning();
 
-        return { doc: updated, newRevisionNumber: targetRevision, isConflict: false };
+        if (updated) {
+          memStore.documents.set(updated.id, {
+            id: updated.id,
+            projectId: updated.projectId,
+            title: updated.title,
+            schemaVersion: updated.schemaVersion,
+            contentJson: updated.contentJson,
+            yjsState: updated.yjsState,
+            revisionNumber: updated.revisionNumber,
+            isLocked: updated.isLocked,
+            createdAt: updated.createdAt,
+            updatedAt: updated.updatedAt,
+          });
+          return { doc: updated, newRevisionNumber: targetRevision, isConflict: false };
+        }
       } catch (err) {
         handleDbErr(err);
       }
@@ -317,6 +381,9 @@ export class ResilientStore {
     existing.contentJson = contentJson;
     existing.revisionNumber = targetRevision;
     existing.title = title;
+    if (projectId && projectId !== '00000000-0000-0000-0000-000000000000') {
+      existing.projectId = projectId;
+    }
     existing.updatedAt = now;
     return { doc: existing, newRevisionNumber: targetRevision, isConflict: false };
   }
@@ -332,7 +399,39 @@ export class ResilientStore {
         if (contentJson) {
           updateData.contentJson = contentJson;
         }
-        await db.update(documents).set(updateData).where(eq(documents.id, id));
+        const updated = await db.update(documents).set(updateData).where(eq(documents.id, id)).returning();
+        if (updated.length === 0) {
+          // If document does not exist yet in DB, guarantee parent project & document exist
+          const proj = await db.query.projects.findFirst({ where: eq(projects.id, id) });
+          if (!proj) {
+            await db.insert(projects).values({
+              id,
+              name: 'Untitled Screenplay',
+              ownerId: 'd7aa0723-b200-4f94-869b-68db882de3a2',
+              createdAt: now,
+              updatedAt: now,
+            }).onConflictDoNothing();
+          }
+          await db.insert(documents).values({
+            id,
+            projectId: id,
+            title: 'Untitled Screenplay',
+            schemaVersion: 2,
+            contentJson: contentJson || { content: [] },
+            yjsState: yjsStateBase64,
+            revisionNumber: 1,
+            isLocked: false,
+            createdAt: now,
+            updatedAt: now,
+          }).onConflictDoNothing();
+        }
+
+        const memDoc = memStore.documents.get(id);
+        if (memDoc) {
+          memDoc.yjsState = yjsStateBase64;
+          if (contentJson) memDoc.contentJson = contentJson;
+          memDoc.updatedAt = now;
+        }
         return true;
       } catch (err) {
         handleDbErr(err);
@@ -343,6 +442,19 @@ export class ResilientStore {
       memDoc.yjsState = yjsStateBase64;
       if (contentJson) memDoc.contentJson = contentJson;
       memDoc.updatedAt = now;
+    } else {
+      memStore.documents.set(id, {
+        id,
+        projectId: id,
+        title: 'Untitled Screenplay',
+        schemaVersion: 2,
+        contentJson: contentJson || { content: [] },
+        yjsState: yjsStateBase64,
+        revisionNumber: 1,
+        isLocked: false,
+        createdAt: now,
+        updatedAt: now,
+      });
     }
     return true;
   }
