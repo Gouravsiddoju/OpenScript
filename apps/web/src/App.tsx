@@ -746,16 +746,30 @@ export default function App() {
     const doc = new Y.Doc();
     setYdoc(doc);
 
-    const wsUrl = (import.meta as any).env?.VITE_COLLAB_WS_URL || 
-      (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-        ? 'ws://localhost:3002'
-        : `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.hostname}:3002`);
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+    const defaultWsUrl = isLocalhost
+      ? `ws://${window.location.hostname}:3000`
+      : `${protocol}//${window.location.host}`;
+
+    const wsUrl = (import.meta as any).env?.VITE_COLLAB_WS_URL || defaultWsUrl;
+
+    console.log(`[OpenScript Collab] Initializing WebSocket provider for doc ${documentId} at ${wsUrl}`);
 
     const provider = new HocuspocusProvider({
       url: wsUrl,
       name: documentId,
       document: doc,
       token: authToken || 'anonymous',
+      onStatus(data) {
+        console.log(`[OpenScript Collab] Provider status:`, data.status);
+      },
+      onSynced() {
+        console.log(`[OpenScript Collab] Yjs document synced successfully.`);
+      },
+      onClose(data) {
+        console.warn(`[OpenScript Collab] WebSocket connection closed:`, data);
+      },
     });
 
     setCollabProvider(provider);

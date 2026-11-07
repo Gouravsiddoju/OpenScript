@@ -383,28 +383,37 @@ export const ScreenplayEditor: React.FC<ScreenplayEditorProps> = ({
         CollaborationCursor.configure({
           provider: collabProvider,
           user: {
+            userId: currentUser?.id,
             name: currentUser?.displayName || currentUser?.name || 'Screenwriter',
             color: currentUser?.color || '#f59e0b',
+            role: currentUserRole || 'co-writer',
           },
           render(user: any) {
             const cursor = document.createElement('span');
             cursor.classList.add('collaboration-cursor__caret');
-            cursor.style.borderColor = user.color || '#3b82f6';
+            const userColor = user.color || '#3b82f6';
+            cursor.style.color = userColor;
+            cursor.style.borderLeftColor = userColor;
 
             const label = document.createElement('div');
             label.classList.add('collaboration-cursor__label');
-            label.style.backgroundColor = user.color || '#3b82f6';
+            label.style.backgroundColor = userColor;
 
             const icon = document.createElement('span');
             icon.classList.add('collaboration-cursor__icon');
-            icon.textContent = '👤 ';
+            icon.textContent = '👤';
             label.appendChild(icon);
 
             const nameSpan = document.createElement('span');
-            nameSpan.textContent = user.name || 'Writer';
+            nameSpan.textContent = user.name || 'Collaborator';
             label.appendChild(nameSpan);
 
             cursor.appendChild(label);
+
+            // Zero-width non-breaking space guarantees inline span doesn't collapse in browser layout
+            const nonbreakingSpace = document.createTextNode('\u2060');
+            cursor.appendChild(nonbreakingSpace);
+
             return cursor;
           },
         }) as any
@@ -605,22 +614,32 @@ export const ScreenplayEditor: React.FC<ScreenplayEditorProps> = ({
 
   // Sync initial content when document loads from remote server / join URL
   useEffect(() => {
-    if (editor && initialContent && !editor.isDestroyed) {
-      if (ydoc && collabProvider) {
-        // In real-time collaboration, Yjs manages content. Only seed if Yjs doc is empty!
+    if (!editor || !initialContent || editor.isDestroyed) return;
+
+    if (ydoc && collabProvider) {
+      // In real-time collaboration, wait until provider is synced before inspecting document
+      const seedIfEmpty = () => {
         const fragment = ydoc.getXmlFragment('default');
         if (fragment && fragment.length === 0) {
           const currentHtml = editor.getHTML();
-          if (currentHtml === '<p></p>' || !currentHtml || currentHtml.includes('Every story begins with a blank page')) {
+          if (!currentHtml || currentHtml === '<p></p>' || currentHtml.includes('Every story begins with a blank page')) {
+            console.log('[OpenScript Collab] Seeding initial content into empty Yjs document');
             editor.commands.setContent(initialContent);
           }
         }
-        return;
+      };
+
+      if (collabProvider.isSynced) {
+        seedIfEmpty();
+      } else {
+        collabProvider.once?.('synced', seedIfEmpty) || collabProvider.on('synced', seedIfEmpty);
       }
-      const currentHtml = editor.getHTML();
-      if (initialContent !== currentHtml && (currentHtml.includes('Every story begins with a blank page') || !currentHtml || currentHtml === '<p></p>')) {
-        editor.commands.setContent(initialContent);
-      }
+      return;
+    }
+
+    const currentHtml = editor.getHTML();
+    if (initialContent !== currentHtml && (currentHtml.includes('Every story begins with a blank page') || !currentHtml || currentHtml === '<p></p>')) {
+      editor.commands.setContent(initialContent);
     }
   }, [initialContent, editor, ydoc, collabProvider]);
 
