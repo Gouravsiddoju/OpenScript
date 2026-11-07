@@ -586,6 +586,7 @@ export const ScreenplayEditor: React.FC<ScreenplayEditorProps> = ({
       } catch {}
     },
     onUpdate: ({ editor, transaction }) => {
+      if (!transaction.docChanged) return;
       // Auto-tag revision asterisk ONLY if an existing line with text was modified
       if (isTrackingRef.current && transaction.docChanged) {
         const { selection } = editor.state;
@@ -646,6 +647,8 @@ export const ScreenplayEditor: React.FC<ScreenplayEditorProps> = ({
     }
   }, [editor, onEditorReady]);
 
+  const hasSeededRef = useRef(false);
+
   // Sync initial content when document loads from remote server / join URL
   useEffect(() => {
     if (!editor || !initialContent || editor.isDestroyed) return;
@@ -653,10 +656,14 @@ export const ScreenplayEditor: React.FC<ScreenplayEditorProps> = ({
     if (ydoc && collabProvider) {
       // In real-time collaboration, wait until provider is synced before inspecting document
       const seedIfEmpty = () => {
+        if (hasSeededRef.current) return;
         const fragment = ydoc.getXmlFragment('default');
         if (fragment && fragment.length === 0 && initialContent) {
           console.log('[OpenScript Collab] Empty Yjs document detected. Seeding initialContent template into editor.');
+          hasSeededRef.current = true;
           editor.commands.setContent(initialContent);
+        } else if (fragment && fragment.length > 0) {
+          hasSeededRef.current = true;
         }
       };
 
@@ -669,7 +676,8 @@ export const ScreenplayEditor: React.FC<ScreenplayEditorProps> = ({
     }
 
     const currentHtml = editor.getHTML();
-    if (initialContent && initialContent !== currentHtml) {
+    if (initialContent && initialContent !== currentHtml && !hasSeededRef.current) {
+      hasSeededRef.current = true;
       editor.commands.setContent(initialContent);
     }
   }, [initialContent, editor, ydoc, collabProvider]);

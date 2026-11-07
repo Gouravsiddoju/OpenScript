@@ -1530,7 +1530,7 @@ export default function App() {
     }, 800);
 
     return () => clearTimeout(timer);
-  }, [fountainText, titleMetadata, activeRevisionColor, isScriptLocked, conflictModalOpen, documentId, isSaved]);
+  }, [fountainText, titleMetadata, activeRevisionColor, isScriptLocked, conflictModalOpen, documentId]);
 
   // Extract Scene Items for Final Draft Navigator & Beat Board
   const scenes = useMemo(() => {
@@ -1748,11 +1748,6 @@ export default function App() {
   };
 
   const handleEditorUpdate = (html: string) => {
-    lastUserEditTimeRef.current = Date.now();
-    isDirtyRef.current = true;
-    setIsSaved(false);
-    setScriptHtml(html);
-
     // Convert HTML to simple Fountain text representation
     const parser = new DOMParser();
     const doc = parser.parseFromString(html, 'text/html');
@@ -1772,6 +1767,14 @@ export default function App() {
     });
 
     const clean = stripConflictMarkers(lines.join('\n').trim());
+    if (clean === fountainTextRef.current) {
+      return;
+    }
+
+    lastUserEditTimeRef.current = Date.now();
+    isDirtyRef.current = true;
+    setIsSaved(false);
+    setScriptHtml(html);
     setFountainText(clean);
   };
 
