@@ -140,7 +140,7 @@ export const WordShareSidebar: React.FC<WordShareSidebarProps> = ({
   };
 
   const handleCopyLink = () => {
-    const shareUrl = `${window.location.origin}${window.location.pathname}?docId=${documentId || ''}&join=true`;
+    const shareUrl = `${window.location.origin}${window.location.pathname}?doc=${documentId || ''}&join=true`;
     navigator.clipboard.writeText(shareUrl);
     setCopiedLink(true);
     setTimeout(() => setCopiedLink(false), 2500);

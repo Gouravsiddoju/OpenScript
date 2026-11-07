@@ -330,11 +330,22 @@
 /* =========================================================================
    Word-Grade Real-Time Collaboration Cursors & Selection Styles
    ========================================================================= */
+@keyframes collab-caret-blink {
+  0%, 100% {
+    opacity: 1;
+    border-left-width: 2.5px;
+  }
+  50% {
+    opacity: 0.15;
+    border-left-width: 2.5px;
+  }
+}
+
 .ProseMirror-yjs-cursor,
 .collaboration-cursor__caret {
   position: relative;
   display: inline-block;
-  height: 1.25em;
+  height: 1.3em;
   vertical-align: text-bottom;
   margin-left: -1px;
   margin-right: -1px;
@@ -345,12 +356,14 @@
   border-bottom: none;
   word-break: normal;
   pointer-events: none;
+  animation: collab-caret-blink 1s cubic-bezier(0.4, 0, 0.2, 1) infinite;
 }
 
 .collaboration-cursor__label {
   position: absolute;
-  top: -1.75em;
+  bottom: 100%;
   left: -2px;
+  margin-bottom: 2px;
   display: inline-flex !important;
   align-items: center;
   gap: 4px;
@@ -371,10 +384,19 @@
 }
 
 .collaboration-cursor__icon {
-  display: inline-block;
-  font-size: 10px;
-  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 12px;
+  height: 12px;
   opacity: 0.95;
+}
+
+.collaboration-cursor__typing {
+  display: inline-block;
+  margin-left: 2px;
+  font-size: 10px;
+  animation: pulse 1s ease-in-out infinite;
 }
 
 .ProseMirror-yjs-selection {

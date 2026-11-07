@@ -200,11 +200,13 @@ function extractScenes(html: string): SceneItem[] {
   return scenes;
 }
 
+const DEFAULT_STUDIO_DOC_ID = '6fcf7386-76c4-44a8-a24c-c11a1f21f353';
+
 export default function App() {
   const [documentId, setDocumentId] = useState<string>(() => {
     try {
       const params = new URLSearchParams(window.location.search);
-      const urlDocId = params.get('doc') || params.get('documentId') || params.get('id');
+      const urlDocId = params.get('doc') || params.get('documentId') || params.get('id') || params.get('docId');
       if (urlDocId && urlDocId.trim()) {
         const cleanId = urlDocId.trim();
         localStorage.setItem('openscript_doc_id', cleanId);
@@ -222,11 +224,23 @@ export default function App() {
 
     let id = localStorage.getItem('openscript_doc_id');
     if (!id) {
-      id = crypto.randomUUID();
+      id = DEFAULT_STUDIO_DOC_ID;
       localStorage.setItem('openscript_doc_id', id);
     }
     return id;
   });
+
+  // Keep the active document ID in the browser URL address bar so anyone who copies the URL joins the exact same room
+  useEffect(() => {
+    if (!documentId) return;
+    try {
+      const url = new URL(window.location.href);
+      if (url.searchParams.get('doc') !== documentId) {
+        url.searchParams.set('doc', documentId);
+        window.history.replaceState(null, '', url.toString());
+      }
+    } catch {}
+  }, [documentId]);
   const [isInitialDocLoading, setIsInitialDocLoading] = useState(true);
   const [isSaved, setIsSaved] = useState(true);
   const [localSaveNotification, setLocalSaveNotification] = useState<string | null>(null);
@@ -790,8 +804,8 @@ export default function App() {
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
     const defaultWsUrl = isLocalhost
-      ? `ws://${window.location.hostname}:3000`
-      : `${protocol}//${window.location.host}`;
+      ? `ws://${window.location.hostname}:3000/collaboration`
+      : `${protocol}//${window.location.host}/collaboration`;
 
     const wsUrl = (import.meta as any).env?.VITE_COLLAB_WS_URL || defaultWsUrl;
 
@@ -1343,7 +1357,7 @@ export default function App() {
               const newHtml = fountainToHtml(sFountain);
               setFountainText(sFountain);
               setScriptHtml(newHtml);
-              if (editorInstance) {
+              if (editorInstance && (!ydoc || !collabProvider)) {
                 editorInstance.commands.setContent(newHtml);
               }
               if (serverDoc.contentJson.metadata) {
@@ -1403,7 +1417,7 @@ export default function App() {
                 setFountainText(sFountain);
                 setScriptHtml(newHtml);
                 lastSavedFountainRef.current = sFountain;
-                if (editorInstance) {
+                if (editorInstance && (!ydoc || !collabProvider)) {
                   editorInstance.commands.setContent(newHtml);
                 }
                 setRevisionNumber(serverRev);

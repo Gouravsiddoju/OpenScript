@@ -9,6 +9,11 @@ openscript.ssnpictures.in {
         reverse_proxy api:3000
     }
 
+    # Hocuspocus Real-Time WebSocket reverse proxy
+    handle /collaboration* {
+        reverse_proxy api:3000
+    }
+
     # Static web app reverse proxy
     handle {
         reverse_proxy web:80
@@ -23,6 +28,11 @@ dev-openscript.ssnpictures.in, dev.openscript.ssnpictures.in {
 
     # Dev API reverse proxy
     handle /api/* {
+        reverse_proxy api-dev:3000
+    }
+
+    # Dev Hocuspocus Real-Time WebSocket reverse proxy
+    handle /collaboration* {
         reverse_proxy api-dev:3000
     }
 

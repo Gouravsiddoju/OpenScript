@@ -125,6 +125,7 @@ export const ScreenplayEditor: React.FC<ScreenplayEditorProps> = ({
 
   const knownCharactersRef = useRef<string[]>(initialKnownChars);
   const editorRef = useRef<any>(null);
+  const typingTimeoutRef = useRef<any>(null);
   const isTrackingRef = useRef(isTrackingRevisions);
   isTrackingRef.current = isTrackingRevisions;
   const activeColorRef = useRef(activeRevisionColor);
@@ -399,14 +400,24 @@ export const ScreenplayEditor: React.FC<ScreenplayEditorProps> = ({
             label.classList.add('collaboration-cursor__label');
             label.style.backgroundColor = userColor;
 
+            // Microsoft Word Avatar Icon (Person silhouette)
             const icon = document.createElement('span');
             icon.classList.add('collaboration-cursor__icon');
-            icon.textContent = '👤';
+            icon.innerHTML = `<svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" style="display:inline-block;vertical-align:middle;"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>`;
             label.appendChild(icon);
 
+            // Collaborator Display Name
             const nameSpan = document.createElement('span');
             nameSpan.textContent = user.name || 'Collaborator';
             label.appendChild(nameSpan);
+
+            // Active Typing Indicator
+            if (user.isTyping) {
+              const typingIndicator = document.createElement('span');
+              typingIndicator.classList.add('collaboration-cursor__typing');
+              typingIndicator.textContent = ' ✍️';
+              label.appendChild(typingIndicator);
+            }
 
             cursor.appendChild(label);
 
@@ -428,6 +439,29 @@ export const ScreenplayEditor: React.FC<ScreenplayEditorProps> = ({
     content: (ydoc && collabProvider) ? undefined : initialContent,
     editorProps: {
       handleKeyDown(view, event) {
+        // Broadcast active typing indicator to collaborators in real-time
+        if (collabProvider?.awareness && !event.ctrlKey && !event.altKey && !event.metaKey && event.key !== 'Shift') {
+          collabProvider.setAwarenessField('user', {
+            userId: currentUser?.id,
+            name: currentUser?.displayName || currentUser?.name || 'Screenwriter',
+            color: currentUser?.color || '#f59e0b',
+            role: currentUserRole || 'co-writer',
+            isTyping: true,
+          });
+          if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+          typingTimeoutRef.current = setTimeout(() => {
+            if (collabProvider?.awareness) {
+              collabProvider.setAwarenessField('user', {
+                userId: currentUser?.id,
+                name: currentUser?.displayName || currentUser?.name || 'Screenwriter',
+                color: currentUser?.color || '#f59e0b',
+                role: currentUserRole || 'co-writer',
+                isTyping: false,
+              });
+            }
+          }, 1500);
+        }
+
         // 1. Escape key dismisses SmartType suggestions
         if (event.key === 'Escape') {
           setActiveSuggestion(null);
