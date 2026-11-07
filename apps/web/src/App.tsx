@@ -2497,6 +2497,8 @@ export default function App() {
             setIsProfileModalOpen(true);
           }}
           currentUser={currentUser || { displayName: 'Screenwriter', role: 'owner' }}
+          isAuthenticated={!!authToken}
+          onLogout={handleLogout}
         />
 
         <ImportModal
@@ -2509,6 +2511,36 @@ export default function App() {
           onImportScreenplay={handleApplyImportedScreenplay}
           droppedFile={droppedImportFile}
           droppedFolderEntry={droppedFolderEntry}
+        />
+
+        {/* User Profile Modal on Dashboard */}
+        <UserProfileModal
+          isOpen={isProfileModalOpen}
+          onClose={() => {
+            setIsProfileModalOpen(false);
+            setSelectedPeerProfile(null);
+          }}
+          user={selectedPeerProfile || currentUser || {
+            id: 'user',
+            email: '',
+            displayName: 'Screenwriter',
+            role: 'owner',
+            studio: 'OpenScript Studio',
+            color: '#f59e0b',
+          }}
+          authToken={authToken}
+          onUpdateDisplayName={handleUpdateDisplayName}
+          onLogout={handleLogout}
+          onOpenLogin={() => setIsAuthModalOpen(true)}
+        />
+
+        {/* Authentication & Login/Register Modal on Dashboard */}
+        <AuthModal
+          isOpen={isAuthModalOpen}
+          onClose={() => setIsAuthModalOpen(false)}
+          onAuthSuccess={handleAuthSuccess}
+          defaultMode={authModalMode}
+          initialResetToken={authResetToken}
         />
       </div>
     );

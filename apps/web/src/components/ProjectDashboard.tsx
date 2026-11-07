@@ -19,6 +19,7 @@ import {
   Smile,
   X,
   LogIn,
+  LogOut,
 } from 'lucide-react';
 import { ScreenplayProject, ScreenplayProjectTemplate, listProjects, deleteProject, duplicateProject, createProject, getProject, saveProject } from '../utils/projectStore';
 import { CollaboratorProfile, CollaboratorRole } from '@openscript/screenplay-schema';
@@ -27,6 +28,8 @@ export interface ProjectDashboardProps {
   onOpenProject: (projectId: string) => void;
   onOpenImportModal: () => void;
   currentUser: { displayName: string; role: CollaboratorRole };
+  isAuthenticated?: boolean;
+  onLogout?: () => void;
   onOpenAuthModal?: (mode: 'login' | 'register') => void;
   onOpenProfileModal?: () => void;
 }
@@ -35,6 +38,8 @@ export const ProjectDashboard: React.FC<ProjectDashboardProps> = ({
   onOpenProject,
   onOpenImportModal,
   currentUser,
+  isAuthenticated = true,
+  onLogout,
   onOpenAuthModal,
   onOpenProfileModal,
 }) => {
@@ -230,36 +235,50 @@ export const ProjectDashboard: React.FC<ProjectDashboardProps> = ({
 
           {/* User Profile & Auth Trigger */}
           <div className="pl-3 border-l border-[#242838] flex items-center gap-2">
-            <button
-              type="button"
-              onClick={onOpenProfileModal}
-              className="flex items-center gap-2.5 p-1 sm:pr-2.5 rounded-xl hover:bg-[#1a1d26] transition-colors group text-left cursor-pointer"
-              title="Click to view profile, switch roles, or manage account"
-            >
-              <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-amber-600 to-amber-400 flex items-center justify-center text-black font-bold text-xs shadow-md group-hover:scale-105 transition-transform">
-                {currentUser.displayName.charAt(0).toUpperCase()}
-              </div>
-              <div className="hidden lg:block text-left">
-                <span className="text-xs font-bold text-gray-200 block truncate max-w-[120px] group-hover:text-amber-400 transition-colors">
-                  {currentUser.displayName}
-                </span>
-                <span className="text-[10px] text-amber-400 uppercase font-mono block">
-                  {currentUser.role}
-                </span>
-              </div>
-            </button>
+            {isAuthenticated ? (
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={onOpenProfileModal}
+                  className="flex items-center gap-2.5 p-1 sm:px-2.5 sm:py-1.5 rounded-xl bg-[#14161d] hover:bg-[#1a1d26] border border-[#242838] hover:border-amber-500/40 transition-all group text-left cursor-pointer shadow-sm"
+                  title="Click to view profile, switch roles, or manage account security"
+                >
+                  <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-amber-600 to-amber-400 flex items-center justify-center text-black font-bold text-xs shadow-md group-hover:scale-105 transition-transform">
+                    {currentUser.displayName ? currentUser.displayName.charAt(0).toUpperCase() : 'U'}
+                  </div>
+                  <div className="hidden lg:block text-left">
+                    <span className="text-xs font-bold text-gray-200 block truncate max-w-[120px] group-hover:text-amber-400 transition-colors">
+                      {currentUser.displayName || 'Screenwriter'}
+                    </span>
+                    <span className="text-[10px] text-amber-400 uppercase font-mono block">
+                      {currentUser.role}
+                    </span>
+                  </div>
+                </button>
 
-            {onOpenAuthModal && (
+                {onLogout && (
+                  <button
+                    type="button"
+                    onClick={onLogout}
+                    className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-[#14161d] hover:bg-red-500/10 border border-[#242835] hover:border-red-500/30 text-xs font-mono text-gray-400 hover:text-red-400 transition-colors cursor-pointer shadow-sm"
+                    title="Log out of OpenScript Studio"
+                  >
+                    <LogOut className="w-3.5 h-3.5" />
+                    <span className="hidden sm:inline">Log Out</span>
+                  </button>
+                )}
+              </div>
+            ) : onOpenAuthModal ? (
               <button
                 type="button"
                 onClick={() => onOpenAuthModal('login')}
-                className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#14161d] hover:bg-[#1f222b] border border-[#242835] text-xs font-mono text-gray-300 hover:text-white transition-colors cursor-pointer shadow-sm"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 text-xs font-mono text-amber-400 hover:text-amber-300 transition-colors cursor-pointer shadow-sm"
                 title="Sign in or create account"
               >
                 <LogIn className="w-3.5 h-3.5 text-amber-500" />
                 <span>Sign In</span>
               </button>
-            )}
+            ) : null}
           </div>
         </div>
       </header>
