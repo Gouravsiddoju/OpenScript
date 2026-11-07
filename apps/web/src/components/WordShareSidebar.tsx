@@ -302,8 +302,15 @@ export const WordShareSidebar: React.FC<WordShareSidebarProps> = ({
                 const isSelf = collab.userId === 'default-owner' || collab.userId === 'owner-gourav';
                 const displayName = collab.displayName || (isSelf ? 'Gourav (Owner)' : 'Writer');
                 const initial = displayName.charAt(0).toUpperCase();
-                const isOnline = awarenessPeers.some((p) => p.userId === collab.userId || (isSelf && p.role === 'owner'));
-                const isActivelyWriting = awarenessPeers.some((p) => (p.userId === collab.userId || isSelf) && p.isTyping);
+                const isOnline = awarenessPeers.some((p) => 
+                  p.userId === collab.userId || 
+                  (collab.displayName && p.displayName?.toLowerCase() === collab.displayName.toLowerCase()) || 
+                  (isSelf && p.role === 'owner')
+                );
+                const isActivelyWriting = awarenessPeers.some((p) => 
+                  (p.userId === collab.userId || (collab.displayName && p.displayName?.toLowerCase() === collab.displayName.toLowerCase()) || (isSelf && p.role === 'owner')) && 
+                  p.isTyping
+                );
                 const isInvited = collab.status === 'pending';
 
                 return (

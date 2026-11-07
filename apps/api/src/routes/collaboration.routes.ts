@@ -18,7 +18,7 @@ export interface PeerPresence {
 // In-memory room presence store: projectId -> Map<userId, PeerPresence>
 const rooms = new Map<string, Map<string, PeerPresence>>();
 
-const PRESENCE_TIMEOUT_MS = 15000;
+const PRESENCE_TIMEOUT_MS = 5000;
 
 function cleanupStalePeers(projectId: string) {
   const room = rooms.get(projectId);

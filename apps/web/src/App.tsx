@@ -1024,8 +1024,8 @@ export default function App() {
         isTyping: Boolean(matchingLivePeer?.isTyping),
         activeSceneHeading: matchingLivePeer?.activeSceneHeading,
         activeBlockSnippet: matchingLivePeer?.activeBlockSnippet,
-        lastPing: matchingLivePeer?.lastPing || Date.now(),
-        isOnline: isOnline || c.status === 'active',
+        lastPing: matchingLivePeer?.lastPing || 0,
+        isOnline: isOnline,
       } as any);
     }
 
@@ -1046,12 +1046,26 @@ export default function App() {
 
   const effectivePresencePeers = useMemo(() => {
     return presencePeers.map((peer) => {
-      const isOnlineInAwareness = awarenessPeers.some((ap) => ap.userId === peer.userId);
-      const isTypingInAwareness = awarenessPeers.some((ap) => ap.userId === peer.userId && ap.isTyping);
+      // 1. Check WebSocket awareness
+      const isOnlineInAwareness = awarenessPeers.some(
+        (ap) =>
+          ap.userId === peer.userId ||
+          (peer.displayName && ap.displayName?.toLowerCase() === peer.displayName.toLowerCase())
+      );
+      const isTypingInAwareness = awarenessPeers.some(
+        (ap) =>
+          (ap.userId === peer.userId || (peer.displayName && ap.displayName?.toLowerCase() === peer.displayName.toLowerCase())) &&
+          ap.isTyping
+      );
+
+      // 2. Check HTTP presence heartbeat: must have been pinged within 5000ms
+      const hasFreshHeartbeat = Boolean(peer.lastPing && Date.now() - peer.lastPing < 5000);
+      const isActuallyOnline = isOnlineInAwareness || (Boolean((peer as any).isOnline) && hasFreshHeartbeat);
+
       return {
         ...peer,
-        isOnline: (peer as any).isOnline || isOnlineInAwareness,
-        isTyping: peer.isTyping || isTypingInAwareness,
+        isOnline: isActuallyOnline,
+        isTyping: Boolean(peer.isTyping || isTypingInAwareness),
       };
     });
   }, [presencePeers, awarenessPeers]);
@@ -1214,11 +1228,30 @@ export default function App() {
       } catch {}
     };
 
+    const handleLeave = () => {
+      const presenceRoomId = documentId || '00000000-0000-0000-0000-000000000000';
+      const clientSessionId = localStorage.getItem('openscript_client_session_id') || 'writer';
+      const effectiveUserId = currentUser.id && currentUser.id !== 'default-owner' 
+        ? currentUser.id 
+        : (currentUserRole === 'owner' ? 'owner-gourav' : clientSessionId);
+      try {
+        fetch('/api/v1/projects/' + presenceRoomId + '/presence/leave', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId: effectiveUserId }),
+          keepalive: true,
+        });
+      } catch {}
+    };
+
+    window.addEventListener('beforeunload', handleLeave);
     sendHeartbeatAndSync();
     const interval = setInterval(sendHeartbeatAndSync, 2000);
     return () => {
       isCancelled = true;
       clearInterval(interval);
+      window.removeEventListener('beforeunload', handleLeave);
+      handleLeave();
     };
   }, [currentUserRole, documentId, currentUser]);
 
@@ -2619,6 +2652,7 @@ export default function App() {
                 }}
                 onSelectPeerProfile={(peer) => {
                   const match = collaborators.find((c) => c.userId === peer.userId);
+                  const isLive = Boolean((peer as any).isOnline || peer.isTyping);
                   setSelectedPeerProfile({
                     id: peer.userId,
                     email: match?.email || '',
@@ -2626,6 +2660,7 @@ export default function App() {
                     role: peer.role || 'co-writer',
                     color: peer.color || '#3b82f6',
                     studio: 'OpenScript Studio',
+                    isOnline: isLive,
                   });
                   setIsProfileModalOpen(true);
                 }}
