@@ -350,12 +350,12 @@ export default function App() {
   const [selectedSceneForTakes, setSelectedSceneForTakes] = useState<SceneItem | null>(null);
   const [isSceneTakesModalOpen, setIsSceneTakesModalOpen] = useState(false);
   const [sceneTakes, setSceneTakes] = useState<SceneTake[]>(() => {
-    const saved = localStorage.getItem('openscript_scene_takes');
+    const saved = localStorage.getItem(('openscript_scene_takes_' + documentId));
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.some((t: any) => t.authorName === 'Gourav (SSN)')) {
-          localStorage.removeItem('openscript_scene_takes');
+          localStorage.removeItem(('openscript_scene_takes_' + documentId));
         } else if (Array.isArray(parsed)) {
           return parsed;
         }
@@ -436,7 +436,7 @@ export default function App() {
 
       const updated = [...sceneTakes, ...newTakes];
       setSceneTakes(updated);
-      localStorage.setItem('openscript_scene_takes', JSON.stringify(updated));
+      localStorage.setItem(('openscript_scene_takes_' + documentId), JSON.stringify(updated));
     } else if (scene.hasRevisions) {
       // If takes exist, check if an active revision take with asterisk exists
       const hasRevTake = existingTakesForScene.some((t) => t.title.includes('*'));
@@ -456,7 +456,7 @@ export default function App() {
         const updated = sceneTakes.map((t) => t.sceneId === scene.id ? { ...t, isFinalized: false } : t);
         updated.push(newRevTake);
         setSceneTakes(updated);
-        localStorage.setItem('openscript_scene_takes', JSON.stringify(updated));
+        localStorage.setItem(('openscript_scene_takes_' + documentId), JSON.stringify(updated));
       }
     }
 
@@ -478,7 +478,7 @@ export default function App() {
     };
     const updatedTakes = [...sceneTakes, newTake];
     setSceneTakes(updatedTakes);
-    localStorage.setItem('openscript_scene_takes', JSON.stringify(updatedTakes));
+    localStorage.setItem(('openscript_scene_takes_' + documentId), JSON.stringify(updatedTakes));
   };
 
   const handleFinalizeSceneTake = (take: SceneTake) => {
@@ -494,7 +494,7 @@ export default function App() {
       return t;
     });
     setSceneTakes(updatedTakes);
-    localStorage.setItem('openscript_scene_takes', JSON.stringify(updatedTakes));
+    localStorage.setItem(('openscript_scene_takes_' + documentId), JSON.stringify(updatedTakes));
 
     // Update active scene in script with winning take's content
     const targetSceneIndex = scenes.findIndex((s) => s.id === take.sceneId);
@@ -530,7 +530,7 @@ export default function App() {
   // Act Selection & Organization State
   const [selectedActId, setSelectedActId] = useState<string | null>(null);
   const [sceneFolders, setSceneFolders] = useState<SceneFolder[]>(() => {
-    const saved = localStorage.getItem('openscript_scene_folders');
+    const saved = localStorage.getItem(('openscript_scene_folders_' + documentId));
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
@@ -542,8 +542,8 @@ export default function App() {
           parsed.some((p: any) => p.id === 'act-2' && p.name && p.name.includes('Act II')) &&
           parsed.some((p: any) => p.id === 'act-3' && p.name && p.name.includes('Act III'))
         ) {
-          localStorage.removeItem('openscript_scene_folders');
-          localStorage.removeItem('openscript_scene_folder_map');
+          localStorage.removeItem(('openscript_scene_folders_' + documentId));
+          localStorage.removeItem(('openscript_scene_folder_map_' + documentId));
           return [];
         }
         return parsed;
@@ -552,14 +552,14 @@ export default function App() {
     return [];
   });
   const [sceneFolderMap, setSceneFolderMap] = useState<Record<number, string>>(() => {
-    const savedFolders = localStorage.getItem('openscript_scene_folders');
+    const savedFolders = localStorage.getItem(('openscript_scene_folders_' + documentId));
     if (!savedFolders) return {};
-    const saved = localStorage.getItem('openscript_scene_folder_map');
+    const saved = localStorage.getItem(('openscript_scene_folder_map_' + documentId));
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
         if (parsed['1'] === 'act-1' && parsed['2'] === 'act-2' && Object.keys(parsed).length <= 2) {
-          localStorage.removeItem('openscript_scene_folder_map');
+          localStorage.removeItem(('openscript_scene_folder_map_' + documentId));
           return {};
         }
         return parsed;
@@ -570,12 +570,12 @@ export default function App() {
 
   const handleUpdateSceneFolders = (newFolders: SceneFolder[]) => {
     setSceneFolders(newFolders);
-    localStorage.setItem('openscript_scene_folders', JSON.stringify(newFolders));
+    localStorage.setItem(('openscript_scene_folders_' + documentId), JSON.stringify(newFolders));
   };
 
   const handleUpdateSceneFolderMap = (newMap: Record<number, string>) => {
     setSceneFolderMap(newMap);
-    localStorage.setItem('openscript_scene_folder_map', JSON.stringify(newMap));
+    localStorage.setItem(('openscript_scene_folder_map_' + documentId), JSON.stringify(newMap));
   };
 
   const saveCurrentProject = () => {
@@ -715,11 +715,11 @@ export default function App() {
     }
     if (result.sceneTakes && Array.isArray(result.sceneTakes)) {
       setSceneTakes(result.sceneTakes);
-      localStorage.setItem('openscript_scene_takes', JSON.stringify(result.sceneTakes));
+      localStorage.setItem(('openscript_scene_takes_' + documentId), JSON.stringify(result.sceneTakes));
     }
     if (result.notes && Array.isArray(result.notes)) {
       setNotes(result.notes);
-      localStorage.setItem('openscript_script_notes', JSON.stringify(result.notes));
+      localStorage.setItem(('openscript_script_notes_' + documentId), JSON.stringify(result.notes));
     }
     setIsSaved(false);
     setIsDashboardOpen(false);
@@ -775,12 +775,12 @@ export default function App() {
   });
 
   const [notes, setNotes] = useState<ScriptNote[]>(() => {
-    const saved = localStorage.getItem('openscript_script_notes');
+    const saved = localStorage.getItem(('openscript_script_notes_' + documentId));
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.some((n: any) => n.authorName === 'Navateja' || n.content?.includes("Maya's line") || n.content?.includes('rain FX'))) {
-          localStorage.removeItem('openscript_script_notes');
+          localStorage.removeItem(('openscript_script_notes_' + documentId));
         } else if (Array.isArray(parsed)) {
           return parsed;
         }
@@ -856,10 +856,10 @@ export default function App() {
       provider.setAwarenessField('user', {
         userId: currentUser.id && currentUser.id !== 'default-owner' 
           ? currentUser.id 
-          : (currentUserRole === 'owner' ? 'owner-gourav' : 'writer-collab'),
+          : (currentUserRole === 'owner' ? (currentUser.id || 'owner') : (currentUser.id || 'writer')),
         name: currentUser.displayName && currentUser.displayName !== 'Screenwriter' 
           ? currentUser.displayName 
-          : (currentUserRole === 'owner' ? 'Gourav Siddoju' : 'Poshala Navateja'),
+          : (currentUserRole === 'owner' ? (currentUser.displayName || 'Screenwriter') : (currentUser.displayName || (currentUser.email ? currentUser.email.split('@')[0] : 'Co-Writer'))),
         color: currentUser.color || (currentUserRole === 'owner' ? '#f59e0b' : '#ec4899'),
         role: currentUserRole,
       });
@@ -878,10 +878,10 @@ export default function App() {
       collabProvider.setAwarenessField('user', {
         userId: currentUser.id && currentUser.id !== 'default-owner' 
           ? currentUser.id 
-          : (currentUserRole === 'owner' ? 'owner-gourav' : 'writer-collab'),
+          : (currentUserRole === 'owner' ? (currentUser.id || 'owner') : (currentUser.id || 'writer')),
         name: currentUser.displayName && currentUser.displayName !== 'Screenwriter' 
           ? currentUser.displayName 
-          : (currentUserRole === 'owner' ? 'Gourav Siddoju' : 'Poshala Navateja'),
+          : (currentUserRole === 'owner' ? (currentUser.displayName || 'Screenwriter') : (currentUser.displayName || (currentUser.email ? currentUser.email.split('@')[0] : 'Co-Writer'))),
         color: currentUser.color || (currentUserRole === 'owner' ? '#f59e0b' : '#ec4899'),
         role: currentUserRole,
       });
@@ -1013,8 +1013,8 @@ export default function App() {
 
     const owner: CollaboratorProfile = {
       userId: currentUser.id || 'default-owner',
-      email: currentUser.email || 'gourav.siddu@gmail.com',
-      displayName: currentUser.displayName || 'Gourav Siddoju',
+      email: currentUser.email || '',
+      displayName: currentUser.displayName || 'Screenwriter',
       color: currentUser.color || '#f59e0b',
       role: 'owner',
       status: 'active',
@@ -1156,12 +1156,12 @@ export default function App() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [titleMetadata, setTitleMetadata] = useState<TitlePageMetadata>(() => {
-    const saved = localStorage.getItem('openscript_title_metadata');
+    const saved = localStorage.getItem(('openscript_title_metadata_' + documentId));
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
         if (parsed.title === 'THE GLASS COUNTER' || parsed.title === 'THE NEON DRIFT') {
-          localStorage.removeItem('openscript_title_metadata');
+          localStorage.removeItem(('openscript_title_metadata_' + documentId));
         } else {
           return parsed;
         }
@@ -1259,11 +1259,11 @@ export default function App() {
 
         const effectiveUserId = currentUser.id && currentUser.id !== 'default-owner' 
           ? currentUser.id 
-          : (currentUserRole === 'owner' ? 'owner-gourav' : clientSessionId);
+          : (currentUserRole === 'owner' ? (currentUser.id || 'owner') : (currentUser.id || 'writer'));
 
         const isActivelyEditing = (Date.now() - lastUserEditTimeRef.current < 3500) || Boolean(editorInstanceRef.current?.isFocused);
 
-        const presenceRoomId = documentId || '00000000-0000-0000-0000-000000000000';
+        const presenceRoomId = documentId;
         const res = await fetch('/api/v1/projects/' + presenceRoomId + '/presence', {
           method: 'POST',
           headers: authHeaders({ 'Content-Type': 'application/json' }),
@@ -1271,7 +1271,7 @@ export default function App() {
             userId: effectiveUserId,
             displayName: currentUser.displayName && currentUser.displayName !== 'Screenwriter' 
               ? currentUser.displayName 
-              : (currentUserRole === 'owner' ? 'Gourav Siddoju' : 'Poshala Navateja'),
+              : (currentUserRole === 'owner' ? (currentUser.displayName || 'Screenwriter') : (currentUser.displayName || (currentUser.email ? currentUser.email.split('@')[0] : 'Co-Writer'))),
             color: currentUser.color || (currentUserRole === 'owner' ? '#f59e0b' : '#ec4899'),
             role: currentUserRole,
             activeSceneHeading: activeCursorHeadingRef.current,
@@ -1298,11 +1298,11 @@ export default function App() {
     };
 
     const handleLeave = () => {
-      const presenceRoomId = documentId || '00000000-0000-0000-0000-000000000000';
+      const presenceRoomId = documentId;
       const clientSessionId = localStorage.getItem('openscript_client_session_id') || 'writer';
       const effectiveUserId = currentUser.id && currentUser.id !== 'default-owner' 
         ? currentUser.id 
-        : (currentUserRole === 'owner' ? 'owner-gourav' : clientSessionId);
+        : (currentUserRole === 'owner' ? (currentUser.id || 'owner') : (currentUser.id || 'writer'));
       try {
         fetch('/api/v1/projects/' + presenceRoomId + '/presence/leave', {
           method: 'POST',
@@ -1330,7 +1330,7 @@ export default function App() {
     localStorage.setItem('openscript_draft_html', scriptHtml);
     localStorage.setItem('openscript_draft_fountain_' + documentId, fountainText);
     localStorage.setItem('openscript_draft_fountain', fountainText);
-    localStorage.setItem('openscript_title_metadata', JSON.stringify(titleMetadata));
+    localStorage.setItem(('openscript_title_metadata_' + documentId), JSON.stringify(titleMetadata));
     localStorage.setItem('openscript_is_locked', String(isScriptLocked));
     localStorage.setItem('openscript_tracking_revisions', String(isTrackingRevisions));
     localStorage.setItem('openscript_active_rev_color', activeRevisionColor);
@@ -3256,6 +3256,7 @@ export default function App() {
 
       {/* Universal Screenplay Export Modal */}
       <ExportModal
+        projectId={documentId}
         isOpen={isExportModalOpen}
         onClose={() => setIsExportModalOpen(false)}
         blocks={htmlToBlocks(scriptHtml)}

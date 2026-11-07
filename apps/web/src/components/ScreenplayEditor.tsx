@@ -385,7 +385,7 @@ export const ScreenplayEditor: React.FC<ScreenplayEditorProps> = ({
           provider: collabProvider,
           user: {
             userId: currentUser?.id,
-            name: currentUser?.displayName && currentUser?.displayName !== 'Screenwriter' ? currentUser.displayName : (currentUserRole === 'owner' ? 'Gourav Siddoju' : 'Poshala Navateja'),
+            name: currentUser?.displayName && currentUser?.displayName !== 'Screenwriter' ? currentUser.displayName : (currentUserRole === 'owner' ? (currentUser?.displayName || currentUser?.name || 'Screenwriter') : (currentUser?.displayName || currentUser?.name || 'Co-Writer')),
             color: currentUser?.color || (currentUserRole === 'owner' ? '#f59e0b' : '#ec4899'),
             role: currentUserRole || 'co-writer',
           },
@@ -445,7 +445,7 @@ export const ScreenplayEditor: React.FC<ScreenplayEditorProps> = ({
         if (collabProvider?.awareness && !event.ctrlKey && !event.altKey && !event.metaKey && event.key !== 'Shift') {
           collabProvider.setAwarenessField('user', {
             userId: currentUser?.id,
-            name: currentUser?.displayName && currentUser?.displayName !== 'Screenwriter' ? currentUser.displayName : (currentUserRole === 'owner' ? 'Gourav Siddoju' : 'Poshala Navateja'),
+            name: currentUser?.displayName && currentUser?.displayName !== 'Screenwriter' ? currentUser.displayName : (currentUserRole === 'owner' ? (currentUser?.displayName || currentUser?.name || 'Screenwriter') : (currentUser?.displayName || currentUser?.name || 'Co-Writer')),
             color: currentUser?.color || (currentUserRole === 'owner' ? '#f59e0b' : '#ec4899'),
             role: currentUserRole || 'co-writer',
             isTyping: true,
@@ -455,7 +455,7 @@ export const ScreenplayEditor: React.FC<ScreenplayEditorProps> = ({
             if (collabProvider?.awareness) {
               collabProvider.setAwarenessField('user', {
                 userId: currentUser?.id,
-                name: currentUser?.displayName && currentUser?.displayName !== 'Screenwriter' ? currentUser.displayName : (currentUserRole === 'owner' ? 'Gourav Siddoju' : 'Poshala Navateja'),
+                name: currentUser?.displayName && currentUser?.displayName !== 'Screenwriter' ? currentUser.displayName : (currentUserRole === 'owner' ? (currentUser?.displayName || currentUser?.name || 'Screenwriter') : (currentUser?.displayName || currentUser?.name || 'Co-Writer')),
             color: currentUser?.color || (currentUserRole === 'owner' ? '#f59e0b' : '#ec4899'),
                 role: currentUserRole || 'co-writer',
                 isTyping: false,

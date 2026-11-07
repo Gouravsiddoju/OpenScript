@@ -299,8 +299,8 @@ export const WordShareSidebar: React.FC<WordShareSidebarProps> = ({
 
             <div className="space-y-2">
               {uniqueCollaborators.map((collab) => {
-                const isSelf = collab.userId === 'default-owner' || collab.userId === 'owner-gourav';
-                const displayName = collab.displayName || (isSelf ? 'Gourav (Owner)' : 'Writer');
+                const isSelf = currentUserRole === 'owner' && collab.role === 'owner';
+                const displayName = collab.displayName || (collab.role === 'owner' ? 'Owner' : 'Co-Writer');
                 const initial = displayName.charAt(0).toUpperCase();
                 const isOnline = awarenessPeers.some((p) => 
                   p.userId === collab.userId || 

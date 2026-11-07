@@ -71,7 +71,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({
 
     for (const c of (collaborators || [])) {
       if (!c) continue;
-      const isOwnerRole = c.role === 'owner' || c.userId === 'default-owner' || c.userId === 'owner-gourav';
+      const isOwnerRole = c.role === 'owner';
       if (isOwnerRole) {
         if (seenOwner) continue; // Strictly only one owner row ever
         seenOwner = true;
@@ -294,7 +294,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({
             <div className="space-y-2.5">
               {uniqueCollaborators.map((collab) => {
                 const RoleIcon = ROLE_DESCRIPTIONS[collab.role]?.icon || Edit3;
-                const isSelf = collab.role === 'owner' || collab.userId === 'default-owner' || collab.userId === 'owner-gourav';
+                const isSelf = currentUserRole === 'owner' && collab.role === 'owner';
                 const isPending = (collab as any).status === 'pending' && !(collab as any).lastSeenAt && !(collab as any).isOnline;
                 const displayName = collab.displayName || (collab.email ? collab.email.split('@')[0] : 'Collaborator');
                 const initial = (displayName || 'C').charAt(0).toUpperCase();

@@ -57,7 +57,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
   selectedActId = null,
   sceneFolderMap,
   folders = [],
-  projectId = '00000000-0000-0000-0000-000000000000',
+  projectId = '',
   onOpenCloudModal,
 }) => {
   if (!isOpen) return null;
