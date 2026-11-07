@@ -3,16 +3,22 @@ import { z } from 'zod';
 import { AuthService } from '../services/auth.service';
 import { ResilientStore } from '../services/store.service';
 import { EmailService } from '../services/email.service';
+import { RateLimiterService } from '../services/rate-limit.service';
+
+export const StrongPasswordSchema = z.string()
+  .min(8, 'Password must be at least 8 characters long')
+  .regex(/[A-Za-z]/, 'Password must contain at least one letter')
+  .regex(/\d/, 'Password must contain at least one number');
 
 const RegisterSchema = z.object({
   email: z.string().email(),
-  password: z.string().min(6, 'Password must be at least 6 characters'),
+  password: StrongPasswordSchema,
   displayName: z.string().min(2),
 });
 
 const LoginSchema = z.object({
   email: z.string().email(),
-  password: z.string(),
+  password: z.string().min(1, 'Password is required'),
 });
 
 const UpdateProfileSchema = z.object({
@@ -34,6 +40,17 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
     }
 
     const { email } = parseResult.data;
+    const clientIp = request.ip || '127.0.0.1';
+    const rateLimitKey = `forgot:${clientIp}:${email.toLowerCase()}`;
+    const limitStatus = RateLimiterService.check(rateLimitKey, 3, 15 * 60 * 1000, 15 * 60 * 1000);
+    if (!limitStatus.isAllowed) {
+      return reply.status(429).send({
+        error: `Too many password reset requests. Please wait ${Math.ceil(limitStatus.retryAfterSeconds / 60)} minutes before trying again.`,
+        retryAfterSeconds: limitStatus.retryAfterSeconds,
+      });
+    }
+    RateLimiterService.recordFailure(rateLimitKey, 3, 15 * 60 * 1000, 15 * 60 * 1000);
+
     const user = await ResilientStore.findUserByEmail(email);
 
     if (user) {
@@ -60,7 +77,7 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
   }, async (request, reply) => {
     const schema = z.object({
       token: z.string().min(10, 'Valid reset token required'),
-      newPassword: z.string().min(6, 'Password must be at least 6 characters'),
+      newPassword: StrongPasswordSchema,
     });
     const parseResult = schema.safeParse(request.body);
     if (!parseResult.success) {
@@ -183,9 +200,20 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
     }
 
     const { email, password } = parseResult.data;
+    const clientIp = request.ip || '127.0.0.1';
+    const rateLimitKey = `login:${clientIp}:${email.toLowerCase()}`;
+    const limitStatus = RateLimiterService.check(rateLimitKey, 5, 15 * 60 * 1000, 15 * 60 * 1000);
+    if (!limitStatus.isAllowed) {
+      return reply.status(429).send({
+        error: `Too many failed login attempts. Please wait ${Math.ceil(limitStatus.retryAfterSeconds / 60)} minutes before trying again.`,
+        retryAfterSeconds: limitStatus.retryAfterSeconds,
+      });
+    }
+
     const user = await ResilientStore.findUserByEmail(email);
 
     if (!user) {
+      RateLimiterService.recordFailure(rateLimitKey, 5, 15 * 60 * 1000, 15 * 60 * 1000);
       return reply.status(401).send({ error: 'Invalid email or password' });
     }
 
@@ -226,8 +254,11 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
     const isValid = await AuthService.verifyPassword(password, user.passwordHash);
 
     if (!isValid) {
+      RateLimiterService.recordFailure(rateLimitKey, 5, 15 * 60 * 1000, 15 * 60 * 1000);
       return reply.status(401).send({ error: 'Invalid email or password' });
     }
+
+    RateLimiterService.reset(rateLimitKey);
 
     const rawToken = AuthService.generateSessionToken();
     const tokenHash = AuthService.hashToken(rawToken);
@@ -339,6 +370,86 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
         displayName: user.displayName,
         role: user.role || 'owner',
       },
+    };
+  });
+
+  // Change password for logged-in user
+  server.post('/api/v1/auth/change-password', {
+    schema: {
+      tags: ['Authentication'],
+      description: 'Change password while authenticated',
+    },
+  }, async (request, reply) => {
+    const authHeader = request.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return reply.status(401).send({ error: 'Unauthorized: Sign in required' });
+    }
+
+    const rawToken = authHeader.substring(7);
+    const currentTokenHash = AuthService.hashToken(rawToken);
+
+    const session = await ResilientStore.findSession(currentTokenHash);
+    if (!session || new Date() > new Date(session.expiresAt)) {
+      return reply.status(401).send({ error: 'Session expired or invalid. Please sign in again.' });
+    }
+
+    const user = await ResilientStore.findUserById(session.userId);
+    if (!user) {
+      return reply.status(404).send({ error: 'Account not found' });
+    }
+
+    const schema = z.object({
+      currentPassword: z.string().min(1, 'Current password is required'),
+      newPassword: StrongPasswordSchema,
+    });
+    const parseResult = schema.safeParse(request.body);
+    if (!parseResult.success) {
+      return reply.status(400).send({ error: parseResult.error.issues[0]?.message || 'Validation failed' });
+    }
+
+    const { currentPassword, newPassword } = parseResult.data;
+
+    // Verify current password with timing-safe scrypt
+    const isCurrentValid = await AuthService.verifyPassword(currentPassword, user.passwordHash);
+    if (!isCurrentValid) {
+      return reply.status(401).send({ error: 'Current password is incorrect. Please re-enter.' });
+    }
+
+    const newHash = await AuthService.hashPassword(newPassword);
+    await ResilientStore.updateUserPassword(user.id, newHash);
+    // Keep current session active while revoking all other sessions across devices
+    await ResilientStore.revokeAllUserSessions(user.id, currentTokenHash);
+
+    return {
+      success: true,
+      message: 'Password successfully changed! All other sessions have been signed out for security.',
+    };
+  });
+
+  // Revoke all sessions except current
+  server.post('/api/v1/auth/revoke-all-sessions', {
+    schema: {
+      tags: ['Authentication'],
+      description: 'Sign out all other sessions across devices',
+    },
+  }, async (request, reply) => {
+    const authHeader = request.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return reply.status(401).send({ error: 'Unauthorized: Sign in required' });
+    }
+
+    const rawToken = authHeader.substring(7);
+    const currentTokenHash = AuthService.hashToken(rawToken);
+
+    const session = await ResilientStore.findSession(currentTokenHash);
+    if (!session || new Date() > new Date(session.expiresAt)) {
+      return reply.status(401).send({ error: 'Session expired or invalid' });
+    }
+
+    await ResilientStore.revokeAllUserSessions(session.userId, currentTokenHash);
+    return {
+      success: true,
+      message: 'All other active devices and sessions have been signed out successfully.',
     };
   });
 };

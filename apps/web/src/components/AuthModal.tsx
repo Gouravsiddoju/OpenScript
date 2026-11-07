@@ -15,7 +15,7 @@ import {
   KeyRound,
   ShieldCheck
 } from 'lucide-react';
-import { UserProfileData } from './UserProfileModal';
+import { UserProfileData, evaluatePasswordStrength } from './UserProfileModal';
 
 export type AuthMode = 'login' | 'register' | 'forgot-password' | 'reset-password';
 
@@ -90,6 +90,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const pwStrength = evaluatePasswordStrength(password);
 
   useEffect(() => {
     if (initialResetToken) {
@@ -132,6 +133,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     e.preventDefault();
     setError(null);
     setSuccessMessage(null);
+
+    const strength = evaluatePasswordStrength(password);
+    if (!strength.isValid) {
+      setError('Password must be at least 8 characters long and contain at least one letter and one number.');
+      return;
+    }
 
     if (password !== confirmPassword) {
       setError('Passwords do not match. Please re-enter.');
@@ -185,6 +192,15 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     if (mode === 'reset-password') return handleResetPassword(e);
 
     setError(null);
+
+    if (mode === 'register') {
+      const strength = evaluatePasswordStrength(password);
+      if (!strength.isValid) {
+        setError('Password must be at least 8 characters long and contain at least one letter and one number.');
+        return;
+      }
+    }
+
     setIsLoading(true);
 
     try {
@@ -423,6 +439,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             {/* FORGOT PASSWORD MODE */}
             {mode === 'forgot-password' && (
               <>
+                <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl text-xs text-amber-200/90 font-mono leading-relaxed">
+                  Enter your registered account email. We will send you an encrypted single-use link valid for 60 minutes to reset your password.
+                </div>
+
                 <div className="space-y-1">
                   <label className="text-[11px] font-mono text-gray-400">Your Account Email</label>
                   <div className="relative group">
@@ -479,20 +499,51 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 <div className="space-y-1">
                   <label className="text-[11px] font-mono text-gray-400 flex items-center justify-between">
                     <span>New Password</span>
-                    <span className="text-[10px] text-gray-600">Min 6 characters</span>
+                    <span className="text-[10px] text-gray-500">8+ chars, letters & numbers</span>
                   </label>
                   <div className="relative group">
                     <Lock className="absolute left-3.5 top-3 w-4 h-4 text-gray-500 group-focus-within:text-amber-400 transition-colors" />
                     <input
                       type="password"
                       required
-                      minLength={6}
+                      minLength={8}
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       placeholder="••••••••"
                       className="w-full bg-[#13161f]/90 border border-white/10 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 rounded-xl pl-10 pr-3.5 py-2.5 text-xs text-gray-100 placeholder-gray-600 focus:outline-none transition-all"
                     />
                   </div>
+
+                  {/* Password Strength Meter */}
+                  {password.length > 0 && (
+                    <div className="pt-1.5 space-y-1.5 animate-fadeIn">
+                      <div className="flex items-center justify-between text-[10px] font-mono">
+                        <span className="text-gray-500">Password Strength</span>
+                        <span className={`font-semibold ${
+                          pwStrength.score >= 3 ? 'text-emerald-400' : pwStrength.score === 2 ? 'text-amber-400' : 'text-red-400'
+                        }`}>
+                          {pwStrength.label}
+                        </span>
+                      </div>
+                      <div className="h-1.5 w-full bg-[#1a1e28] rounded-full overflow-hidden flex gap-1">
+                        <div className={`h-full flex-1 transition-all rounded-full ${pwStrength.score >= 1 ? pwStrength.color : 'bg-transparent'}`} />
+                        <div className={`h-full flex-1 transition-all rounded-full ${pwStrength.score >= 2 ? pwStrength.color : 'bg-transparent'}`} />
+                        <div className={`h-full flex-1 transition-all rounded-full ${pwStrength.score >= 3 ? pwStrength.color : 'bg-transparent'}`} />
+                        <div className={`h-full flex-1 transition-all rounded-full ${pwStrength.score >= 4 ? pwStrength.color : 'bg-transparent'}`} />
+                      </div>
+                      <div className="flex flex-wrap gap-2 text-[10px] font-mono text-gray-400 pt-0.5">
+                        <span className={pwStrength.hasLength ? 'text-emerald-400' : 'text-gray-600'}>
+                          {pwStrength.hasLength ? '✓' : '○'} 8+ chars
+                        </span>
+                        <span className={pwStrength.hasLetter ? 'text-emerald-400' : 'text-gray-600'}>
+                          {pwStrength.hasLetter ? '✓' : '○'} Letters
+                        </span>
+                        <span className={pwStrength.hasNumber ? 'text-emerald-400' : 'text-gray-600'}>
+                          {pwStrength.hasNumber ? '✓' : '○'} Numbers
+                        </span>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 <div className="space-y-1">
@@ -502,7 +553,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     <input
                       type="password"
                       required
-                      minLength={6}
+                      minLength={8}
                       value={confirmPassword}
                       onChange={(e) => setConfirmPassword(e.target.value)}
                       placeholder="••••••••"
@@ -513,8 +564,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
                 <button
                   type="submit"
-                  disabled={isLoading}
-                  className="w-full mt-2 py-3 px-4 rounded-xl bg-gradient-to-r from-amber-500 via-amber-400 to-amber-500 hover:brightness-110 active:scale-[0.98] disabled:opacity-50 text-black font-bold text-xs shadow-lg shadow-amber-500/25 transition-all duration-200 flex items-center justify-center gap-2 cursor-pointer"
+                  disabled={isLoading || !pwStrength.isValid || password !== confirmPassword}
+                  className="w-full mt-2 py-3 px-4 rounded-xl bg-gradient-to-r from-amber-500 via-amber-400 to-amber-500 hover:brightness-110 active:scale-[0.98] disabled:opacity-40 text-black font-bold text-xs shadow-lg shadow-amber-500/25 transition-all duration-200 flex items-center justify-center gap-2 cursor-pointer"
                 >
                   {isLoading ? (
                     <>
@@ -606,18 +657,49 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     <input
                       type="password"
                       required
-                      minLength={6}
+                      minLength={mode === 'register' ? 8 : 6}
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       placeholder="••••••••"
                       className="w-full bg-[#13161f]/90 border border-white/10 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 rounded-xl pl-10 pr-3.5 py-2.5 text-xs text-gray-100 placeholder-gray-600 focus:outline-none transition-all"
                     />
                   </div>
+
+                  {/* Register Password Strength Meter */}
+                  {mode === 'register' && password.length > 0 && (
+                    <div className="pt-1.5 space-y-1.5 animate-fadeIn">
+                      <div className="flex items-center justify-between text-[10px] font-mono">
+                        <span className="text-gray-500">Security Strength</span>
+                        <span className={`font-semibold ${
+                          pwStrength.score >= 3 ? 'text-emerald-400' : pwStrength.score === 2 ? 'text-amber-400' : 'text-red-400'
+                        }`}>
+                          {pwStrength.label}
+                        </span>
+                      </div>
+                      <div className="h-1.5 w-full bg-[#1a1e28] rounded-full overflow-hidden flex gap-1">
+                        <div className={`h-full flex-1 transition-all rounded-full ${pwStrength.score >= 1 ? pwStrength.color : 'bg-transparent'}`} />
+                        <div className={`h-full flex-1 transition-all rounded-full ${pwStrength.score >= 2 ? pwStrength.color : 'bg-transparent'}`} />
+                        <div className={`h-full flex-1 transition-all rounded-full ${pwStrength.score >= 3 ? pwStrength.color : 'bg-transparent'}`} />
+                        <div className={`h-full flex-1 transition-all rounded-full ${pwStrength.score >= 4 ? pwStrength.color : 'bg-transparent'}`} />
+                      </div>
+                      <div className="flex flex-wrap gap-2 text-[10px] font-mono text-gray-400 pt-0.5">
+                        <span className={pwStrength.hasLength ? 'text-emerald-400' : 'text-gray-600'}>
+                          {pwStrength.hasLength ? '✓' : '○'} 8+ chars
+                        </span>
+                        <span className={pwStrength.hasLetter ? 'text-emerald-400' : 'text-gray-600'}>
+                          {pwStrength.hasLetter ? '✓' : '○'} Letters
+                        </span>
+                        <span className={pwStrength.hasNumber ? 'text-emerald-400' : 'text-gray-600'}>
+                          {pwStrength.hasNumber ? '✓' : '○'} Numbers
+                        </span>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 <button
                   type="submit"
-                  disabled={isLoading}
+                  disabled={isLoading || (mode === 'register' && !pwStrength.isValid)}
                   className="w-full mt-2 py-3 px-4 rounded-xl bg-gradient-to-r from-amber-500 via-amber-400 to-amber-500 hover:brightness-110 active:scale-[0.98] disabled:opacity-50 text-black font-bold text-xs shadow-lg shadow-amber-500/25 transition-all duration-200 flex items-center justify-center gap-2 cursor-pointer"
                 >
                   {isLoading ? (

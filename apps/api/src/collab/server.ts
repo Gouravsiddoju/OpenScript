@@ -1,6 +1,7 @@
 import { Server, onAuthenticatePayload, onLoadDocumentPayload, onStoreDocumentPayload } from '@hocuspocus/server';
 import * as Y from 'yjs';
 import { ResilientStore } from '../services/store.service';
+import { AuthService } from '../services/auth.service';
 
 export function createCollabServer(port = Number(process.env.COLLAB_PORT) || 3002) {
   const collabServer = new Server({
@@ -11,11 +12,26 @@ export function createCollabServer(port = Number(process.env.COLLAB_PORT) || 300
     quiet: process.env.NODE_ENV === 'test',
 
     async onAuthenticate(data: onAuthenticatePayload) {
-      return {
-        user: {
-          token: data.token,
-        },
-      };
+      const { token } = data;
+      if (!token || token === 'anonymous') {
+        return { user: { token: 'anonymous', role: 'reader' } };
+      }
+      try {
+        const tokenHash = AuthService.hashToken(token);
+        const session = await ResilientStore.findSession(tokenHash);
+        if (session && new Date() <= new Date(session.expiresAt)) {
+          const user = await ResilientStore.findUserById(session.userId);
+          return {
+            user: {
+              id: session.userId,
+              email: user?.email,
+              displayName: user?.displayName,
+              token,
+            },
+          };
+        }
+      } catch {}
+      return { user: { token: 'anonymous', role: 'reader' } };
     },
 
     async onLoadDocument(data: onLoadDocumentPayload) {

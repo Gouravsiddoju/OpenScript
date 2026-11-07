@@ -88,6 +88,11 @@ export const documentRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(400).send({ error: 'Missing revisionNumber for optimistic locking' });
     }
 
+    // Strict RBAC: Read-only collaborators (readers, commenters, guests) cannot modify screenplay content
+    if (request.userRole === 'reader' || request.userRole === 'commenter' || request.userRole === 'guest') {
+      return reply.status(403).send({ error: 'Forbidden: Read-only collaborators cannot modify screenplay content' });
+    }
+
     // Validate AST with schema
     const parsedDoc = CanonicalScreenplayDocumentSchema.safeParse(content);
     if (!parsedDoc.success) {

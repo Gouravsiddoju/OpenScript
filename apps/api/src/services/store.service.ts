@@ -1,5 +1,5 @@
 import { db, projects, documents, documentRevisions, projectMembers, scriptNotes, scriptNoteReplies, users, sessions } from '@openscript/database';
-import { eq, and, desc, asc } from 'drizzle-orm';
+import { eq, and, ne, desc, asc } from 'drizzle-orm';
 import { CanonicalScreenplayDocument } from '@openscript/screenplay-schema';
 
 export interface InMemUser {
@@ -834,6 +834,25 @@ export class ResilientStore {
     const memUser = memStore.users.get(userId);
     if (memUser) {
       memUser.passwordHash = newPasswordHash;
+    }
+    // Automatically revoke all prior sessions upon password reset/update for security
+    await this.revokeAllUserSessions(userId);
+    return true;
+  }
+
+  static async revokeAllUserSessions(userId: string, keepTokenHash?: string): Promise<boolean> {
+    if (isDbActive()) try {
+      if (keepTokenHash) {
+        await db.delete(sessions).where(and(eq(sessions.userId, userId), ne(sessions.tokenHash, keepTokenHash)));
+      } else {
+        await db.delete(sessions).where(eq(sessions.userId, userId));
+      }
+    } catch (err) { handleDbErr(err); }
+
+    for (const [tokenHash, session] of memStore.sessions.entries()) {
+      if (session.userId === userId && tokenHash !== keepTokenHash) {
+        memStore.sessions.delete(tokenHash);
+      }
     }
     return true;
   }

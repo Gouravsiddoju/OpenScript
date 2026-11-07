@@ -436,7 +436,10 @@ export const ScreenplayEditor: React.FC<ScreenplayEditorProps> = ({
     return exts;
   }, [ydoc, collabProvider, isCollabActive, currentUser?.displayName, currentUser?.name, currentUser?.color]);
 
+  const isEditable = !isScriptLocked && canEditScreenplay(currentUserRole);
+
   const editor = useEditor({
+    editable: isEditable,
     extensions: editorExtensions,
     content: (ydoc && collabProvider) ? undefined : initialContent,
     editorProps: {
@@ -640,7 +643,13 @@ export const ScreenplayEditor: React.FC<ScreenplayEditorProps> = ({
         onUpdate(editor.getHTML(), editor.getJSON());
       }
     },
-  }, [ydoc, collabProvider]);
+  }, [ydoc, collabProvider, isEditable]);
+
+  useEffect(() => {
+    if (editor && !editor.isDestroyed) {
+      editor.setEditable(isEditable);
+    }
+  }, [editor, isEditable]);
 
   useEffect(() => {
     editorRef.current = editor;
@@ -1115,6 +1124,33 @@ export const ScreenplayEditor: React.FC<ScreenplayEditorProps> = ({
           </button>
         </div>
       </div>
+      )}
+
+      {/* Read-Only Mode Banner for Readers, Commenters and Guests */}
+      {!canEditScreenplay(currentUserRole) && (
+        <div 
+          style={{
+            position: 'fixed',
+            left: typeof window !== 'undefined' && window.innerWidth >= 1024 && isSidebarOpen ? 'calc(50% + 160px)' : '50%',
+            top: isHeaderVisible ? 66 : 14,
+            transform: `translateX(-50%) translateY(${isToolbarVisible ? '0' : '-140%'})`,
+            opacity: isToolbarVisible ? 1 : 0,
+            pointerEvents: isToolbarVisible ? 'auto' : 'none',
+            transition: 'transform 0.28s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.2s ease, top 0.25s ease, left 0.3s ease',
+            zIndex: 35,
+          }}
+          className="no-print select-none"
+        >
+          <div className="bg-[#13151b]/95 backdrop-blur-md border border-amber-500/30 rounded-2xl px-4 py-2 shadow-2xl shadow-black/80 flex items-center gap-2.5">
+            <Eye className="w-4 h-4 text-amber-400" />
+            <span className="text-xs font-mono font-semibold text-amber-300">
+              Read-Only Mode ({currentUserRole === 'commenter' ? 'Commenter' : currentUserRole === 'reader' ? 'Reader' : 'Guest'})
+            </span>
+            <span className="text-[11px] text-gray-400 font-sans border-l border-white/10 pl-2.5">
+              {currentUserRole === 'commenter' ? 'You can highlight text to add notes & feedback' : 'Document editing is restricted'}
+            </span>
+          </div>
+        </div>
       )}
 
       {/* SmartType Floating Autocomplete Popup positioned right at the typing cursor */}

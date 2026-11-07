@@ -992,7 +992,7 @@ export default function App() {
   useEffect(() => {
     try {
       const urlParams = new URLSearchParams(window.location.search);
-      const resetToken = urlParams.get('resetToken');
+      const resetToken = urlParams.get('resetToken') || urlParams.get('token');
       if (resetToken) {
         setAuthResetToken(resetToken);
         setAuthModalMode('reset-password');
@@ -3515,6 +3515,8 @@ export default function App() {
           studio: 'OpenScript Studio',
           color: '#f59e0b',
         }}
+        authToken={authToken}
+        onUpdateDisplayName={handleUpdateDisplayName}
         onLogout={handleLogout}
         onOpenLogin={() => setIsAuthModalOpen(true)}
       />
