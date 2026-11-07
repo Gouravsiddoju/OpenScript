@@ -4,6 +4,7 @@ import { ResilientStore, memStore } from '../services/store.service';
 import { authenticateToken, requireProjectAccess } from '../plugins/auth.middleware';
 
 const CreateProjectSchema = z.object({
+  id: z.string().uuid().optional(),
   name: z.string().min(1, 'Project name is required'),
   description: z.string().optional(),
   ownerId: z.string().uuid().optional(),
@@ -44,8 +45,8 @@ export const projectRoutes: FastifyPluginAsync = async (server) => {
       } catch {}
     }
 
-    const { name, description } = parseResult.data;
-    const newProject = await ResilientStore.createProject(name, description, ownerId);
+    const { id, name, description } = parseResult.data;
+    const newProject = await ResilientStore.createProject(name, description, ownerId, id);
 
     return reply.status(201).send({ project: newProject });
   });

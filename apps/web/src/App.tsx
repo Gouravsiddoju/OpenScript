@@ -730,7 +730,7 @@ export default function App() {
   });
 
   const [collaborators, setCollaborators] = useState<CollaboratorProfile[]>(() => {
-    const saved = localStorage.getItem('openscript_collaborators');
+    const saved = localStorage.getItem(('openscript_collaborators_' + documentId));
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
@@ -983,7 +983,7 @@ export default function App() {
       role: 'owner',
       lastSeenAt: new Date().toISOString(),
     }]);
-    localStorage.removeItem('openscript_collaborators');
+    localStorage.removeItem(('openscript_collaborators_' + documentId));
 
     // Interactive Guide is triggered JUST ONCE when a new user registers & logs in
     const userTourKey = `openscript_tour_seen_${user.id || user.email || 'user'}`;
@@ -997,7 +997,7 @@ export default function App() {
     }
   };
 
-  // 1. Initial backend sync for Notes & Collaborators
+  // 1. Initial backend sync for Notes & Collaborators (Isolated Per Project)
   useEffect(() => {
     fetch(`/api/v1/documents/${documentId}/notes`, { headers: authHeaders() })
       .then((r) => r.json())
@@ -1008,62 +1008,54 @@ export default function App() {
       })
       .catch(() => {});
 
-    fetch('/api/v1/projects/00000000-0000-0000-0000-000000000000/collaborators', { headers: authHeaders() })
+    const getKey = (c: { email?: string; userId: string }) =>
+      (c.email?.trim().toLowerCase() || c.userId || '').trim();
+
+    const owner: CollaboratorProfile = {
+      userId: currentUser.id || 'default-owner',
+      email: currentUser.email || 'gourav.siddu@gmail.com',
+      displayName: currentUser.displayName || 'Gourav Siddoju',
+      color: currentUser.color || '#f59e0b',
+      role: 'owner',
+      status: 'active',
+      lastSeenAt: new Date().toISOString(),
+    };
+
+    fetch(`/api/v1/projects/${documentId}/collaborators`, { headers: authHeaders() })
       .then((r) => r.json())
       .then((data) => {
-        if (data?.collaborators && Array.isArray(data.collaborators) && data.collaborators.length > 0) {
-          setCollaborators((prev) => {
-            const map = new Map<string, CollaboratorProfile>();
-            const getKey = (c: { email?: string; userId: string }) =>
-              (c.email?.trim().toLowerCase() || c.userId || '').trim();
+        const map = new Map<string, CollaboratorProfile>();
+        const ownerKey = getKey(owner);
+        if (ownerKey) map.set(ownerKey, owner);
 
-            const owner: CollaboratorProfile = {
-              userId: currentUser.id || 'default-owner',
-              email: currentUser.email || 'gourav.siddu@gmail.com',
-              displayName: currentUser.displayName || 'Gourav Siddoju',
-              color: '#f59e0b',
-              role: 'owner',
-              status: 'active',
-              lastSeenAt: new Date().toISOString(),
-            };
-
-            const ownerKey = getKey(owner);
-            if (ownerKey) map.set(ownerKey, owner);
-
-            // Preserve non-owner members from prev
-            for (const c of prev) {
-              if (c.role === 'owner') continue;
-              const k = getKey(c);
-              if (k) map.set(k, c);
+        if (data?.collaborators && Array.isArray(data.collaborators)) {
+          for (const s of data.collaborators) {
+            if (s.role === 'owner') continue;
+            const k = getKey(s);
+            if (k) {
+              map.set(k, {
+                userId: s.userId || s.id || crypto.randomUUID(),
+                email: s.email,
+                displayName: s.displayName || s.email.split('@')[0],
+                color: s.color || '#ec4899',
+                role: s.role || 'co-writer',
+                status: 'active',
+                lastSeenAt: s.lastSeenAt || s.createdAt || new Date().toISOString(),
+              });
             }
-
-            // Merge fresh server collaborators
-            for (const s of data.collaborators) {
-              if (s.role === 'owner') continue;
-              const k = getKey(s);
-              if (k) {
-                const existing = map.get(k);
-                map.set(k, {
-                  userId: s.userId || s.id || existing?.userId,
-                  email: s.email || existing?.email,
-                  displayName: s.displayName || existing?.displayName || s.email.split('@')[0],
-                  color: s.color || existing?.color || '#ec4899',
-                  role: s.role || existing?.role || 'co-writer',
-                  status: 'active',
-                  lastSeenAt: s.lastSeenAt || s.createdAt || new Date().toISOString(),
-                });
-              }
-            }
-            const merged = Array.from(map.values());
-            try {
-              localStorage.setItem('openscript_collaborators', JSON.stringify(merged));
-            } catch {}
-            return merged;
-          });
+          }
         }
+        const isolated = Array.from(map.values());
+        try {
+          localStorage.setItem('openscript_collaborators_' + documentId, JSON.stringify(isolated));
+        } catch {}
+        setCollaborators(isolated);
       })
-      .catch(() => {});
-  }, [documentId]);
+      .catch(() => {
+        const fallback = [owner];
+        setCollaborators(fallback);
+      });
+  }, [documentId, currentUser]);
 
   const presencePeers: LivePresence[] = useMemo(() => {
     const currentUserId = currentUser.id || 'default-owner';
@@ -1479,7 +1471,7 @@ export default function App() {
         const docPayload = {
           schemaVersion: 2,
           id: documentId,
-          projectId: '00000000-0000-0000-0000-000000000000',
+          projectId: documentId || '00000000-0000-0000-0000-000000000000',
           revisionNumber: curRev,
           metadata: {
             title: titleMetadata.title,
@@ -1523,6 +1515,23 @@ export default function App() {
           lastSavedFountainRef.current = cleanFountain;
           isDirtyRef.current = false;
           setIsSaved(true);
+          try {
+            const existing = getProject(documentId);
+            if (existing) {
+              saveProject({
+                ...existing,
+                title: titleMetadata.title,
+                author: titleMetadata.author,
+                draftColor: activeRevisionColor,
+                isLocked: isScriptLocked,
+                fountainText: cleanFountain,
+                scriptHtml: fountainToHtml(cleanFountain),
+                sceneCount: (cleanFountain.match(/^(INT\.|EXT\.|INT\/EXT\.|I\/E\.)/gim) || []).length || 1,
+                wordCount: cleanFountain.trim().split(/\s+/).filter(Boolean).length,
+                updatedAt: new Date().toISOString(),
+              });
+            }
+          } catch {}
         }
       } catch (err) {
         // Backend not running / offline: graceful local preservation
@@ -1659,7 +1668,7 @@ export default function App() {
 
   const handleInviteCollaborator = async (email: string, role: CollaboratorRole) => {
     try {
-      const res = await fetch('/api/v1/projects/00000000-0000-0000-0000-000000000000/collaborators', {
+      const res = await fetch(`/api/v1/projects/${documentId}/collaborators`, {
         method: 'POST',
         headers: authHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ email, role, documentId, projectName: titleMetadata.title }),
@@ -1679,7 +1688,7 @@ export default function App() {
           } else {
             setCollaborators((prev) => {
               const updated = [...prev, { ...data.collaborator, status: collabStatus as any }];
-              try { localStorage.setItem('openscript_collaborators', JSON.stringify(updated)); } catch {}
+              try { localStorage.setItem(('openscript_collaborators_' + documentId), JSON.stringify(updated)); } catch {}
               return updated;
             });
           }
@@ -1705,7 +1714,7 @@ export default function App() {
       } else {
         updated = [...prev, newCollab];
       }
-      try { localStorage.setItem('openscript_collaborators', JSON.stringify(updated)); } catch {}
+      try { localStorage.setItem(('openscript_collaborators_' + documentId), JSON.stringify(updated)); } catch {}
       return updated;
     });
     return { success: true, isDuplicate: false };
@@ -1713,7 +1722,7 @@ export default function App() {
 
   const handleResendInvite = async (userId: string) => {
     try {
-      await fetch(`/api/v1/projects/00000000-0000-0000-0000-000000000000/collaborators/${userId}/resend`, {
+      await fetch(`/api/v1/projects/${documentId}/collaborators/${userId}/resend`, {
         method: 'POST',
         headers: authHeaders(),
       });
@@ -1725,7 +1734,7 @@ export default function App() {
 
   const handleUpdateCollaboratorRole = async (userId: string, role: CollaboratorRole) => {
     try {
-      await fetch(`/api/v1/projects/00000000-0000-0000-0000-000000000000/collaborators/${userId}`, {
+      await fetch(`/api/v1/projects/${documentId}/collaborators/${userId}`, {
         method: 'PATCH',
         headers: authHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ role }),
@@ -1739,7 +1748,7 @@ export default function App() {
 
   const handleRemoveCollaborator = async (userId: string) => {
     try {
-      await fetch(`/api/v1/projects/00000000-0000-0000-0000-000000000000/collaborators/${userId}`, {
+      await fetch(`/api/v1/projects/${documentId}/collaborators/${userId}`, {
         method: 'DELETE',
         headers: authHeaders(),
       });
@@ -1767,7 +1776,9 @@ export default function App() {
     });
 
     const clean = stripConflictMarkers(lines.join('\n').trim());
-    if (clean === fountainTextRef.current) {
+    const normalizedClean = clean.replace(/\s+/g, ' ');
+    const normalizedCurrent = (fountainTextRef.current || '').replace(/\s+/g, ' ');
+    if (normalizedClean === normalizedCurrent) {
       return;
     }
 
@@ -2120,7 +2131,7 @@ export default function App() {
       const docPayload = {
         schemaVersion: 2,
         id: documentId,
-        projectId: '00000000-0000-0000-0000-000000000000',
+        projectId: documentId || '00000000-0000-0000-0000-000000000000',
         revisionNumber,
         metadata: {
           title: titleMetadata.title,
@@ -2880,7 +2891,7 @@ export default function App() {
         >
           {activeMode === 'screenplay' && (
             <ScreenplayEditor
-              key={documentId}
+              key={`${documentId}_${collabProvider ? "collab" : "standalone"}`}
               initialContent={scriptHtml}
               ydoc={ydoc}
               collabProvider={collabProvider}
@@ -3059,7 +3070,7 @@ export default function App() {
             const docPayload = {
               schemaVersion: 2,
               id: documentId,
-              projectId: '00000000-0000-0000-0000-000000000000',
+              projectId: documentId || '00000000-0000-0000-0000-000000000000',
               revisionNumber: nextRev,
               metadata: {
                 title: titleMetadata.title,
@@ -3152,7 +3163,7 @@ export default function App() {
             const docPayload = {
               schemaVersion: 2,
               id: documentId,
-              projectId: '00000000-0000-0000-0000-000000000000',
+              projectId: documentId || '00000000-0000-0000-0000-000000000000',
               revisionNumber: targetRev,
               metadata: {
                 title: titleMetadata.title,

@@ -160,8 +160,8 @@ export class ResilientStore {
     return memStore.projects.get(id) || null;
   }
 
-  static async createProject(name: string, description?: string, ownerId?: string) {
-    const id = crypto.randomUUID();
+  static async createProject(name: string, description?: string, ownerId?: string, customId?: string) {
+    const id = customId || crypto.randomUUID();
     const now = new Date();
     if (isDbActive()) {
       try {

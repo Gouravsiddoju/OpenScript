@@ -116,6 +116,7 @@ export const ProjectDashboard: React.FC<ProjectDashboardProps> = ({
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
+          id: created.id,
           name: title,
           description: `Screenplay by ${author} (${selectedTemplate})`,
         }),

@@ -395,6 +395,8 @@ export const ScreenplayEditor: React.FC<ScreenplayEditorProps> = ({
             cursor.classList.add('ProseMirror-yjs-cursor');
             const userColor = user.color || '#3b82f6';
             cursor.style.color = userColor;
+            cursor.style.borderLeft = `2.5px solid ${userColor}`;
+            cursor.style.borderLeftColor = userColor;
             
             const label = document.createElement('div');
             label.classList.add('collaboration-cursor__label');
@@ -415,7 +417,7 @@ export const ScreenplayEditor: React.FC<ScreenplayEditorProps> = ({
             if (user.isTyping) {
               const typingIndicator = document.createElement('span');
               typingIndicator.classList.add('collaboration-cursor__typing');
-              typingIndicator.textContent = ' ✍️';
+              typingIndicator.textContent = ' ✍️ typing...';
               label.appendChild(typingIndicator);
             }
 
