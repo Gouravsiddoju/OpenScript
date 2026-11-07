@@ -322,3 +322,51 @@
     font-size: 16px !important;
   }
 }
+
+
+/* ==========================================================================
+   Word / Google Docs Style Real-Time Collaborative Cursors
+   ========================================================================== */
+.ProseMirror-yjs-selection {
+  opacity: 0.85;
+  border-radius: 2px;
+}
+
+.collaboration-cursor__caret {
+  position: relative;
+  margin-left: -1px;
+  margin-right: -1px;
+  border-left: 2px solid #3b82f6;
+  border-right: 0;
+  word-break: normal;
+  pointer-events: none;
+}
+
+.collaboration-cursor__label {
+  position: absolute;
+  top: -1.55em;
+  left: -2px;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 1.5px 6px;
+  font-size: 11px;
+  font-weight: 600;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  line-height: 14px;
+  color: #ffffff;
+  border-radius: 3px 3px 3px 0;
+  white-space: nowrap;
+  user-select: none;
+  pointer-events: none;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.35);
+  z-index: 50;
+  transform-origin: bottom left;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.collaboration-cursor__icon {
+  display: inline-block;
+  font-size: 10px;
+  opacity: 0.9;
+}

@@ -1,6 +1,9 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
+import { Collaboration } from '@tiptap/extension-collaboration';
+import { CollaborationCursor } from '@tiptap/extension-collaboration-cursor';
+import type * as Y from 'yjs';
 import { screenplayNodes, ScreenplayKeymap, ScreenplayUppercase, paginateScreenplay } from '@openscript/editor';
 import { htmlToBlocks } from '../utils/exporter';
 import { TitlePageMetadata } from './TitlePageModal';
@@ -9,6 +12,14 @@ import { CollaboratorRole, ScriptNote, ScriptNoteCategory, LivePresence, canEdit
 
 interface ScreenplayEditorProps {
   initialContent?: string;
+  ydoc?: Y.Doc | null;
+  collabProvider?: any;
+  currentUser?: {
+    id?: string;
+    displayName?: string;
+    name?: string;
+    color?: string;
+  } | null;
   onUpdate?: (html: string, json: any) => void;
   onEditorReady?: (editor: any) => void;
   metadata?: TitlePageMetadata;
@@ -95,6 +106,9 @@ export const ScreenplayEditor: React.FC<ScreenplayEditorProps> = ({
   isHeaderVisible = true,
   isSidebarOpen = true,
   onShowHeader,
+  ydoc = null,
+  collabProvider = null,
+  currentUser = null,
 }) => {
   const initialKnownChars = useMemo(() => {
     const chars = new Set<string>();
@@ -343,17 +357,66 @@ export const ScreenplayEditor: React.FC<ScreenplayEditorProps> = ({
     setSelectedSuggestionIndex(0);
   };
 
-  const editor = useEditor({
-    extensions: [
+  const isCollabActive = Boolean(ydoc && collabProvider);
+
+  const editorExtensions = useMemo(() => {
+    const exts = [
       StarterKit.configure({
         blockquote: false,
         codeBlock: false,
         heading: false,
+        history: isCollabActive ? false : undefined,
       }),
       ...screenplayNodes,
       ScreenplayKeymap,
       ScreenplayUppercase,
-    ],
+    ];
+
+    if (ydoc && collabProvider) {
+      exts.push(
+        Collaboration.configure({
+          document: ydoc,
+          field: 'default',
+        }) as any
+      );
+      exts.push(
+        CollaborationCursor.configure({
+          provider: collabProvider,
+          user: {
+            name: currentUser?.displayName || currentUser?.name || 'Screenwriter',
+            color: currentUser?.color || '#f59e0b',
+          },
+          render(user: any) {
+            const cursor = document.createElement('span');
+            cursor.classList.add('collaboration-cursor__caret');
+            cursor.style.borderColor = user.color || '#3b82f6';
+
+            const label = document.createElement('div');
+            label.classList.add('collaboration-cursor__label');
+            label.style.backgroundColor = user.color || '#3b82f6';
+
+            const icon = document.createElement('span');
+            icon.classList.add('collaboration-cursor__icon');
+            icon.textContent = '👤 ';
+            label.appendChild(icon);
+
+            const nameSpan = document.createElement('span');
+            nameSpan.textContent = user.name || 'Writer';
+            label.appendChild(nameSpan);
+
+            cursor.appendChild(label);
+            return cursor;
+          },
+        }) as any
+      );
+    }
+
+    return exts;
+  }, [ydoc, collabProvider, isCollabActive, currentUser?.displayName, currentUser?.name, currentUser?.color]);
+
+  const editor = useEditor({
+    extensions: editorExtensions,
+    content: (ydoc && collabProvider) ? undefined : initialContent,
     editorProps: {
       handleKeyDown(view, event) {
         // 1. Escape key dismisses SmartType suggestions
@@ -449,7 +512,6 @@ export const ScreenplayEditor: React.FC<ScreenplayEditorProps> = ({
         return false;
       },
     },
-    content: initialContent,
     onSelectionUpdate: ({ editor }) => {
       checkSmartType(editor);
       if (onShowHeader) {
@@ -532,7 +594,7 @@ export const ScreenplayEditor: React.FC<ScreenplayEditorProps> = ({
         onUpdate(editor.getHTML(), editor.getJSON());
       }
     },
-  });
+  }, [ydoc, collabProvider]);
 
   useEffect(() => {
     editorRef.current = editor;
@@ -544,12 +606,23 @@ export const ScreenplayEditor: React.FC<ScreenplayEditorProps> = ({
   // Sync initial content when document loads from remote server / join URL
   useEffect(() => {
     if (editor && initialContent && !editor.isDestroyed) {
+      if (ydoc && collabProvider) {
+        // In real-time collaboration, Yjs manages content. Only seed if Yjs doc is empty!
+        const fragment = ydoc.getXmlFragment('default');
+        if (fragment && fragment.length === 0) {
+          const currentHtml = editor.getHTML();
+          if (currentHtml === '<p></p>' || !currentHtml || currentHtml.includes('Every story begins with a blank page')) {
+            editor.commands.setContent(initialContent);
+          }
+        }
+        return;
+      }
       const currentHtml = editor.getHTML();
       if (initialContent !== currentHtml && (currentHtml.includes('Every story begins with a blank page') || !currentHtml || currentHtml === '<p></p>')) {
         editor.commands.setContent(initialContent);
       }
     }
-  }, [initialContent, editor]);
+  }, [initialContent, editor, ydoc, collabProvider]);
 
   // Dynamic Pagination & Physical Page Break Slicing
   const [totalPages, setTotalPages] = useState<number>(1);

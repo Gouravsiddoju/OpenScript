@@ -38,6 +38,7 @@ export interface InMemDocument {
   title: string;
   schemaVersion: number;
   contentJson: any;
+  yjsState?: string | null;
   revisionNumber: number;
   isLocked: boolean;
   createdAt: Date;
@@ -318,6 +319,32 @@ export class ResilientStore {
     existing.title = title;
     existing.updatedAt = now;
     return { doc: existing, newRevisionNumber: targetRevision, isConflict: false };
+  }
+
+  static async saveYjsState(id: string, yjsStateBase64: string, contentJson?: any) {
+    const now = new Date();
+    if (isDbActive()) {
+      try {
+        const updateData: any = {
+          yjsState: yjsStateBase64,
+          updatedAt: now,
+        };
+        if (contentJson) {
+          updateData.contentJson = contentJson;
+        }
+        await db.update(documents).set(updateData).where(eq(documents.id, id));
+        return true;
+      } catch (err) {
+        handleDbErr(err);
+      }
+    }
+    const memDoc = memStore.documents.get(id);
+    if (memDoc) {
+      memDoc.yjsState = yjsStateBase64;
+      if (contentJson) memDoc.contentJson = contentJson;
+      memDoc.updatedAt = now;
+    }
+    return true;
   }
 
   // ---- COLLABORATORS ----

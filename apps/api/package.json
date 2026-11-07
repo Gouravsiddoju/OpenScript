@@ -13,6 +13,7 @@
     "@fastify/helmet": "^12.0.1",
     "@fastify/swagger": "^9.9.2",
     "@fastify/swagger-ui": "^6.1.2",
+    "@hocuspocus/server": "^4.8.0",
     "@openscript/database": "workspace:*",
     "@openscript/fountain": "workspace:*",
     "@openscript/screenplay-schema": "workspace:*",
@@ -21,6 +22,8 @@
     "fastify": "^5.2.0",
     "nodemailer": "^10.3.1",
     "tsx": "^4.19.2",
+    "y-prosemirror": "^1.3.7",
+    "yjs": "^13.6.33",
     "zod": "^3.23.8"
   },
   "devDependencies": {

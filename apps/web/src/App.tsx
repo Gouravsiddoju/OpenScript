@@ -42,6 +42,9 @@ import { ConflictModal } from './components/ConflictModal';
 import { SprintWidget } from './components/SprintWidget';
 import { ScriptNotesPanel } from './components/ScriptNotesPanel';
 import { ShareModal } from './components/ShareModal';
+import { WordShareSidebar, LiveAwarenessPeer } from './components/WordShareSidebar';
+import { HocuspocusProvider } from '@hocuspocus/provider';
+import * as Y from 'yjs';
 import { CollaborationBar } from './components/CollaborationBar';
 import { KeyboardShortcutsModal } from './components/KeyboardShortcutsModal';
 import { UserProfileModal, UserProfileData } from './components/UserProfileModal';
@@ -732,6 +735,89 @@ export default function App() {
   });
 
   const [livePeers, setLivePeers] = useState<LivePresence[]>([]);
+  const [ydoc, setYdoc] = useState<Y.Doc | null>(null);
+  const [collabProvider, setCollabProvider] = useState<HocuspocusProvider | null>(null);
+  const [awarenessPeers, setAwarenessPeers] = useState<LiveAwarenessPeer[]>([]);
+
+  // Initialize Word-Grade Real-Time Yjs CRDT Collaboration via Hocuspocus WebSocket
+  useEffect(() => {
+    if (!documentId) return;
+
+    const doc = new Y.Doc();
+    setYdoc(doc);
+
+    const wsUrl = (import.meta as any).env?.VITE_COLLAB_WS_URL || 
+      (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+        ? 'ws://localhost:3002'
+        : `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.hostname}:3002`);
+
+    const provider = new HocuspocusProvider({
+      url: wsUrl,
+      name: documentId,
+      document: doc,
+      token: authToken || 'anonymous',
+    });
+
+    setCollabProvider(provider);
+
+    const updateAwareness = () => {
+      if (!provider.awareness) return;
+      const states = provider.awareness.getStates();
+      const peers: LiveAwarenessPeer[] = [];
+      states.forEach((state: any, clientID: number) => {
+        if (state.user) {
+          peers.push({
+            clientId: clientID,
+            userId: state.user.userId || `client-${clientID}`,
+            displayName: state.user.name || 'Collaborator',
+            color: state.user.color || '#3b82f6',
+            role: state.user.role || 'co-writer',
+            isTyping: Boolean(state.user.isTyping),
+            activeScene: state.user.activeSceneHeading,
+          });
+        }
+      });
+      setAwarenessPeers(peers);
+    };
+
+    if (provider.awareness) {
+      provider.awareness.on('change', updateAwareness);
+
+      // Initial local user awareness
+      provider.setAwarenessField('user', {
+        userId: currentUser.id && currentUser.id !== 'default-owner' 
+          ? currentUser.id 
+          : (currentUserRole === 'owner' ? 'owner-gourav' : 'writer-collab'),
+        name: currentUser.displayName && currentUser.displayName !== 'Screenwriter' 
+          ? currentUser.displayName 
+          : (currentUserRole === 'owner' ? 'Gourav Siddoju' : 'Poshala Navateja'),
+        color: currentUser.color || (currentUserRole === 'owner' ? '#f59e0b' : '#ec4899'),
+        role: currentUserRole,
+      });
+    }
+
+    return () => {
+      provider.destroy();
+      doc.destroy();
+      setCollabProvider(null);
+      setYdoc(null);
+    };
+  }, [documentId, authToken]);
+
+  useEffect(() => {
+    if (collabProvider?.awareness) {
+      collabProvider.setAwarenessField('user', {
+        userId: currentUser.id && currentUser.id !== 'default-owner' 
+          ? currentUser.id 
+          : (currentUserRole === 'owner' ? 'owner-gourav' : 'writer-collab'),
+        name: currentUser.displayName && currentUser.displayName !== 'Screenwriter' 
+          ? currentUser.displayName 
+          : (currentUserRole === 'owner' ? 'Gourav Siddoju' : 'Poshala Navateja'),
+        color: currentUser.color || (currentUserRole === 'owner' ? '#f59e0b' : '#ec4899'),
+        role: currentUserRole,
+      });
+    }
+  }, [collabProvider, currentUser, currentUserRole]);
 
   const authHeaders = (extra: Record<string, string> = {}) => {
     const token = authToken || localStorage.getItem('openscript_auth_token');
@@ -958,6 +1044,18 @@ export default function App() {
     return Array.from(memberMap.values());
   }, [livePeers, collaborators, currentUser]);
 
+  const effectivePresencePeers = useMemo(() => {
+    return presencePeers.map((peer) => {
+      const isOnlineInAwareness = awarenessPeers.some((ap) => ap.userId === peer.userId);
+      const isTypingInAwareness = awarenessPeers.some((ap) => ap.userId === peer.userId && ap.isTyping);
+      return {
+        ...peer,
+        isOnline: (peer as any).isOnline || isOnlineInAwareness,
+        isTyping: peer.isTyping || isTypingInAwareness,
+      };
+    });
+  }, [presencePeers, awarenessPeers]);
+
   // Production revision state
   const [isScriptLocked, setIsScriptLocked] = useState<boolean>(() => {
     return localStorage.getItem('openscript_is_locked') === 'true';
@@ -1105,45 +1203,12 @@ export default function App() {
             setLivePeers(data.peers);
           }
 
-          // Realtime document synchronization: absorb peer writes without refresh
-          if (typeof data?.docRevision === 'number' && data.docRevision > revisionNumberRef.current && !isResolvingConflictRef.current) {
-            // NEVER overwrite if user is actively writing or has unsaved edits
-            if (isActivelyEditing || isDirtyRef.current || !isSavedRef.current) {
-              return;
-            }
-
-            try {
-              const docRes = await fetch(`/api/v1/documents/${documentId}`, { headers: authHeaders() });
-              if (docRes.ok && !isCancelled) {
-                const { document: serverDoc } = await docRes.json();
-                if (serverDoc && serverDoc.contentJson) {
-                  const sRev = serverDoc.revisionNumber || data.docRevision;
-                  const rawFountain = serializeFountain(serverDoc.contentJson);
-                  const cleanServerFountain = stripConflictMarkers(rawFountain);
-
-                  // Only apply if server content differs from local content
-                  if (!isFountainContentIdentical(fountainTextRef.current, cleanServerFountain)) {
-                    const newHtml = fountainToHtml(cleanServerFountain);
-                    lastSavedFountainRef.current = cleanServerFountain;
-                    setFountainText(cleanServerFountain);
-                    setScriptHtml(newHtml);
-                    if (editorInstanceRef.current) {
-                      const prevPos = editorInstanceRef.current.state.selection.from;
-                      editorInstanceRef.current.commands.setContent(newHtml);
-                      try {
-                        editorInstanceRef.current.commands.setTextSelection(Math.min(prevPos, editorInstanceRef.current.state.doc.content.size));
-                      } catch {}
-                    }
-                  }
-                  setRevisionNumber(sRev);
-                  revisionNumberRef.current = sRev;
-                  localStorage.setItem(`openscript_rev_${documentId}`, String(sRev));
-                  localStorage.setItem('openscript_draft_fountain', cleanServerFountain);
-                }
-              }
-            } catch (err) {
-              console.warn('Realtime sync poll error:', err);
-            }
+          // Real-time document synchronization is handled natively by Yjs CRDT over WebSocket!
+          // We update revision tracking without destructive editor DOM replacement.
+          if (typeof data?.docRevision === 'number' && data.docRevision > revisionNumberRef.current) {
+            setRevisionNumber(data.docRevision);
+            revisionNumberRef.current = data.docRevision;
+            localStorage.setItem(`openscript_rev_${documentId}`, String(data.docRevision));
           }
         }
       } catch {}
@@ -1260,14 +1325,13 @@ export default function App() {
                 localStorage.setItem('openscript_draft_html', newHtml);
                 setIsSaved(true);
               } else {
-                // Non-destructive auto-reconciliation of server changes
-                const merged = smartMergeFountain(fountainText, sFountain, revisionNumber, serverRev);
-                const cleanMerged = stripConflictMarkers(merged);
+                // Non-destructive synchronization without comment markers
+                const cleanMerged = stripConflictMarkers(sFountain);
                 setFountainText(cleanMerged);
                 const newHtml = fountainToHtml(cleanMerged);
                 setScriptHtml(newHtml);
                 lastSavedFountainRef.current = cleanMerged;
-                if (editorInstance) {
+                if (editorInstance && !collabProvider) {
                   editorInstance.commands.setContent(newHtml);
                 }
                 setRevisionNumber(serverRev);
@@ -1336,29 +1400,8 @@ export default function App() {
             revisionNumberRef.current = sRev;
             localStorage.setItem(`openscript_rev_${documentId}`, String(sRev));
           }
-
-          // Fetch and auto-merge so neither writer is blocked or loses text
-          try {
-            const docRes = await fetch(`/api/v1/documents/${documentId}`, { headers: authHeaders() });
-            if (docRes.ok) {
-              const { document: serverDoc } = await docRes.json();
-              const sFountain = stripConflictMarkers(serializeFountain(serverDoc.contentJson));
-
-              if (!isFountainContentIdentical(cleanFountain, sFountain)) {
-                const merged = smartMergeFountain(cleanFountain, sFountain, curRev, sRev);
-                const cleanMerged = stripConflictMarkers(merged);
-                setFountainText(cleanMerged);
-                const newHtml = fountainToHtml(cleanMerged);
-                setScriptHtml(newHtml);
-                lastSavedFountainRef.current = cleanMerged;
-                if (editorInstanceRef.current) {
-                  editorInstanceRef.current.commands.setContent(newHtml);
-                }
-              }
-              isDirtyRef.current = false;
-              setIsSaved(true);
-            }
-          } catch {}
+          isDirtyRef.current = false;
+          setIsSaved(true);
         } else if (res.ok) {
           const data = await res.json();
           const newRev = data.newRevisionNumber || curRev + 1;
@@ -2563,7 +2606,7 @@ export default function App() {
             {/* 5. Phase 3 Collaboration & User Profile Bar */}
             <div className="pl-1 border-l border-[#242835] ml-0.5">
               <CollaborationBar
-                presencePeers={presencePeers}
+                presencePeers={effectivePresencePeers}
                 currentUserRole={currentUserRole}
                 currentUser={currentUser}
                 unresolvedNotesCount={notes.filter((n) => !n.resolved).length}
@@ -2721,6 +2764,14 @@ export default function App() {
           {activeMode === 'screenplay' && (
             <ScreenplayEditor
               initialContent={scriptHtml}
+              ydoc={ydoc}
+              collabProvider={collabProvider}
+              currentUser={{
+                id: currentUser.id,
+                displayName: currentUser.displayName,
+                name: currentUser.displayName,
+                color: currentUser.color || (currentUserRole === 'owner' ? '#f59e0b' : '#3b82f6'),
+              }}
               onUpdate={handleEditorUpdate}
               onEditorReady={(editor) => setEditorInstance(editor)}
               metadata={titleMetadata}
@@ -3040,11 +3091,12 @@ export default function App() {
         canEdit={currentUserRole !== 'reader'}
       />
 
-      {/* Phase 3 Team Sharing & Permission Modal */}
-      <ShareModal
+      {/* Word-Grade Real-Time Collaboration & Sharing Sidebar */}
+      <WordShareSidebar
         isOpen={isShareModalOpen}
         onClose={() => setIsShareModalOpen(false)}
         collaborators={collaborators}
+        awarenessPeers={awarenessPeers}
         onInviteCollaborator={handleInviteCollaborator}
         onResendInvite={handleResendInvite}
         onUpdateRole={handleUpdateCollaboratorRole}

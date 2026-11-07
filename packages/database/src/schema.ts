@@ -32,6 +32,7 @@ export const documents = pgTable('documents', {
   title: text('title').notNull(),
   schemaVersion: integer('schema_version').default(2).notNull(),
   contentJson: jsonb('content_json').notNull(),
+  yjsState: text('yjs_state'),
   revisionNumber: integer('revision_number').default(1).notNull(),
   isLocked: boolean('is_locked').default(false).notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
