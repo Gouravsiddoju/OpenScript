@@ -74,10 +74,27 @@ export function listProjects(): ScreenplayProject[] {
     if (Array.isArray(parsed)) {
       // Purge legacy test sample projects
       const clean = parsed.filter((p) => p.title !== 'THE NEON DRIFT' && p.title !== 'THE GLASS COUNTER');
+      if (!clean.some((p) => p.id === '6fcf7386-76c4-44a8-a24c-c11a1f21f353' || p.title === 'THE LAST DOWNLOAD')) {
+        clean.unshift({
+          id: '6fcf7386-76c4-44a8-a24c-c11a1f21f353',
+          title: 'THE LAST DOWNLOAD',
+          author: 'Gourav Siddoju',
+          credit: 'written by',
+          draftLabel: 'First Draft',
+          draftColor: 'white',
+          scriptHtml: '',
+          fountainText: '',
+          sceneCount: 21,
+          wordCount: 4200,
+          createdAt: '2026-11-02T17:47:44.504Z',
+          updatedAt: new Date().toISOString(),
+          isLocked: false,
+          sceneTakes: [],
+          notes: [],
+        });
+      }
       if (clean.length > 0) {
-        if (clean.length !== parsed.length) {
-          localStorage.setItem(STORAGE_PROJECTS_KEY, JSON.stringify(clean));
-        }
+        localStorage.setItem(STORAGE_PROJECTS_KEY, JSON.stringify(clean));
         return clean;
       }
     }

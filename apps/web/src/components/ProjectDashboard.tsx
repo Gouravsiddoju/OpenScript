@@ -54,10 +54,8 @@ export const ProjectDashboard: React.FC<ProjectDashboardProps> = ({
 
     // Fetch projects from server (includes projects user created or was invited to)
     const token = localStorage.getItem('openscript_auth_token');
-    if (token) {
-      fetch('/api/v1/projects', {
-        headers: { Authorization: `Bearer ${token}` }
-      })
+    const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
+    fetch('/api/v1/projects', { headers })
         .then((res) => (res.ok ? res.json() : null))
         .then((data) => {
           if (data?.projects && Array.isArray(data.projects)) {
@@ -88,7 +86,6 @@ export const ProjectDashboard: React.FC<ProjectDashboardProps> = ({
           }
         })
         .catch(() => {});
-    }
   }, []);
 
   const filteredProjects = projects.filter((p) => {
