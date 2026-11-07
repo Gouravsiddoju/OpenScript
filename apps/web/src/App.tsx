@@ -616,7 +616,7 @@ export default function App() {
       const docPayload = {
         schemaVersion: 2,
         id: targetDocId,
-        projectId: targetDocId || '00000000-0000-0000-0000-000000000000',
+        projectId: targetDocId || DEFAULT_STUDIO_DOC_ID,
         revisionNumber: curRev,
         metadata: {
           title: titleMetadata.title,
@@ -722,12 +722,56 @@ export default function App() {
     if (proj.isLocked !== undefined) {
       setIsScriptLocked(proj.isLocked);
     }
-    if (proj.sceneTakes) {
-      setSceneTakes(proj.sceneTakes);
+
+    try {
+      const localTakes = localStorage.getItem('openscript_scene_takes_' + proj.id);
+      setSceneTakes(localTakes ? JSON.parse(localTakes) : (proj.sceneTakes || []));
+    } catch {
+      setSceneTakes(proj.sceneTakes || []);
     }
-    if (proj.notes) {
-      setNotes(proj.notes);
+
+    try {
+      const localNotes = localStorage.getItem('openscript_script_notes_' + proj.id);
+      setNotes(localNotes ? JSON.parse(localNotes) : (proj.notes || []));
+    } catch {
+      setNotes(proj.notes || []);
     }
+
+    try {
+      const localFolders = localStorage.getItem('openscript_scene_folders_' + proj.id);
+      setSceneFolders(localFolders ? JSON.parse(localFolders) : []);
+    } catch {
+      setSceneFolders([]);
+    }
+
+    try {
+      const localFolderMap = localStorage.getItem('openscript_scene_folder_map_' + proj.id);
+      setSceneFolderMap(localFolderMap ? JSON.parse(localFolderMap) : {});
+    } catch {
+      setSceneFolderMap({});
+    }
+
+    try {
+      const savedCollabs = localStorage.getItem('openscript_collaborators_' + proj.id);
+      if (savedCollabs) {
+        setCollaborators(JSON.parse(savedCollabs));
+      } else {
+        setCollaborators([
+          {
+            userId: currentUser.id || 'owner',
+            email: currentUser.email || 'author@studio.local',
+            displayName: currentUser.displayName || 'Screenwriter',
+            color: currentUser.color || '#f59e0b',
+            role: 'owner',
+            lastSeenAt: new Date().toISOString(),
+            status: 'active',
+          },
+        ]);
+      }
+    } catch {
+      setCollaborators([]);
+    }
+
     setIsSaved(true);
     setIsDashboardOpen(false);
   };
@@ -1544,7 +1588,7 @@ export default function App() {
         const docPayload = {
           schemaVersion: 2,
           id: documentId,
-          projectId: documentId || '00000000-0000-0000-0000-000000000000',
+          projectId: documentId || DEFAULT_STUDIO_DOC_ID,
           revisionNumber: curRev,
           metadata: {
             title: titleMetadata.title,
@@ -2193,7 +2237,7 @@ export default function App() {
       const docPayload = {
         schemaVersion: 2,
         id: documentId,
-        projectId: documentId || '00000000-0000-0000-0000-000000000000',
+        projectId: documentId || DEFAULT_STUDIO_DOC_ID,
         revisionNumber,
         metadata: {
           title: titleMetadata.title,
@@ -2252,7 +2296,7 @@ export default function App() {
           const docPayload = {
             schemaVersion: 2,
             id: documentId,
-            projectId: documentId || '00000000-0000-0000-0000-000000000000',
+            projectId: documentId || DEFAULT_STUDIO_DOC_ID,
             revisionNumber: curRev,
             metadata: {
               title: titleMetadata.title,
@@ -3166,7 +3210,24 @@ export default function App() {
       {/* Title Page Modal */}
       <TitlePageModal
         isOpen={isTitleModalOpen}
-        onClose={() => setIsTitleModalOpen(false)}
+        onClose={() => {
+          setIsTitleModalOpen(false);
+          saveCurrentProject();
+          const token = localStorage.getItem('openscript_auth_token');
+          if (token && documentId) {
+            fetch(`/api/v1/projects/${documentId}`, {
+              method: 'PATCH',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${token}`,
+              },
+              body: JSON.stringify({
+                name: titleMetadata.title,
+                description: `Screenplay by ${titleMetadata.author}`,
+              }),
+            }).catch(() => {});
+          }
+        }}
         metadata={titleMetadata}
         onChange={setTitleMetadata}
       />
@@ -3201,7 +3262,7 @@ export default function App() {
             const docPayload = {
               schemaVersion: 2,
               id: documentId,
-              projectId: documentId || '00000000-0000-0000-0000-000000000000',
+              projectId: documentId || DEFAULT_STUDIO_DOC_ID,
               revisionNumber: nextRev,
               metadata: {
                 title: titleMetadata.title,
@@ -3294,7 +3355,7 @@ export default function App() {
             const docPayload = {
               schemaVersion: 2,
               id: documentId,
-              projectId: documentId || '00000000-0000-0000-0000-000000000000',
+              projectId: documentId || DEFAULT_STUDIO_DOC_ID,
               revisionNumber: targetRev,
               metadata: {
                 title: titleMetadata.title,

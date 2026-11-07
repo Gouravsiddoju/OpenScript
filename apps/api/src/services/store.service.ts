@@ -200,11 +200,58 @@ export class ResilientStore {
     return p;
   }
 
-  static async checkProjectAccess(projectId: string, userId: string): Promise<{ hasAccess: boolean; role: string | null }> {
-    if (projectId === '00000000-0000-0000-0000-000000000000') {
-      return { hasAccess: true, role: 'owner' };
+  static async updateProject(id: string, name: string, description?: string) {
+    const now = new Date();
+    if (isDbActive()) {
+      try {
+        const updateFields: any = { updatedAt: now };
+        if (name) updateFields.name = name;
+        if (description !== undefined) updateFields.description = description;
+        const [updated] = await db.update(projects).set(updateFields).where(eq(projects.id, id)).returning();
+        if (updated) {
+          const mem = memStore.projects.get(id);
+          if (mem) {
+            if (name) mem.name = name;
+            if (description !== undefined) mem.description = description;
+            mem.updatedAt = now;
+          }
+          return updated;
+        }
+      } catch (e) {
+        handleDbErr(e);
+      }
     }
+    const mem = memStore.projects.get(id);
+    if (mem) {
+      if (name) mem.name = name;
+      if (description !== undefined) mem.description = description;
+      mem.updatedAt = now;
+      return mem;
+    }
+    return null;
+  }
 
+  static async deleteProject(id: string) {
+    if (isDbActive()) {
+      try {
+        await db.delete(documents).where(eq(documents.projectId, id));
+        await db.delete(projectMembers).where(eq(projectMembers.projectId, id));
+        await db.delete(projects).where(eq(projects.id, id));
+      } catch (e) {
+        handleDbErr(e);
+      }
+    }
+    memStore.projects.delete(id);
+    for (const [docId, doc] of memStore.documents.entries()) {
+      if (doc.projectId === id) memStore.documents.delete(docId);
+    }
+    for (const [key, mem] of memStore.members.entries()) {
+      if (mem.projectId === id) memStore.members.delete(key);
+    }
+    return true;
+  }
+
+  static async checkProjectAccess(projectId: string, userId: string): Promise<{ hasAccess: boolean; role: string | null }> {
     if (isDbActive()) try {
       const p = await db.query.projects.findFirst({ where: eq(projects.id, projectId) });
       if (p && p.ownerId === userId) {
@@ -281,7 +328,11 @@ export class ResilientStore {
         if (projectId && projectId !== '00000000-0000-0000-0000-000000000000') {
           const proj = await db.query.projects.findFirst({ where: eq(projects.id, projectId) });
           if (!proj) {
-            const ownerId = contentJson?.metadata?.ownerId || 'd7aa0723-b200-4f94-869b-68db882de3a2';
+            let ownerId = contentJson?.metadata?.ownerId;
+            if (!ownerId) {
+              const u = await db.query.users.findFirst();
+              ownerId = u?.id || crypto.randomUUID();
+            }
             await db.insert(projects).values({
               id: projectId,
               name: title || 'Untitled Screenplay',
@@ -405,10 +456,12 @@ export class ResilientStore {
           // If document does not exist yet in DB, guarantee parent project & document exist
           const proj = await db.query.projects.findFirst({ where: eq(projects.id, id) });
           if (!proj) {
+            const u = await db.query.users.findFirst();
+            const ownerId = u?.id || crypto.randomUUID();
             await db.insert(projects).values({
               id,
               name: 'Untitled Screenplay',
-              ownerId: 'd7aa0723-b200-4f94-869b-68db882de3a2',
+              ownerId,
               createdAt: now,
               updatedAt: now,
             }).onConflictDoNothing();

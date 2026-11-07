@@ -135,8 +135,24 @@ export const ProjectDashboard: React.FC<ProjectDashboardProps> = ({
 
   const handleDuplicate = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    duplicateProject(id);
+    const copy = duplicateProject(id);
     refreshProjects();
+
+    const token = localStorage.getItem('openscript_auth_token');
+    if (token) {
+      fetch('/api/v1/projects', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          id: copy.id,
+          name: copy.title,
+          description: copy.author || 'Screenplay Copy',
+        }),
+      }).catch((err) => console.warn('Server project duplicate registration:', err));
+    }
   };
 
   const handleDelete = (id: string, title: string, e: React.MouseEvent) => {
@@ -144,6 +160,16 @@ export const ProjectDashboard: React.FC<ProjectDashboardProps> = ({
     if (confirm(`Are you sure you want to delete "${title}"? This cannot be undone.`)) {
       deleteProject(id);
       refreshProjects();
+
+      const token = localStorage.getItem('openscript_auth_token');
+      if (token) {
+        fetch(`/api/v1/projects/${id}`, {
+          method: 'DELETE',
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }).catch((err) => console.warn('Server project delete:', err));
+      }
     }
   };
 

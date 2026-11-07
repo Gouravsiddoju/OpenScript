@@ -94,7 +94,7 @@ export const documentRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(400).send({ error: 'Invalid screenplay document AST', details: parsedDoc.error.flatten() });
     }
 
-    const projectId = content.projectId || '00000000-0000-0000-0000-000000000000';
+    const projectId = content.projectId || id;
     const docTitle = title || content.metadata?.title || 'Untitled Screenplay';
 
     const saveResult = await ResilientStore.saveDocument(id, projectId, docTitle, parsedDoc.data, revisionNumber);

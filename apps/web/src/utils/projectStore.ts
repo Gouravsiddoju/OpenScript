@@ -272,6 +272,25 @@ export function duplicateProject(id: string): ScreenplayProject {
   };
 
   saveProject(copy);
+
+  // Clone document-scoped metadata and notes to the duplicate
+  const savedMeta = localStorage.getItem('openscript_title_metadata_' + id);
+  if (savedMeta) {
+    try {
+      const parsedMeta = JSON.parse(savedMeta);
+      parsedMeta.title = `${original.title} (Copy)`;
+      localStorage.setItem('openscript_title_metadata_' + newId, JSON.stringify(parsedMeta));
+    } catch {}
+  }
+  const savedNotes = localStorage.getItem('openscript_script_notes_' + id);
+  if (savedNotes) localStorage.setItem('openscript_script_notes_' + newId, savedNotes);
+  const savedTakes = localStorage.getItem('openscript_scene_takes_' + id);
+  if (savedTakes) localStorage.setItem('openscript_scene_takes_' + newId, savedTakes);
+  const savedFolders = localStorage.getItem('openscript_scene_folders_' + id);
+  if (savedFolders) localStorage.setItem('openscript_scene_folders_' + newId, savedFolders);
+  const savedFolderMap = localStorage.getItem('openscript_scene_folder_map_' + id);
+  if (savedFolderMap) localStorage.setItem('openscript_scene_folder_map_' + newId, savedFolderMap);
+
   return copy;
 }
 
@@ -282,6 +301,20 @@ export function deleteProject(id: string): ScreenplayProject[] {
   if (getActiveProjectId() === id && projects.length > 0) {
     setActiveProjectId(projects[0].id);
   }
+  if (localStorage.getItem('openscript_doc_id') === id && projects.length > 0) {
+    localStorage.setItem('openscript_doc_id', projects[0].id);
+  }
+
+  // Clean up all document-scoped keys for the deleted project
+  localStorage.removeItem('openscript_draft_html_' + id);
+  localStorage.removeItem('openscript_draft_fountain_' + id);
+  localStorage.removeItem('openscript_title_metadata_' + id);
+  localStorage.removeItem('openscript_collaborators_' + id);
+  localStorage.removeItem('openscript_script_notes_' + id);
+  localStorage.removeItem('openscript_scene_takes_' + id);
+  localStorage.removeItem('openscript_scene_folders_' + id);
+  localStorage.removeItem('openscript_scene_folder_map_' + id);
+  localStorage.removeItem('openscript_rev_' + id);
 
   return projects;
 }

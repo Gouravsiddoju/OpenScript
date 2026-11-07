@@ -65,4 +65,26 @@ export const projectRoutes: FastifyPluginAsync = async (server) => {
     const projectDocs = Array.from(memStore.documents.values()).filter((d) => d.projectId === id);
     return { project, documents: projectDocs };
   });
+
+  // Update project metadata (Protected)
+  server.patch<{ Params: { id: string }; Body: { name?: string; description?: string } }>('/api/v1/projects/:id', {
+    preHandler: [requireProjectAccess()],
+  }, async (request, reply) => {
+    const { id } = request.params;
+    const { name, description } = request.body || {};
+    const updated = await ResilientStore.updateProject(id, name || '', description);
+    if (!updated) {
+      return reply.status(404).send({ error: 'Project not found' });
+    }
+    return { success: true, project: updated };
+  });
+
+  // Delete project and cascading documents (Protected)
+  server.delete<{ Params: { id: string } }>('/api/v1/projects/:id', {
+    preHandler: [requireProjectAccess()],
+  }, async (request, reply) => {
+    const { id } = request.params;
+    await ResilientStore.deleteProject(id);
+    return { success: true, message: 'Project deleted successfully' };
+  });
 };

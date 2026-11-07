@@ -48,7 +48,7 @@ export const collaboratorRoutes: FastifyPluginAsync = async (server) => {
         const inviterEmail = request.user?.email;
 
         const appUrl = process.env.APP_URL || 'https://dev-openscript.ssnpictures.in';
-        const targetDocId = documentId || (id !== '00000000-0000-0000-0000-000000000000' ? id : '');
+        const targetDocId = documentId || id;
         const targetUrl = targetDocId ? `${appUrl}/?doc=${targetDocId}` : appUrl;
 
         // 1. Send invite email to the invited collaborator with direct document link
@@ -89,7 +89,7 @@ export const collaboratorRoutes: FastifyPluginAsync = async (server) => {
     const inviterName = request.user?.displayName || 'Screenwriter';
 
     const appUrl = process.env.APP_URL || 'https://dev-openscript.ssnpictures.in';
-    const targetDocId = id !== '00000000-0000-0000-0000-000000000000' ? id : '';
+    const targetDocId = id;
     const targetUrl = targetDocId ? `${appUrl}/?doc=${targetDocId}` : appUrl;
 
     await EmailService.sendInviteEmail(member.email, inviterName, projectName, member.role, targetUrl);
