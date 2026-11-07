@@ -8,23 +8,31 @@
   "theme_color": "#0c0d0f",
   "icons": [
     {
-      "src": "/openscript-logo-64.png",
-      "sizes": "64x64",
-      "type": "image/png"
-    },
-    {
-      "src": "/openscript-logo-128.png",
+      "src": "/openscript-app-icon-128.png",
       "sizes": "128x128",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any"
     },
     {
-      "src": "/openscript-logo-512.png",
+      "src": "/openscript-app-icon-256.png",
+      "sizes": "256x256",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/openscript-app-icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/openscript-monogram-512.png",
+      "src": "/openscript-app-icon-1024.png",
+      "sizes": "1024x1024",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/openscript-icon-transparent-512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"

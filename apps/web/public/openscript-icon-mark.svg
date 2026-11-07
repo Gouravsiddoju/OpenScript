@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" fill="none">
+  <defs>
+    <linearGradient id="nibTerra" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#DE6B42" />
+      <stop offset="100%" stop-color="#C85A32" />
+    </linearGradient>
+    <linearGradient id="nibAub" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#3A0F34" />
+      <stop offset="100%" stop-color="#240720" />
+    </linearGradient>
+  </defs>
+
+  <!-- Left Facet: Deep Aubergine (Shadow & Depth) -->
+  <path
+    d="M 50 14 C 49 14, 48.5 14.5, 48 15.5 L 25 54 C 22.5 58.5, 23.5 64, 27 67.5 L 48.5 74.5 L 48.5 45 C 47 43.8, 46 42, 46 40 C 46 36.7, 48.7 34, 52 34 C 52 34, 48.5 34, 48.5 34 L 48.5 14 Z"
+    fill="url(#nibAub)"
+  />
+
+  <!-- Right Facet: Warm Terracotta (Cinematic Analog Warmth) -->
+  <path
+    d="M 50 14 C 51 14, 51.5 14.5, 52 15.5 L 75 54 C 77.5 58.5, 76.5 64, 73 67.5 L 51.5 74.5 L 51.5 45 C 53 43.8, 54 42, 54 40 C 54 36.7, 51.3 34, 48 34 C 48 34, 51.5 34, 51.5 34 L 51.5 14 Z"
+    fill="url(#nibTerra)"
+  />
+
+  <!-- Center Breathing Hole & Slit (Crisp Negative Space) -->
+  <circle cx="50" cy="40" r="4.2" fill="#FFFFFF" />
+  <line x1="50" y1="14" x2="50" y2="35.8" stroke="#FFFFFF" stroke-width="2.5" stroke-linecap="round" />
+
+  <!-- Pen Collar Base Ring -->
+  <rect x="34" y="80" width="32" height="6.5" rx="3.25" fill="url(#nibAub)" />
+  <!-- Underline Accent Line -->
+  <rect x="42" y="89" width="16" height="2.5" rx="1.25" fill="url(#nibTerra)" />
+</svg>
