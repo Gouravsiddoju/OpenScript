@@ -135,9 +135,10 @@ export class ResilientStore {
         const memberProjectIds = new Set(memberRows.map((m) => m.projectId));
 
         const allProjects = await db.query.projects.findMany({ orderBy: [desc(projects.updatedAt)] });
-        return allProjects.filter((p) => p.ownerId === userId || p.ownerId === "00000000-0000-0000-0000-000000000000" || p.id === "00000000-0000-0000-0000-000000000000" || p.id === "6fcf7386-76c4-44a8-a24c-c11a1f21f353" || memberProjectIds.has(p.id));
+        return allProjects.filter((p) => p.id !== "00000000-0000-0000-0000-000000000000" && (p.ownerId === userId || p.id === "6fcf7386-76c4-44a8-a24c-c11a1f21f353" || memberProjectIds.has(p.id)));
       }
-      return await db.query.projects.findMany({ orderBy: [desc(projects.updatedAt)] });
+      const all = await db.query.projects.findMany({ orderBy: [desc(projects.updatedAt)] });
+      return all.filter((p) => p.id !== "00000000-0000-0000-0000-000000000000");
     } catch {
       const all = Array.from(memStore.projects.values());
       if (userId) {
@@ -146,9 +147,9 @@ export class ResilientStore {
             .filter((m) => m.userId === userId)
             .map((m) => m.projectId)
         );
-        return all.filter((p) => p.ownerId === userId || p.ownerId === "00000000-0000-0000-0000-000000000000" || p.id === "00000000-0000-0000-0000-000000000000" || p.id === "6fcf7386-76c4-44a8-a24c-c11a1f21f353" || memMemberProjectIds.has(p.id));
+        return all.filter((p) => p.id !== "00000000-0000-0000-0000-000000000000" && (p.ownerId === userId || p.id === "6fcf7386-76c4-44a8-a24c-c11a1f21f353" || memMemberProjectIds.has(p.id)));
       }
-      return all;
+      return all.filter((p) => p.id !== "00000000-0000-0000-0000-000000000000");
     }
   }
 

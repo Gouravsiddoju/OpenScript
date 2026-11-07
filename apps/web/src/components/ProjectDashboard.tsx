@@ -61,8 +61,15 @@ export const ProjectDashboard: React.FC<ProjectDashboardProps> = ({
           if (data?.projects && Array.isArray(data.projects)) {
             let hasNew = false;
             for (const srvProj of data.projects) {
+              if (srvProj.id === '00000000-0000-0000-0000-000000000000' || srvProj.description === 'Default Studio Project') continue;
               const existing = getProject(srvProj.id);
               if (!existing) {
+                // If a local project with the same name already exists, do not create a duplicate blank entry
+                const projects = listProjects();
+                const duplicate = projects.find((p) => p.title.trim().toLowerCase() === (srvProj.name || '').trim().toLowerCase());
+                if (duplicate) {
+                  continue;
+                }
                 saveProject({
                   id: srvProj.id,
                   title: srvProj.name || 'Screenplay Project',

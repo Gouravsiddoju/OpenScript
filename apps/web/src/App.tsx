@@ -224,7 +224,7 @@ export default function App() {
     } catch {}
 
     let id = localStorage.getItem('openscript_doc_id');
-    if (!id) {
+    if (!id || id === '00000000-0000-0000-0000-000000000000') {
       id = DEFAULT_STUDIO_DOC_ID;
       localStorage.setItem('openscript_doc_id', id);
     }
@@ -581,7 +581,7 @@ export default function App() {
 
   const saveCurrentProject = () => {
     const activeId = getActiveProjectId() || documentId;
-    if (!activeId) return;
+    if (!activeId || activeId === '00000000-0000-0000-0000-000000000000') return;
     try {
       const existing = getProject(activeId);
       const cleanFountain = stripConflictMarkers(fountainTextRef.current || fountainText);

@@ -72,20 +72,33 @@ export function listProjects(): ScreenplayProject[] {
     }
     const parsed = JSON.parse(raw);
     if (Array.isArray(parsed)) {
-      // Purge legacy test sample projects
-      const clean = parsed.filter((p) => p.title !== 'THE NEON DRIFT' && p.title !== 'THE GLASS COUNTER');
+      // Purge legacy test sample projects & dummy 00000000-0000-0000-0000-000000000000 / Default Studio Project
+      let clean = parsed.filter((p) => 
+        p.id !== '00000000-0000-0000-0000-000000000000' && 
+        p.title !== 'THE NEON DRIFT' && 
+        p.title !== 'THE GLASS COUNTER' &&
+        p.author !== 'Default Studio Project'
+      );
+      
+      // If multiple THE LAST DOWNLOAD exist, keep only the rich one with content
+      const tldProjects = clean.filter((p) => p.title === 'THE LAST DOWNLOAD');
+      if (tldProjects.length > 1) {
+        const bestTld = tldProjects.find((p) => (p.wordCount || 0) > 100 || (p.fountainText && p.fountainText.length > 100)) || tldProjects[0];
+        clean = clean.filter((p) => p.title !== 'THE LAST DOWNLOAD' || p.id === bestTld.id);
+      }
+
       if (!clean.some((p) => p.id === '6fcf7386-76c4-44a8-a24c-c11a1f21f353' || p.title === 'THE LAST DOWNLOAD')) {
         clean.unshift({
           id: '6fcf7386-76c4-44a8-a24c-c11a1f21f353',
           title: 'THE LAST DOWNLOAD',
-          author: 'Gourav Siddoju',
+          author: 'Gourav Siddarth Siddoju',
           credit: 'written by',
           draftLabel: 'First Draft',
           draftColor: 'white',
           scriptHtml: '',
           fountainText: '',
-          sceneCount: 21,
-          wordCount: 4200,
+          sceneCount: 10,
+          wordCount: 4252,
           createdAt: '2026-11-02T17:47:44.504Z',
           updatedAt: new Date().toISOString(),
           isLocked: false,
@@ -112,6 +125,9 @@ export function getProject(id: string): ScreenplayProject | null {
 }
 
 export function saveProject(project: ScreenplayProject): void {
+  if (!project.id || project.id === '00000000-0000-0000-0000-000000000000' || project.author === 'Default Studio Project') {
+    return;
+  }
   const projects = listProjects();
   const index = projects.findIndex((p) => p.id === project.id);
   const updated = {
