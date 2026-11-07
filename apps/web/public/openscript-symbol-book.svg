@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" fill="none">
+  <defs>
+    <linearGradient id="bookAub" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#3A0F34" />
+      <stop offset="100%" stop-color="#22061F" />
+    </linearGradient>
+    <linearGradient id="bookTerra" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#DE6B42" />
+      <stop offset="100%" stop-color="#C85A32" />
+    </linearGradient>
+  </defs>
+
+  <!-- Open Script Pages (Screenplay Spine) -->
+  <path
+    d="M 18 30 C 30 24, 46 26, 50 34 C 54 26, 70 24, 82 30 L 82 76 C 70 70, 54 72, 50 80 C 46 72, 30 70, 18 76 Z"
+    fill="none"
+    stroke="url(#bookAub)"
+    stroke-width="8"
+    stroke-linejoin="round"
+    stroke-linecap="round"
+  />
+  
+  <!-- Center Fountain Pen Nib Spine (Terracotta) -->
+  <path
+    d="M 50 20 L 50 74"
+    stroke="url(#bookTerra)"
+    stroke-width="7"
+    stroke-linecap="round"
+  />
+
+  <!-- Precision Nib Head -->
+  <path
+    d="M 43 28 L 50 14 L 57 28 Z"
+    fill="url(#bookTerra)"
+  />
+</svg>

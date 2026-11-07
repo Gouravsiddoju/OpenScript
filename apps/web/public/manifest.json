@@ -1,0 +1,33 @@
+{
+  "name": "OpenScript Studio",
+  "short_name": "OpenScript",
+  "description": "Professional Screenwriting & Film Production Studio",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0c0d0f",
+  "theme_color": "#0c0d0f",
+  "icons": [
+    {
+      "src": "/openscript-logo-64.png",
+      "sizes": "64x64",
+      "type": "image/png"
+    },
+    {
+      "src": "/openscript-logo-128.png",
+      "sizes": "128x128",
+      "type": "image/png"
+    },
+    {
+      "src": "/openscript-logo-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/openscript-monogram-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

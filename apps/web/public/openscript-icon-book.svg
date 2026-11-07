@@ -1,0 +1,64 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" fill="none">
+  <defs>
+    <filter id="iconShadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#3A0F34" flood-opacity="0.08" />
+      <feDropShadow dx="0" dy="1" stdDeviation="2" flood-color="#3A0F34" flood-opacity="0.05" />
+    </filter>
+  </defs>
+
+  <!-- Squircle Base -->
+  <rect
+    x="6"
+    y="6"
+    width="116"
+    height="116"
+    rx="28"
+    fill="#FFFFFF"
+    stroke="#3A0F34"
+    stroke-width="1.5"
+    stroke-opacity="0.14"
+    filter="url(#iconShadow)"
+  />
+
+  <!-- Embedded Logo Symbol centered -->
+  <g transform="translate(18, 18) scale(0.72)">
+    
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" fill="none">
+  <defs>
+    <linearGradient id="bookAub" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#3A0F34" />
+      <stop offset="100%" stop-color="#22061F" />
+    </linearGradient>
+    <linearGradient id="bookTerra" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#DE6B42" />
+      <stop offset="100%" stop-color="#C85A32" />
+    </linearGradient>
+  </defs>
+
+  <!-- Open Script Pages (Screenplay Spine) -->
+  <path
+    d="M 18 30 C 30 24, 46 26, 50 34 C 54 26, 70 24, 82 30 L 82 76 C 70 70, 54 72, 50 80 C 46 72, 30 70, 18 76 Z"
+    fill="none"
+    stroke="url(#bookAub)"
+    stroke-width="8"
+    stroke-linejoin="round"
+    stroke-linecap="round"
+  />
+  
+  <!-- Center Fountain Pen Nib Spine (Terracotta) -->
+  <path
+    d="M 50 20 L 50 74"
+    stroke="url(#bookTerra)"
+    stroke-width="7"
+    stroke-linecap="round"
+  />
+
+  <!-- Precision Nib Head -->
+  <path
+    d="M 43 28 L 50 14 L 57 28 Z"
+    fill="url(#bookTerra)"
+  />
+</svg>
+
+  </g>
+</svg>

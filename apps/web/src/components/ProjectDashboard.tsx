@@ -195,8 +195,8 @@ export const ProjectDashboard: React.FC<ProjectDashboardProps> = ({
       {/* Top Navigation Bar */}
       <header className="h-16 border-b border-[#1c1f2b] bg-[#0e1017] px-6 sm:px-8 flex items-center justify-between sticky top-0 z-30">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500 to-amber-600 flex items-center justify-center text-black font-black text-xl shadow-lg shadow-amber-500/20">
-            OS
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500 to-amber-600 p-1.5 flex items-center justify-center shadow-lg shadow-amber-500/20">
+            <img src="/favicon.svg" alt="OpenScript" className="w-full h-full object-contain" />
           </div>
           <div>
             <div className="flex items-center gap-2">

@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" fill="none">
+  <defs>
+    <linearGradient id="nibTerracotta" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#DC653B" />
+      <stop offset="100%" stop-color="#C85A32" />
+    </linearGradient>
+    <linearGradient id="nibAubergine" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#3A0F34" />
+      <stop offset="100%" stop-color="#22061F" />
+    </linearGradient>
+  </defs>
+
+  <!-- Precision Fountain Nib Body (Screenplay Craft) -->
+  <!-- Left Facet in Deep Aubergine -->
+  <path
+    d="M 50 18 L 26 58 C 24 61, 25 66, 29 68 L 47 74 L 47 36 Z"
+    fill="url(#nibAubergine)"
+  />
+
+  <!-- Right Facet in Terracotta Accent -->
+  <path
+    d="M 50 18 L 74 58 C 76 61, 75 66, 71 68 L 53 74 L 53 36 Z"
+    fill="url(#nibTerracotta)"
+  />
+
+  <!-- Center Slit & Breather Hole (Negative Space) -->
+  <circle cx="50" cy="48" r="4.5" fill="#FFFFFF" />
+  <line x1="50" y1="18" x2="50" y2="44" stroke="#FFFFFF" stroke-width="2.5" stroke-linecap="round" />
+
+  <!-- Base Fountain Ring (The 'O' script aperture) -->
+  <rect x="36" y="78" width="28" height="6" rx="3" fill="url(#nibAubergine)" />
+</svg>

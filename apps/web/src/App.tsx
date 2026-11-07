@@ -2543,8 +2543,8 @@ export default function App() {
           {/* Brand Header */}
           <div className="p-4 border-b border-[#1c1e24] flex items-center justify-between">
             <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-amber-600 to-amber-400 flex items-center justify-center font-bold text-black text-sm shadow-md shadow-amber-500/20">
-                O
+              <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-amber-600 to-amber-400 p-1 flex items-center justify-center shadow-md shadow-amber-500/20">
+                <img src="/favicon.svg" alt="OpenScript" className="w-full h-full object-contain" />
               </div>
               <div>
                 <span className="font-bold tracking-wider text-sm block text-white">
