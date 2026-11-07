@@ -804,8 +804,8 @@ export default function App() {
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
     const defaultWsUrl = isLocalhost
-      ? `ws://${window.location.hostname}:3000/collaboration`
-      : `${protocol}//${window.location.host}/collaboration`;
+      ? `ws://${window.location.hostname}:3000/api/collaboration`
+      : `${protocol}//${window.location.host}/api/collaboration`;
 
     const wsUrl = (import.meta as any).env?.VITE_COLLAB_WS_URL || defaultWsUrl;
 
@@ -1190,7 +1190,11 @@ export default function App() {
   });
 
   const [scriptHtml, setScriptHtml] = useState<string>(() => {
-    const saved = localStorage.getItem('openscript_draft_html');
+    const activeProject = getProject(documentId);
+    if (activeProject?.scriptHtml) {
+      return activeProject.scriptHtml;
+    }
+    const saved = localStorage.getItem('openscript_draft_html_' + documentId) || localStorage.getItem('openscript_draft_html');
     if (saved) {
       if (saved.includes('MAYA') && saved.includes('twenty minutes ago')) {
         localStorage.removeItem('openscript_draft_html');
@@ -1202,7 +1206,11 @@ export default function App() {
   });
 
   const [fountainText, setFountainText] = useState<string>(() => {
-    const saved = localStorage.getItem('openscript_draft_fountain');
+    const activeProject = getProject(documentId);
+    if (activeProject?.fountainText) {
+      return activeProject.fountainText;
+    }
+    const saved = localStorage.getItem('openscript_draft_fountain_' + documentId) || localStorage.getItem('openscript_draft_fountain');
     if (saved) {
       if (saved.includes('MAYA') && saved.includes('twenty minutes ago')) {
         localStorage.removeItem('openscript_draft_fountain');
@@ -1326,7 +1334,9 @@ export default function App() {
 
   // Sync state to localStorage (WITHOUT overriding isSaved!)
   useEffect(() => {
+    localStorage.setItem('openscript_draft_html_' + documentId, scriptHtml);
     localStorage.setItem('openscript_draft_html', scriptHtml);
+    localStorage.setItem('openscript_draft_fountain_' + documentId, fountainText);
     localStorage.setItem('openscript_draft_fountain', fountainText);
     localStorage.setItem('openscript_title_metadata', JSON.stringify(titleMetadata));
     localStorage.setItem('openscript_is_locked', String(isScriptLocked));
@@ -2867,6 +2877,7 @@ export default function App() {
         >
           {activeMode === 'screenplay' && (
             <ScreenplayEditor
+              key={documentId}
               initialContent={scriptHtml}
               ydoc={ydoc}
               collabProvider={collabProvider}

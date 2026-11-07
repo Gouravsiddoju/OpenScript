@@ -104,6 +104,16 @@ export function buildServer() {
     };
   });
 
+  // Collaboration WebSocket health / probe route
+  server.get('/api/collaboration', async () => {
+    return {
+      status: 'websocket_ready',
+      service: 'openscript-collaboration',
+      protocol: 'yjs-hocuspocus',
+      timestamp: new Date().toISOString(),
+    };
+  });
+
   // Health check endpoint
   server.get('/api/v1/health', {
     schema: {

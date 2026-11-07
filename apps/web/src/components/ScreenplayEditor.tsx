@@ -385,17 +385,17 @@ export const ScreenplayEditor: React.FC<ScreenplayEditorProps> = ({
           provider: collabProvider,
           user: {
             userId: currentUser?.id,
-            name: currentUser?.displayName || currentUser?.name || 'Screenwriter',
-            color: currentUser?.color || '#f59e0b',
+            name: currentUser?.displayName && currentUser?.displayName !== 'Screenwriter' ? currentUser.displayName : (currentUserRole === 'owner' ? 'Gourav Siddoju' : 'Poshala Navateja'),
+            color: currentUser?.color || (currentUserRole === 'owner' ? '#f59e0b' : '#ec4899'),
             role: currentUserRole || 'co-writer',
           },
           render(user: any) {
             const cursor = document.createElement('span');
             cursor.classList.add('collaboration-cursor__caret');
+            cursor.classList.add('ProseMirror-yjs-cursor');
             const userColor = user.color || '#3b82f6';
             cursor.style.color = userColor;
-            cursor.style.borderLeftColor = userColor;
-
+            
             const label = document.createElement('div');
             label.classList.add('collaboration-cursor__label');
             label.style.backgroundColor = userColor;
@@ -443,8 +443,8 @@ export const ScreenplayEditor: React.FC<ScreenplayEditorProps> = ({
         if (collabProvider?.awareness && !event.ctrlKey && !event.altKey && !event.metaKey && event.key !== 'Shift') {
           collabProvider.setAwarenessField('user', {
             userId: currentUser?.id,
-            name: currentUser?.displayName || currentUser?.name || 'Screenwriter',
-            color: currentUser?.color || '#f59e0b',
+            name: currentUser?.displayName && currentUser?.displayName !== 'Screenwriter' ? currentUser.displayName : (currentUserRole === 'owner' ? 'Gourav Siddoju' : 'Poshala Navateja'),
+            color: currentUser?.color || (currentUserRole === 'owner' ? '#f59e0b' : '#ec4899'),
             role: currentUserRole || 'co-writer',
             isTyping: true,
           });
@@ -453,8 +453,8 @@ export const ScreenplayEditor: React.FC<ScreenplayEditorProps> = ({
             if (collabProvider?.awareness) {
               collabProvider.setAwarenessField('user', {
                 userId: currentUser?.id,
-                name: currentUser?.displayName || currentUser?.name || 'Screenwriter',
-                color: currentUser?.color || '#f59e0b',
+                name: currentUser?.displayName && currentUser?.displayName !== 'Screenwriter' ? currentUser.displayName : (currentUserRole === 'owner' ? 'Gourav Siddoju' : 'Poshala Navateja'),
+            color: currentUser?.color || (currentUserRole === 'owner' ? '#f59e0b' : '#ec4899'),
                 role: currentUserRole || 'co-writer',
                 isTyping: false,
               });
